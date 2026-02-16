@@ -1,0 +1,21 @@
+# Root ignores (monorepo)
+.DS_Store
+
+# Env files (keep templates only)
+.env
+**/.env
+!.env.example
+
+# Flutter / Dart artifacts (root-level safety; apps have their own .gitignore too)
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/build/
+**/.metadata
+**/coverage/
+
+# IDE
+.idea/
+**/*.iml
+.vscode/
