@@ -15,7 +15,9 @@ async function sendPush(_token: string, _title: string, _body: string) {
   return;
 }
 
-Deno.serve(async (_req) => {
+const port = Number(Deno.env.get("PORT") ?? "8000");
+
+Deno.serve({ port }, async (_req) => {
   try {
     const supabase = serviceClient();
     const now = new Date();

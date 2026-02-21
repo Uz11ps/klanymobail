@@ -14,7 +14,9 @@ async function sendTelegram(chatId: string, text: string) {
   });
 }
 
-Deno.serve(async (req) => {
+const port = Number(Deno.env.get("PORT") ?? "8000");
+
+Deno.serve({ port }, async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }

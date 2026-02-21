@@ -10,7 +10,9 @@ type CreatePaymentBody = {
   orderId: string;
 };
 
-Deno.serve(async (req) => {
+const port = Number(Deno.env.get("PORT") ?? "8000");
+
+Deno.serve({ port }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
