@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/app_role.dart';
 import '../features/auth/auth_providers.dart';
+import '../features/auth/child_session.dart';
 import '../features/auth/pages/auth_landing_page.dart';
-import '../features/auth/pages/child_sign_in_page.dart';
+import '../features/auth/pages/child_request_access_page.dart';
+import '../features/auth/pages/child_wait_approval_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
 import '../features/home/pages/child_home_page.dart';
@@ -17,6 +19,7 @@ final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
 
   ref.listen(authSessionProvider, (previous, next) => notifier.refresh());
   ref.listen(appRoleProvider, (previous, next) => notifier.refresh());
+  ref.listen(childSessionProvider, (previous, next) => notifier.refresh());
 
   ref.onDispose(notifier.dispose);
   return notifier;
@@ -25,6 +28,7 @@ final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
 final routerProvider = Provider<GoRouter>((ref) {
   final sessionAsync = ref.watch(authSessionProvider);
   final role = ref.watch(appRoleProvider);
+  final childSessionAsync = ref.watch(childSessionProvider);
 
   return GoRouter(
     initialLocation: '/',
@@ -32,24 +36,29 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: ref.watch(_routerRefreshProvider),
     redirect: (context, state) {
       final path = state.uri.path;
-      final loggedIn = sessionAsync.asData?.value != null;
+      final parentLoggedIn = sessionAsync.asData?.value != null &&
+          (role == AppRole.parent || role == null);
+      final childLoggedIn = childSessionAsync.asData?.value != null;
       final inAuth = path.startsWith('/auth');
 
-      if (!loggedIn) {
+      if (!parentLoggedIn && !childLoggedIn) {
         return inAuth ? null : '/auth';
       }
 
       // Logged in: keep auth screens inaccessible.
       if (inAuth) {
-        final targetRole = role ?? AppRole.parent;
-        return targetRole == AppRole.parent ? '/parent' : '/child';
+        if (parentLoggedIn) return '/parent';
+        if (childLoggedIn) return '/child';
       }
 
       // Root always resolves to the correct home.
       if (path == '/' || path.isEmpty) {
-        final targetRole = role ?? AppRole.parent;
-        return targetRole == AppRole.parent ? '/parent' : '/child';
+        if (parentLoggedIn) return '/parent';
+        if (childLoggedIn) return '/child';
       }
+
+      if (parentLoggedIn && path.startsWith('/child')) return '/parent';
+      if (childLoggedIn && path.startsWith('/parent')) return '/child';
 
       return null;
     },
@@ -71,8 +80,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ParentSignUpPage(),
           ),
           GoRoute(
-            path: 'child/sign-in',
-            builder: (context, state) => const ChildSignInPage(),
+            path: 'child/request',
+            builder: (context, state) => const ChildRequestAccessPage(),
+          ),
+          GoRoute(
+            path: 'child/wait',
+            builder: (context, state) {
+              final requestId = state.uri.queryParameters['requestId'] ?? '';
+              return ChildWaitApprovalPage(requestId: requestId);
+            },
           ),
         ],
       ),

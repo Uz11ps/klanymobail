@@ -13,12 +13,56 @@
 - `profiles.role`: `parent` | `admin`
 - Ребёнок хранится в `children` и тоже является `auth.users`
 
-## Ребёнок: телефон + пароль
+## Ребёнок: беспарольный доступ
 
-Supabase не поддерживает вход по "phone+password" как отдельный провайдер.
-В MVP мы делаем детский логин через детерминированный псевдо-email:
+Ребёнок не использует email/пароль.
 
-`<digits-only-phone>@kids.klany.local`
+1) Ребёнок отправляет заявку: `Фамилия + Имя + Family ID`
+2) Родитель подтверждает/отклоняет заявку
+3) После подтверждения устройство привязывается к ребёнку (`child_device_bindings`)
 
-Клиент принимает телефон+пароль, конвертирует телефон в псевдо-email и использует стандартный `signInWithPassword`.
+Для анонимного child-flow используются RPC:
+- `child_submit_access_request`
+- `child_poll_access_request`
+- `child_restore_session`
+
+## Подписки, промокоды, платежи
+
+Таблицы:
+- `subscription_plans`
+- `family_subscriptions`
+- `promo_codes`
+- `promo_redemptions`
+- `payment_orders`
+- `payment_webhook_events`
+
+Основные RPC:
+- `parent_activate_promo`
+- `parent_create_payment_order`
+- `family_active_plan_code`
+
+## Квесты, кошелёк, магазин
+
+Дополнительно:
+- `quest_assignees` — множественные исполнители квеста
+- `quest_comments` — комментарии по квесту
+- `audit_logs` — журнал действий
+
+RPC:
+- `parent_create_quest`
+- `child_submit_quest`
+- `parent_review_quest_submission`
+- `parent_adjust_wallet`
+- `child_request_purchase`
+- `parent_decide_purchase`
+
+## Уведомления
+
+- In-app: таблица `notifications`, статусы `new/read`
+- Push устройства: `notification_devices`
+- Планировщик: функция `notifications-cron` (деплоится как Edge Function)
+
+Рекомендуемые Storage buckets:
+- `quest-evidence`
+- `shop-products`
 

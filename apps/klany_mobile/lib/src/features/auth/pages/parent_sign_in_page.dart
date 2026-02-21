@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
 import '../auth_actions.dart';
+import '../parent_access_repository.dart';
 
 class ParentSignInPage extends ConsumerStatefulWidget {
   const ParentSignInPage({super.key});
@@ -16,12 +17,14 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _inviteToken = TextEditingController();
   bool _busy = false;
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _inviteToken.dispose();
     super.dispose();
   }
 
@@ -41,6 +44,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
             email: _email.text,
             password: _password.text,
           );
+      if (_inviteToken.text.trim().isNotEmpty) {
+        await ref.read(parentAccessRepositoryProvider).acceptParentInvite(_inviteToken.text);
+      }
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
@@ -90,6 +96,14 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                     ),
                     validator: (v) =>
                         (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _inviteToken,
+                    decoration: const InputDecoration(
+                      labelText: 'Токен приглашения (если есть)',
+                      prefixIcon: Icon(Icons.group_add),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(

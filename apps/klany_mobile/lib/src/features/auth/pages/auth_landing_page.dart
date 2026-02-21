@@ -38,9 +38,9 @@ class AuthLandingPage extends StatelessWidget {
             const SizedBox(height: 12),
             _RoleCard(
               title: 'Я ребёнок',
-              subtitle: 'Телефон + пароль, выполнение заданий и награды',
+              subtitle: 'Фамилия + имя + Family ID, подтверждение родителя',
               icon: Icons.emoji_events,
-              onTap: () => context.go('/auth/child/sign-in'),
+              onTap: () => context.go('/auth/child/request'),
             ),
           ],
         ),

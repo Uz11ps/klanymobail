@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/auth_actions.dart';
+import '../../auth/child_session.dart';
+import '../../auth/device_identity.dart';
+import '../../quests/pages/child_quests_page.dart';
+import '../../wallet/pages/child_wallet_page.dart';
+import '../../shop/pages/child_shop_page.dart';
+import '../../notifications/notifications_repository.dart';
 
 class ChildHomePage extends ConsumerStatefulWidget {
   const ChildHomePage({super.key});
@@ -12,15 +19,42 @@ class ChildHomePage extends ConsumerStatefulWidget {
 
 class _ChildHomePageState extends ConsumerState<ChildHomePage> {
   int _index = 0;
+  Timer? _sessionTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _registerDevice();
+    _sessionTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
+      await ref.read(childSessionProvider.notifier).validateStillActive();
+    });
+  }
+
+  Future<void> _registerDevice() async {
+    final session = ref.read(childSessionProvider).asData?.value;
+    if (session == null) return;
+    final identity = await DeviceIdentityStore.getOrCreate();
+    await ref.read(notificationsRepositoryProvider).registerDevice(
+          childId: session.childId,
+          platform: 'android',
+          pseudoPushToken: 'child-${identity.deviceId}',
+        );
+  }
+
+  @override
+  void dispose() {
+    _sessionTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
       const _ChildDashboardPage(),
-      const _ChildQuestsPage(),
-      const _ChildWalletPage(),
-      const _ChildShopPage(),
-      _ChildSettingsPage(onSignOut: () => ref.read(authActionsProvider).signOut()),
+      const ChildQuestsPage(),
+      const ChildWalletPage(),
+      const ChildShopPage(),
+      _ChildSettingsPage(onSignOut: () => ref.read(childSessionProvider.notifier).clear()),
     ];
 
     return Scaffold(
@@ -55,51 +89,6 @@ class _ChildDashboardPage extends StatelessWidget {
   }
 }
 
-class _ChildQuestsPage extends StatelessWidget {
-  const _ChildQuestsPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionScaffold(
-      title: 'Квесты',
-      child: Text(
-        'Список назначенных заданий, отметка выполнения и фото-подтверждение.',
-        style: Theme.of(context).textTheme.bodyMedium,
-      ),
-    );
-  }
-}
-
-class _ChildWalletPage extends StatelessWidget {
-  const _ChildWalletPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionScaffold(
-      title: 'Кошелёк',
-      child: Text(
-        'Баланс внутренней валюты, история начислений/списаний.',
-        style: Theme.of(context).textTheme.bodyMedium,
-      ),
-    );
-  }
-}
-
-class _ChildShopPage extends StatelessWidget {
-  const _ChildShopPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionScaffold(
-      title: 'Магазин',
-      child: Text(
-        'Доступные товары/награды, оформление запроса на покупку.',
-        style: Theme.of(context).textTheme.bodyMedium,
-      ),
-    );
-  }
-}
-
 class _ChildSettingsPage extends StatelessWidget {
   const _ChildSettingsPage({required this.onSignOut});
 
@@ -115,7 +104,7 @@ class _ChildSettingsPage extends StatelessWidget {
           const ListTile(
             leading: Icon(Icons.info),
             title: Text('Аккаунт'),
-            subtitle: Text('Ребёнок / телефон'),
+            subtitle: Text('Ребёнок / доступ по подтверждению'),
           ),
           const Divider(height: 1),
           ListTile(

@@ -6,6 +6,13 @@
 - `apps/klany_admin` — веб-админка (Flutter Web)
 - `supabase/` — схема БД + заметки по backend
 
+## Текущий auth-flow детей
+
+- Ребёнок не вводит пароль/email
+- Вводит: `Фамилия + Имя + Family ID`
+- Родитель подтверждает заявку в разделе `Запросы на вход`
+- После подтверждения устройство ребёнка привязывается к профилю
+
 ## Настройка Supabase
 
 1) Создайте проект в Supabase.
@@ -28,5 +35,15 @@ flutter run
 ```bash
 cd apps/klany_admin
 flutter run -d chrome
+```
+
+## Edge Functions (Supabase)
+
+Деплой:
+```bash
+supabase functions deploy yookassa-create-payment
+supabase functions deploy yookassa-webhook
+supabase functions deploy telegram-bot-webhook
+supabase functions deploy notifications-cron
 ```
 

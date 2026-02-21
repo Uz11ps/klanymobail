@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/sdk.dart';
 import 'app_role.dart';
-import 'phone_utils.dart';
 
 final authActionsProvider = Provider<AuthActions>((ref) => AuthActions());
 
@@ -26,6 +25,7 @@ class AuthActions {
 
     await client.auth.signInWithPassword(email: email.trim(), password: password);
     await _setRole(AppRole.parent);
+    await _ensureParentFamilyContext();
   }
 
   Future<void> parentSignUp({
@@ -44,18 +44,7 @@ class AuthActions {
         'app_role': AppRole.parent.key,
       },
     );
-  }
-
-  Future<void> childSignIn({
-    required String phone,
-    required String password,
-  }) async {
-    final client = _client;
-    if (client == null) return;
-
-    final email = kidsPseudoEmailFromPhone(phone);
-    await client.auth.signInWithPassword(email: email, password: password);
-    await _setRole(AppRole.child);
+    await _ensureParentFamilyContext();
   }
 
   Future<void> _setRole(AppRole role) async {
@@ -71,6 +60,21 @@ class AuthActions {
       if (kDebugMode) {
         // ignore: avoid_print
         print('[Auth] updateUser(app_role) failed: $e');
+      }
+    }
+  }
+
+  Future<void> _ensureParentFamilyContext() async {
+    final client = _client;
+    if (client == null) return;
+    if (client.auth.currentUser == null) return;
+
+    try {
+      await client.rpc('parent_get_family_context');
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[Auth] parent_get_family_context failed: $e');
       }
     }
   }
