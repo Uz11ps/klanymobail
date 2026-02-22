@@ -5,6 +5,9 @@
 .env
 **/.env
 !.env.example
+/.env.server
+/.env.server.*
+!.env.server.example
 
 # Flutter / Dart artifacts (root-level safety; apps have their own .gitignore too)
 **/.dart_tool/
@@ -19,3 +22,9 @@
 .idea/
 **/*.iml
 .vscode/
+
+# Node / backend artifacts
+**/node_modules/
+**/dist/
+**/.npm/
+**/.pnpm-store/

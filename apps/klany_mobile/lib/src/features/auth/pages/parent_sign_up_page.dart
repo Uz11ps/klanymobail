@@ -30,9 +30,9 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!Env.hasSupabaseConfig) {
+    if (!Env.hasApiConfig) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните .env (Supabase) чтобы зарегистрироваться')),
+        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы зарегистрироваться')),
       );
       return;
     }
@@ -45,12 +45,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
             displayName: _name.text,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Аккаунт создан. Подтвердите email (если включено) и войдите.'),
-        ),
-      );
-      context.go('/auth/parent/sign-in');
+      if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

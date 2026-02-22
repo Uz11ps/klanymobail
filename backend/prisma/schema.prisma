@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProfileRole {
+  admin
+  parent
+  child
+}
+
+enum ChildAccessRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  expired
+}
+
+enum PaymentStatus {
+  created
+  pending
+  paid
+  canceled
+  failed
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  lastLoginAt  DateTime? @db.Timestamptz(6)
+
+  profiles     Profile[]
+  ownedFamilies Family[] @relation("FamilyOwner")
+
+  @@map("users")
+}
+
+model Family {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  ownerUserId  String?   @db.Uuid
+  familyCode   String    @unique
+  clanName     String?
+
+  owner        User?     @relation("FamilyOwner", fields: [ownerUserId], references: [id])
+  profiles     Profile[]
+  children     Child[]
+  quests       Quest[]
+  wallets      Wallet[]
+  products     ShopProduct[]
+  purchases    ShopPurchase[]
+  subscriptions FamilySubscription[]
+  promoRedemptions PromoRedemption[]
+  paymentOrders PaymentOrder[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  telegramLinks TelegramLink[]
+  accessRequests ChildAccessRequest[]
+  deviceBindings ChildDeviceBinding[]
+  childSessions ChildSession[]
+
+  @@map("families")
+}
+
+model Profile {
+  userId      String    @id @db.Uuid
+  familyId    String?   @db.Uuid
+  role        ProfileRole @default(parent)
+  displayName String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+
+  user        User      @relation(fields: [userId], references: [id])
+  family      Family?   @relation(fields: [familyId], references: [id])
+
+  @@index([familyId])
+  @@map("profiles")
+}
+
+model Child {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId    String   @db.Uuid
+  firstName   String
+  lastName    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  deactivatedAt DateTime? @db.Timestamptz(6)
+
+  family      Family   @relation(fields: [familyId], references: [id])
+  wallets     Wallet[]
+  questAssignees QuestAssignee[]
+  purchases   ShopPurchase[]
+  deviceBindings ChildDeviceBinding[]
+  sessions    ChildSession[]
+
+  @@index([familyId])
+  @@map("children")
+}
+
+model ChildAccessRequest {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId   String   @db.Uuid
+  firstName  String
+  lastName   String?
+  deviceId   String
+  deviceKey  String
+  status     ChildAccessRequestStatus @default(pending)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  decidedAt  DateTime? @db.Timestamptz(6)
+  decidedBy  String?   @db.Uuid
+  childId    String?   @db.Uuid
+
+  family     Family    @relation(fields: [familyId], references: [id])
+
+  @@index([familyId, status])
+  @@map("child_access_requests")
+}
+
+model ChildDeviceBinding {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String   @db.Uuid
+  childId   String   @db.Uuid
+  deviceId  String
+  deviceKey String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  revokedBy String?  @db.Uuid
+
+  family    Family  @relation(fields: [familyId], references: [id])
+  child     Child   @relation(fields: [childId], references: [id])
+  sessions  ChildSession[]
+
+  @@index([familyId, childId])
+  @@index([deviceId])
+  @@map("child_device_bindings")
+}
+
+model ChildSession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String   @db.Uuid
+  childId   String   @db.Uuid
+  bindingId String   @db.Uuid
+  token     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  revokedBy String?  @db.Uuid
+
+  family    Family @relation(fields: [familyId], references: [id])
+  child     Child  @relation(fields: [childId], references: [id])
+  binding   ChildDeviceBinding @relation(fields: [bindingId], references: [id])
+
+  @@index([familyId, childId, isActive])
+  @@map("child_sessions")
+}
+
+model Quest {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId    String   @db.Uuid
+  createdBy   String   @db.Uuid
+  title       String
+  description String?
+  reward      Int      @default(0)
+  questType   String   @default("one_time")
+  status      String   @default("active")
+  dueAt       DateTime? @db.Timestamptz(6)
+  startedAt   DateTime? @db.Timestamptz(6)
+  closedAt    DateTime? @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  family      Family   @relation(fields: [familyId], references: [id])
+  assignees   QuestAssignee[]
+  comments    QuestComment[]
+  evidences   QuestEvidence[]
+
+  @@index([familyId])
+  @@map("quests")
+}
+
+model QuestAssignee {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questId   String @db.Uuid
+  childId   String @db.Uuid
+  rewardAmount Int @default(0)
+  comment   String?
+  status    String @default("assigned")
+  submittedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  quest     Quest @relation(fields: [questId], references: [id])
+  child     Child @relation(fields: [childId], references: [id])
+
+  @@unique([questId, childId])
+  @@index([childId])
+  @@map("quest_assignees")
+}
+
+model QuestComment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questId   String   @db.Uuid
+  authorUserId String? @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  quest     Quest @relation(fields: [questId], references: [id])
+
+  @@index([questId])
+  @@map("quest_comments")
+}
+
+model QuestEvidence {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questId   String   @db.Uuid
+  childId   String   @db.Uuid
+  objectKey String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  quest     Quest @relation(fields: [questId], references: [id])
+
+  @@index([questId])
+  @@index([childId])
+  @@map("quest_evidences")
+}
+
+model Wallet {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String   @db.Uuid
+  childId   String   @db.Uuid
+  balance   Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  family    Family   @relation(fields: [familyId], references: [id])
+  child     Child    @relation(fields: [childId], references: [id])
+  tx        WalletTransaction[]
+
+  @@unique([childId])
+  @@index([familyId])
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  walletId  String   @db.Uuid
+  amount    Int
+  txType    String   @default("adjustment")
+  note      String?
+  reason    String
+  meta      Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  wallet    Wallet   @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@map("wallet_transactions")
+}
+
+model ShopProduct {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String   @db.Uuid
+  title     String
+  description String?
+  price     Int
+  imageKey  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  family    Family   @relation(fields: [familyId], references: [id])
+  purchases ShopPurchase[]
+
+  @@index([familyId, isActive])
+  @@map("shop_products")
+}
+
+model ShopPurchase {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId    String   @db.Uuid
+  childId     String   @db.Uuid
+  productId   String   @db.Uuid
+  quantity    Int      @default(1)
+  totalPrice  Int      @default(0)
+  status      String   @default("pending")
+  frozenAmount Int     @default(0)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  decidedAt   DateTime? @db.Timestamptz(6)
+  decidedBy   String?  @db.Uuid
+
+  family      Family   @relation(fields: [familyId], references: [id])
+  child       Child    @relation(fields: [childId], references: [id])
+  product     ShopProduct @relation(fields: [productId], references: [id])
+
+  @@index([familyId, status])
+  @@map("shop_purchases")
+}
+
+model SubscriptionPlan {
+  code       String  @id
+  title      String
+  priceRub   Int
+  limits     Json?
+  isActive   Boolean @default(true)
+
+  subscriptions FamilySubscription[]
+  promoCodes    PromoCode[]
+
+  @@map("subscription_plans")
+}
+
+model FamilySubscription {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId   String   @db.Uuid
+  planCode   String
+  status     SubscriptionStatus @default(active)
+  startedAt  DateTime @default(now()) @db.Timestamptz(6)
+  expiresAt  DateTime? @db.Timestamptz(6)
+  source     String?
+
+  family     Family   @relation(fields: [familyId], references: [id])
+  plan       SubscriptionPlan @relation(fields: [planCode], references: [code])
+
+  @@index([familyId, status])
+  @@map("family_subscriptions")
+}
+
+model PromoCode {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  planCode    String
+  durationDays Int     @default(30)
+  maxUses     Int      @default(1)
+  usedCount   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  plan        SubscriptionPlan @relation(fields: [planCode], references: [code])
+  redemptions PromoRedemption[]
+
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promoId   String   @db.Uuid
+  familyId  String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  promo     PromoCode @relation(fields: [promoId], references: [id])
+  family    Family    @relation(fields: [familyId], references: [id])
+
+  @@index([familyId])
+  @@map("promo_redemptions")
+}
+
+model PaymentOrder {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId         String   @db.Uuid
+  planCode         String?
+  amountRub        Int
+  status           PaymentStatus @default(created)
+  providerPaymentId String?
+  payload          Json?
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  paidAt           DateTime? @db.Timestamptz(6)
+
+  family           Family   @relation(fields: [familyId], references: [id])
+
+  @@index([familyId, status])
+  @@map("payment_orders")
+}
+
+model PaymentWebhookEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  provider   String
+  eventType  String
+  eventId    String?
+  payload    Json
+  processed  Boolean  @default(false)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([provider, eventType])
+  @@map("payment_webhook_events")
+}
+
+model NotificationDevice {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?  @db.Uuid
+  familyId  String?  @db.Uuid
+  platform  String
+  pushToken String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("notification_devices")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String?  @db.Uuid
+  toUserId  String?  @db.Uuid
+  nType     String
+  payload   Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  readAt    DateTime? @db.Timestamptz(6)
+
+  family    Family? @relation(fields: [familyId], references: [id])
+
+  @@index([toUserId, isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId  String?  @db.Uuid
+  actorUserId String? @db.Uuid
+  action    String
+  payload   Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  family    Family? @relation(fields: [familyId], references: [id])
+
+  @@index([familyId])
+  @@map("audit_logs")
+}
+
+model TelegramLink {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId          String   @db.Uuid
+  telegramChatId    String   @unique
+  telegramUsername  String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  family            Family   @relation(fields: [familyId], references: [id])
+
+  @@index([familyId])
+  @@map("telegram_links")
+}
+

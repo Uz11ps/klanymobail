@@ -2,17 +2,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Env {
-  static String get supabaseUrl => (_read('SUPABASE_URL') ?? '').trim();
-  static String get supabaseAnonKey => (_read('SUPABASE_ANON_KEY') ?? '').trim();
+  static String get apiBaseUrl {
+    final raw = (_read('API_BASE_URL') ?? '').trim();
+    if (raw.isNotEmpty) return raw;
+    // Для прод-деплоя через nginx используем same-origin прокси.
+    if (kIsWeb) return '/api';
+    return '';
+  }
 
-  static bool get hasSupabaseConfig =>
-      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+  static bool get hasApiConfig => apiBaseUrl.isNotEmpty;
 
   static void validate() {
-    if (!hasSupabaseConfig && kDebugMode) {
+    if (!hasApiConfig && kDebugMode) {
       // ignore: avoid_print
       print(
-        '[Env] SUPABASE_URL / SUPABASE_ANON_KEY are empty. Admin runs in demo mode.',
+        '[Env] API_BASE_URL is empty. Admin runs in demo mode.',
       );
     }
   }

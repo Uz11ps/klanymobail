@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
 import '../auth_actions.dart';
-import '../parent_access_repository.dart';
 
 class ParentSignInPage extends ConsumerStatefulWidget {
   const ParentSignInPage({super.key});
@@ -31,9 +30,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!Env.hasSupabaseConfig) {
+    if (!Env.hasApiConfig) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните .env (Supabase) чтобы войти')),
+        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы войти')),
       );
       return;
     }
@@ -44,9 +43,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
             email: _email.text,
             password: _password.text,
           );
-      if (_inviteToken.text.trim().isNotEmpty) {
-        await ref.read(parentAccessRepositoryProvider).acceptParentInvite(_inviteToken.text);
-      }
+      // TODO: acceptParentInvite is not implemented in API yet.
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;

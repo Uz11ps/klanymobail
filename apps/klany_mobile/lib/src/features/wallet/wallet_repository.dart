@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/sdk.dart';
+import '../auth/child_session.dart';
+import '../auth/parent_session.dart';
 
 final walletRepositoryProvider = Provider<WalletRepository>(
-  (ref) => WalletRepository(),
+  (ref) => WalletRepository(ref),
 );
 
 class WalletSummary {
@@ -46,74 +47,61 @@ class ParentChildWalletItem {
 }
 
 class WalletRepository {
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  WalletRepository(this.ref);
+  final Ref ref;
+
+  String? get _parentToken =>
+      ref.read(parentSessionProvider).asData?.value?.accessToken;
+  String? get _childToken =>
+      ref.read(childSessionProvider).asData?.value?.accessToken;
 
   Future<WalletSummary?> getChildWallet(String childId) async {
-    final client = _client;
-    if (client == null) return null;
-    final row = await client
-        .from('wallets')
-        .select('id, balance')
-        .eq('child_id', childId)
-        .maybeSingle();
-    if (row == null) return null;
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return null;
+    final data = await api.getJson('/wallet/child', accessToken: token);
     return WalletSummary(
-      walletId: row['id'].toString(),
-      balance: (row['balance'] as num?)?.toInt() ?? 0,
+      walletId: (data['walletId'] ?? '').toString(),
+      balance: (data['balance'] as num?)?.toInt() ?? 0,
     );
   }
 
   Future<List<WalletTxItem>> getWalletTransactions(String walletId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('transactions')
-        .select('id, amount, tx_type, note, created_at')
-        .eq('wallet_id', walletId)
-        .order('created_at', ascending: false)
-        .limit(100);
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .map(
-          (row) => WalletTxItem(
-            id: row['id'].toString(),
-            amount: (row['amount'] as num?)?.toInt() ?? 0,
-            type: (row['tx_type'] ?? '').toString(),
-            note: (row['note'] ?? '').toString(),
-            createdAt:
-                DateTime.tryParse((row['created_at'] ?? '').toString()) ??
-                    DateTime.now(),
-          ),
-        )
-        .toList();
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return const [];
+    final data =
+        await api.getJson('/wallet/child/transactions', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return WalletTxItem(
+        id: row['id'].toString(),
+        amount: (row['amount'] as num?)?.toInt() ?? 0,
+        type: (row['txType'] ?? '').toString(),
+        note: (row['note'] ?? '').toString(),
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.now(),
+      );
+    }).toList();
   }
 
   Future<List<ParentChildWalletItem>> getFamilyWallets(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final children = await client
-        .from('children')
-        .select('id, display_name')
-        .eq('family_id', familyId)
-        .order('display_name');
-
-    final result = <ParentChildWalletItem>[];
-    for (final raw in (children as List<dynamic>)) {
-      final child = raw as Map<String, dynamic>;
-      final wallet = await client
-          .from('wallets')
-          .select('balance')
-          .eq('child_id', child['id'].toString())
-          .maybeSingle();
-      result.add(
-        ParentChildWalletItem(
-          childId: child['id'].toString(),
-          displayName: (child['display_name'] ?? '').toString(),
-          balance: (wallet?['balance'] as num?)?.toInt() ?? 0,
-        ),
-      );
-    }
-    return result;
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/wallet/family', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows
+        .map(
+          (row) => ParentChildWalletItem(
+            childId: row['childId'].toString(),
+            displayName: (row['displayName'] ?? '').toString(),
+            balance: (row['balance'] as num?)?.toInt() ?? 0,
+          ),
+        )
+        .toList();
   }
 
   Future<void> adjustWallet({
@@ -121,14 +109,16 @@ class WalletRepository {
     required int amount,
     required String note,
   }) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc(
-      'parent_adjust_wallet',
-      params: <String, dynamic>{
-        'p_child_id': childId,
-        'p_amount': amount,
-        'p_note': note.trim().isEmpty ? 'Корректировка' : note.trim(),
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/wallet/adjust',
+      accessToken: token,
+      body: <String, dynamic>{
+        'childId': childId,
+        'amount': amount,
+        'note': note.trim().isEmpty ? 'Корректировка' : note.trim(),
       },
     );
   }

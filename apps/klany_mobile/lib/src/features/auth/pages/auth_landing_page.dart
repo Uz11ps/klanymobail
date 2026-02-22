@@ -16,7 +16,7 @@ class AuthLandingPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (!Env.hasSupabaseConfig)
+            if (!Env.hasApiConfig)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -24,11 +24,11 @@ class AuthLandingPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Демо-режим: заполните SUPABASE_URL и SUPABASE_ANON_KEY в apps/klany_mobile/.env',
+                  'Демо-режим: заполните API_BASE_URL в apps/klany_mobile/.env',
                   style: TextStyle(color: scheme.onTertiaryContainer),
                 ),
               ),
-            if (!Env.hasSupabaseConfig) const SizedBox(height: 16),
+            if (!Env.hasApiConfig) const SizedBox(height: 16),
             _RoleCard(
               title: 'Я родитель',
               subtitle: 'Email + пароль, управление семьёй и квестами',

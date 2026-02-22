@@ -31,9 +31,9 @@ class _ChildRequestAccessPageState extends ConsumerState<ChildRequestAccessPage>
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!Env.hasSupabaseConfig) {
+    if (!Env.hasApiConfig) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните .env (Supabase) чтобы отправить заявку')),
+        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы отправить заявку')),
       );
       return;
     }

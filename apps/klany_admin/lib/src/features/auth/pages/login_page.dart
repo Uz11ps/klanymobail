@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env.dart';
 import '../../../core/sdk.dart';
+import '../admin_session.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -18,8 +18,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
   bool _busy = false;
 
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
-
   @override
   void dispose() {
     _email.dispose();
@@ -30,22 +28,39 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    if (!Env.hasSupabaseConfig || _client == null) {
+    final api = Sdk.apiOrNull;
+    if (!Env.hasApiConfig || api == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните apps/klany_admin/.env (Supabase)')),
+        const SnackBar(content: Text('Заполните apps/klany_admin/.env (API_BASE_URL)')),
       );
       return;
     }
 
     setState(() => _busy = true);
     try {
-      await _client!.auth.signInWithPassword(
-        email: _email.text.trim(),
-        password: _password.text,
+      final res = await api.postJson(
+        '/auth/sign-in',
+        body: <String, dynamic>{
+          'email': _email.text.trim(),
+          'password': _password.text,
+        },
       );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      final accessToken = (res['accessToken'] ?? '').toString();
+      final user = (res['user'] as Map?) ?? const <String, dynamic>{};
+      final profile = (res['profile'] as Map?) ?? const <String, dynamic>{};
+      final userId = (user['id'] ?? '').toString();
+      final role = (profile['role'] ?? '').toString();
+
+      if (accessToken.isEmpty || userId.isEmpty) {
+        throw Exception('Пустой accessToken/userId');
+      }
+      if (role != 'admin') {
+        throw Exception('Нет доступа: требуется роль admin');
+      }
+
+      await ref.read(adminSessionProvider.notifier).setSession(
+            AdminSession(accessToken: accessToken, userId: userId, role: role),
+          );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
@@ -97,8 +112,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         labelText: 'Пароль',
                         prefixIcon: Icon(Icons.lock),
                       ),
-                      validator: (v) =>
-                          (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
+                      validator: (v) {
+                        final value = (v ?? '');
+                        if (value.isEmpty) return 'Введите пароль';
+                        // Админка может использовать короткий пароль на первом деплое (сид).
+                        if (value.length < 3) return 'Минимум 3 символа';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -116,7 +136,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Доступ только для role=admin в таблице profiles.',
+                      'Доступ только для role=admin (JWT).',
                       style: Theme.of(context).textTheme.bodySmall,
                       textAlign: TextAlign.center,
                     ),

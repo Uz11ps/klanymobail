@@ -35,7 +35,6 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
     if (session == null) return;
     final identity = await DeviceIdentityStore.getOrCreate();
     await ref.read(notificationsRepositoryProvider).registerDevice(
-          childId: session.childId,
           platform: 'android',
           pseudoPushToken: 'child-${identity.deviceId}',
         );

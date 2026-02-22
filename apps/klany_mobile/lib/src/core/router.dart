@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/auth/app_role.dart';
 import '../features/auth/auth_providers.dart';
 import '../features/auth/child_session.dart';
+import '../features/auth/parent_session.dart';
 import '../features/auth/pages/auth_landing_page.dart';
 import '../features/auth/pages/child_request_access_page.dart';
 import '../features/auth/pages/child_wait_approval_page.dart';
@@ -17,7 +18,7 @@ import '../features/splash/splash_page.dart';
 final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
 
-  ref.listen(authSessionProvider, (previous, next) => notifier.refresh());
+  ref.listen(parentSessionProvider, (previous, next) => notifier.refresh());
   ref.listen(appRoleProvider, (previous, next) => notifier.refresh());
   ref.listen(childSessionProvider, (previous, next) => notifier.refresh());
 
@@ -26,7 +27,7 @@ final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
 });
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final sessionAsync = ref.watch(authSessionProvider);
+  final parentSessionAsync = ref.watch(parentSessionProvider);
   final role = ref.watch(appRoleProvider);
   final childSessionAsync = ref.watch(childSessionProvider);
 
@@ -36,7 +37,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: ref.watch(_routerRefreshProvider),
     redirect: (context, state) {
       final path = state.uri.path;
-      final parentLoggedIn = sessionAsync.asData?.value != null &&
+      final parentLoggedIn = parentSessionAsync.asData?.value != null &&
           (role == AppRole.parent || role == null);
       final childLoggedIn = childSessionAsync.asData?.value != null;
       final inAuth = path.startsWith('/auth');

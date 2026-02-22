@@ -1,15 +1,10 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'env.dart';
+import 'api_client.dart';
 
 class Sdk {
-  static SupabaseClient? get supabaseOrNull {
-    if (!Env.hasSupabaseConfig) return null;
-    try {
-      return Supabase.instance.client;
-    } catch (_) {
-      return null;
-    }
+  static ApiClient? get apiOrNull {
+    if (!Env.hasApiConfig) return null;
+    return ApiClient(Env.apiBaseUrl);
   }
 }
 

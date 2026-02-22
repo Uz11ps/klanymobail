@@ -1,14 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/sdk.dart';
+import '../auth/child_session.dart';
+import '../auth/parent_session.dart';
 
 final questsRepositoryProvider = Provider<QuestsRepository>(
-  (ref) => QuestsRepository(),
+  (ref) => QuestsRepository(ref),
 );
 
 class ParentQuestItem {
@@ -78,27 +80,28 @@ class FamilyChildLite {
 }
 
 class QuestsRepository {
-  static const _bucket = 'quest-evidence';
   static const _uuid = Uuid();
 
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  QuestsRepository(this.ref);
+  final Ref ref;
+
+  String? get _parentToken =>
+      ref.read(parentSessionProvider).asData?.value?.accessToken;
+  String? get _childToken =>
+      ref.read(childSessionProvider).asData?.value?.accessToken;
 
   Future<List<FamilyChildLite>> getFamilyChildren(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('children')
-        .select('id, display_name')
-        .eq('family_id', familyId)
-        .eq('is_active', true)
-        .order('display_name');
-
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/family/children', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows
         .map(
           (row) => FamilyChildLite(
             id: row['id'].toString(),
-            displayName: (row['display_name'] ?? '').toString(),
+            displayName: (row['displayName'] ?? '').toString(),
           ),
         )
         .toList();
@@ -112,68 +115,59 @@ class QuestsRepository {
     required DateTime? dueAt,
     required List<String> childIds,
   }) async {
-    final client = _client;
-    if (client == null) throw Exception('Supabase не настроен');
-    await client.rpc(
-      'parent_create_quest',
-      params: <String, dynamic>{
-        'p_title': title.trim(),
-        'p_description': description.trim(),
-        'p_reward_amount': rewardAmount,
-        'p_quest_type': questType,
-        'p_due_at': dueAt?.toIso8601String(),
-        'p_child_ids': childIds,
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) throw Exception('API не настроен');
+    await api.postJson(
+      '/quests',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'description': description.trim(),
+        'rewardAmount': rewardAmount,
+        'questType': questType,
+        'dueAt': dueAt?.toIso8601String(),
+        'childIds': childIds,
       },
     );
   }
 
   Future<List<ParentQuestItem>> getParentQuests(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('quests')
-        .select('id, title, status, quest_type, reward_amount, created_at')
-        .eq('family_id', familyId)
-        .order('created_at', ascending: false);
-
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .map(
-          (row) => ParentQuestItem(
-            id: row['id'].toString(),
-            title: (row['title'] ?? '').toString(),
-            status: (row['status'] ?? '').toString(),
-            questType: (row['quest_type'] ?? '').toString(),
-            rewardAmount: (row['reward_amount'] as num?)?.toInt() ?? 0,
-            createdAt:
-                DateTime.tryParse((row['created_at'] ?? '').toString()) ??
-                    DateTime.now(),
-          ),
-        )
-        .toList();
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/quests/parent', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return ParentQuestItem(
+        id: row['id'].toString(),
+        title: (row['title'] ?? '').toString(),
+        status: (row['status'] ?? '').toString(),
+        questType: (row['questType'] ?? '').toString(),
+        rewardAmount: (row['reward'] as num?)?.toInt() ?? 0,
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.now(),
+      );
+    }).toList();
   }
 
   Future<List<ChildQuestAssignmentItem>> getChildAssignments(String childId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('quest_assignees')
-        .select('id, quest_id, status, reward_amount, comment, quests(title, due_at)')
-        .eq('child_id', childId)
-        .order('created_at', ascending: false);
-
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .map((row) {
-      final quest = (row['quests'] as Map<String, dynamic>? ?? <String, dynamic>{});
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/quests/child', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
       return ChildQuestAssignmentItem(
-        questId: row['quest_id'].toString(),
-        assignmentId: row['id'].toString(),
-        title: (quest['title'] ?? '').toString(),
+        questId: row['questId'].toString(),
+        assignmentId: row['assignmentId'].toString(),
+        title: (row['title'] ?? '').toString(),
         status: (row['status'] ?? '').toString(),
-        rewardAmount: (row['reward_amount'] as num?)?.toInt() ?? 0,
+        rewardAmount: (row['rewardAmount'] as num?)?.toInt() ?? 0,
         comment: row['comment']?.toString(),
-        dueAt: DateTime.tryParse((quest['due_at'] ?? '').toString()),
+        dueAt: DateTime.tryParse((row['dueAt'] ?? '').toString()),
       );
     }).toList();
   }
@@ -182,77 +176,52 @@ class QuestsRepository {
     required String questId,
     required XFile? evidenceFile,
   }) async {
-    final client = _client;
-    if (client == null) throw Exception('Supabase не настроен');
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) throw Exception('API не настроен');
 
+    String? evidenceKey;
     if (evidenceFile != null) {
       final Uint8List bytes = await evidenceFile.readAsBytes();
       final path = '${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4()}.jpg';
-      final fullPath = 'quests/$questId/$path';
-      await client.storage.from(_bucket).uploadBinary(
-            fullPath,
-            bytes,
-            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: false),
-          );
-      await client.from('quest_evidence').insert(<String, dynamic>{
-        'quest_id': questId,
-        'storage_path': fullPath,
-      });
+      final key = 'quests/$questId/$path';
+      final presign = await api.postJson(
+        '/storage/presign-upload',
+        accessToken: token,
+        body: <String, dynamic>{'bucket': 'quest-evidence', 'objectKey': key},
+      );
+      final url = presign['url']?.toString() ?? '';
+      if (url.isNotEmpty) {
+        await http.put(Uri.parse(url),
+            headers: <String, String>{'Content-Type': 'image/jpeg'}, body: bytes);
+        evidenceKey = key;
+      }
     }
 
-    await client.rpc(
-      'child_submit_quest',
-      params: <String, dynamic>{'p_quest_id': questId},
+    await api.postJson(
+      '/quests/child/submit',
+      accessToken: token,
+      body: <String, dynamic>{'questId': questId, 'evidenceKey': evidenceKey},
     );
   }
 
   Future<List<ParentReviewItem>> getSubmittedForReview(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-
-    final rows = await client
-        .from('quest_assignees')
-        .select(
-            'quest_id, child_id, submitted_at, quests(title, family_id), children(display_name)')
-        .eq('status', 'submitted')
-        .order('submitted_at', ascending: false);
-
-    final base = (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .where((row) {
-      final quest = row['quests'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      return quest['family_id']?.toString() == familyId;
-    }).toList();
-
-    final result = <ParentReviewItem>[];
-    for (final row in base) {
-      final questId = row['quest_id'].toString();
-      final evRows = await client
-          .from('quest_evidence')
-          .select('storage_path')
-          .eq('quest_id', questId)
-          .order('created_at', ascending: false)
-          .limit(1);
-      final evList = evRows as List<dynamic>;
-      final evidencePath = evList.isNotEmpty
-          ? (evList.first['storage_path'])?.toString()
-          : null;
-
-      final quest = row['quests'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      final child = row['children'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      result.add(
-        ParentReviewItem(
-          questId: questId,
-          childId: row['child_id'].toString(),
-          childName: (child['display_name'] ?? '').toString(),
-          title: (quest['title'] ?? '').toString(),
-          submittedAt:
-              DateTime.tryParse((row['submitted_at'] ?? '').toString()),
-          evidencePath: evidencePath,
-        ),
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/quests/review', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return ParentReviewItem(
+        questId: row['questId'].toString(),
+        childId: row['childId'].toString(),
+        childName: (row['childName'] ?? '').toString(),
+        title: (row['title'] ?? '').toString(),
+        submittedAt: DateTime.tryParse((row['submittedAt'] ?? '').toString()),
+        evidencePath: row['evidenceKey']?.toString(),
       );
-    }
-    return result;
+    }).toList();
   }
 
   Future<void> reviewSubmission({
@@ -261,15 +230,17 @@ class QuestsRepository {
     required bool approve,
     required String comment,
   }) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc(
-      'parent_review_quest_submission',
-      params: <String, dynamic>{
-        'p_quest_id': questId,
-        'p_child_id': childId,
-        'p_approve': approve,
-        'p_comment': comment.trim().isEmpty ? null : comment.trim(),
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/quests/review',
+      accessToken: token,
+      body: <String, dynamic>{
+        'questId': questId,
+        'childId': childId,
+        'approve': approve,
+        'comment': comment.trim().isEmpty ? null : comment.trim(),
       },
     );
   }

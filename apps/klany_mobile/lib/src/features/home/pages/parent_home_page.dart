@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/sdk.dart';
 import '../../auth/device_identity.dart';
+import '../../auth/parent_session.dart';
 import 'parent_access_requests_page.dart';
 import 'parent_family_settings_page.dart';
 import '../../quests/pages/parent_quests_page.dart';
@@ -10,14 +11,14 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 
-class ParentHomePage extends StatefulWidget {
+class ParentHomePage extends ConsumerStatefulWidget {
   const ParentHomePage({super.key});
 
   @override
-  State<ParentHomePage> createState() => _ParentHomePageState();
+  ConsumerState<ParentHomePage> createState() => _ParentHomePageState();
 }
 
-class _ParentHomePageState extends State<ParentHomePage> {
+class _ParentHomePageState extends ConsumerState<ParentHomePage> {
   int _index = 0;
 
   @override
@@ -28,10 +29,9 @@ class _ParentHomePageState extends State<ParentHomePage> {
 
   Future<void> _registerDevice() async {
     final identity = await DeviceIdentityStore.getOrCreate();
-    final userId = Sdk.supabaseOrNull?.auth.currentUser?.id;
+    final userId = ref.read(parentSessionProvider).asData?.value?.userId;
     if (userId == null) return;
-    await NotificationsRepository().registerDevice(
-      userId: userId,
+    await ref.read(notificationsRepositoryProvider).registerDevice(
       platform: 'android',
       pseudoPushToken: 'parent-${identity.deviceId}',
     );

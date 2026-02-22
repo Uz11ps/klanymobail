@@ -72,12 +72,14 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
 
       if (result.status == 'approved' &&
           (result.childId ?? '').isNotEmpty &&
-          (result.familyId ?? '').isNotEmpty) {
+          (result.familyId ?? '').isNotEmpty &&
+          (result.accessToken ?? '').isNotEmpty) {
         _timer?.cancel();
         await ref.read(childSessionProvider.notifier).activateFromApproval(
               childId: result.childId!,
               familyId: result.familyId!,
               childDisplayName: result.childDisplayName ?? '',
+              accessToken: result.accessToken!,
             );
         if (!mounted) return;
         context.go('/child');

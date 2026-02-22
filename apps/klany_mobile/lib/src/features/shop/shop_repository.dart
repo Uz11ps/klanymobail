@@ -1,14 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/sdk.dart';
+import '../auth/child_session.dart';
+import '../auth/parent_session.dart';
 
 final shopRepositoryProvider = Provider<ShopRepository>(
-  (ref) => ShopRepository(),
+  (ref) => ShopRepository(ref),
 );
 
 class ShopProductItem {
@@ -46,30 +48,32 @@ class ShopPurchaseItem {
 }
 
 class ShopRepository {
-  static const _productsBucket = 'shop-products';
   static const _uuid = Uuid();
 
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  ShopRepository(this.ref);
+  final Ref ref;
+
+  String? get _parentToken =>
+      ref.read(parentSessionProvider).asData?.value?.accessToken;
+  String? get _childToken =>
+      ref.read(childSessionProvider).asData?.value?.accessToken;
 
   Future<List<ShopProductItem>> getProducts(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('shop_products')
-        .select('id, title, description, price, image_path, is_active')
-        .eq('family_id', familyId)
-        .order('created_at', ascending: false);
-
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
+    final api = Sdk.apiOrNull;
+    final token = _parentToken ?? _childToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/shop/products', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows
         .map(
           (row) => ShopProductItem(
             id: row['id'].toString(),
             title: (row['title'] ?? '').toString(),
             description: row['description']?.toString(),
             price: (row['price'] as num?)?.toInt() ?? 0,
-            imagePath: row['image_path']?.toString(),
-            isActive: row['is_active'] == true,
+            imagePath: row['imageKey']?.toString(),
+            isActive: row['isActive'] == true,
           ),
         )
         .toList();
@@ -81,89 +85,89 @@ class ShopRepository {
     required int price,
     required XFile? imageFile,
   }) async {
-    final client = _client;
-    if (client == null) throw Exception('Supabase не настроен');
-    String? imagePath;
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) throw Exception('API не настроен');
+
+    String? imageKey;
     if (imageFile != null) {
       final Uint8List bytes = await imageFile.readAsBytes();
-      final path = 'shop/${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4()}.jpg';
-      await client.storage.from(_productsBucket).uploadBinary(
-            path,
-            bytes,
-            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: false),
-          );
-      imagePath = path;
+      final key = 'shop/${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4()}.jpg';
+      final presign = await api.postJson(
+        '/storage/presign-upload',
+        accessToken: token,
+        body: <String, dynamic>{'bucket': 'shop-products', 'objectKey': key},
+      );
+      final url = presign['url']?.toString() ?? '';
+      if (url.isNotEmpty) {
+        await http.put(Uri.parse(url),
+            headers: <String, String>{'Content-Type': 'image/jpeg'}, body: bytes);
+        imageKey = key;
+      }
     }
 
-    await client.rpc(
-      'parent_create_shop_product',
-      params: <String, dynamic>{
-        'p_title': title.trim(),
-        'p_description': description.trim().isEmpty ? null : description.trim(),
-        'p_price': price,
-        'p_image_path': imagePath,
+    await api.postJson(
+      '/shop/products',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'description': description.trim().isEmpty ? null : description.trim(),
+        'price': price,
+        'imageKey': imageKey,
       },
     );
   }
 
   Future<void> toggleProduct(String productId, bool next) async {
-    final client = _client;
-    if (client == null) return;
-    await client
-        .from('shop_products')
-        .update(<String, dynamic>{'is_active': next})
-        .eq('id', productId);
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/shop/products/$productId/toggle',
+      accessToken: token,
+      body: <String, dynamic>{'isActive': next},
+    );
   }
 
   Future<void> requestPurchase(String productId) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc(
-      'child_request_purchase',
-      params: <String, dynamic>{
-        'p_product_id': productId,
-        'p_quantity': 1,
-      },
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/shop/purchases/request',
+      accessToken: token,
+      body: <String, dynamic>{'productId': productId, 'quantity': 1},
     );
   }
 
   Future<List<ShopPurchaseItem>> getPendingPurchases(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('shop_purchases')
-        .select('id, total_price, status, shop_products(title), children(display_name, family_id)')
-        .eq('status', 'requested')
-        .order('created_at', ascending: false);
-
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .where((row) {
-      final child = row['children'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      return child['family_id']?.toString() == familyId;
-    })
-        .map((row) {
-      final product = row['shop_products'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      final child = row['children'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      return ShopPurchaseItem(
-        id: row['id'].toString(),
-        productTitle: (product['title'] ?? '').toString(),
-        childName: (child['display_name'] ?? '').toString(),
-        totalPrice: (row['total_price'] as num?)?.toInt() ?? 0,
-        status: (row['status'] ?? '').toString(),
-      );
-    }).toList();
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/shop/purchases/pending', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows
+        .map(
+          (row) => ShopPurchaseItem(
+            id: row['id'].toString(),
+            productTitle: (row['productTitle'] ?? '').toString(),
+            childName: (row['childName'] ?? '').toString(),
+            totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
+            status: (row['status'] ?? '').toString(),
+          ),
+        )
+        .toList();
   }
 
   Future<void> decidePurchase(String purchaseId, bool approve) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc(
-      'parent_decide_purchase',
-      params: <String, dynamic>{
-        'p_purchase_id': purchaseId,
-        'p_approve': approve,
-      },
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/shop/purchases/$purchaseId/decide',
+      accessToken: token,
+      body: <String, dynamic>{'approve': approve},
     );
   }
 }

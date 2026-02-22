@@ -8,13 +8,13 @@ import '../features/dashboard/pages/dashboard_page.dart';
 
 final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
-  ref.listen(authSessionProvider, (previous, next) => notifier.refresh());
+  ref.listen(adminSessionProvider, (previous, next) => notifier.refresh());
   ref.onDispose(notifier.dispose);
   return notifier;
 });
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final sessionAsync = ref.watch(authSessionProvider);
+  final sessionAsync = ref.watch(adminSessionProvider);
 
   return GoRouter(
     initialLocation: '/',

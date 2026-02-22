@@ -2,98 +2,110 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api_client.dart';
+import '../../../core/env.dart';
 import '../../../core/sdk.dart';
+import '../../auth/admin_session.dart';
 
-class DashboardPage extends StatefulWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage> {
   int _index = 0;
   bool _checkedAdmin = false;
-  final _repo = _AdminRepository();
-
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  bool _adminCheckStarted = false;
 
   @override
   void initState() {
     super.initState();
-    _checkAdmin();
   }
 
-  Future<void> _checkAdmin() async {
-    final client = _client;
-    if (client == null) return;
-    final user = client.auth.currentUser;
-    if (user == null) return;
-
+  Future<void> _checkAdmin(AdminSession session) async {
+    final api = Sdk.apiOrNull;
+    if (!Env.hasApiConfig || api == null) {
+      if (mounted) setState(() => _checkedAdmin = true);
+      return;
+    }
     try {
-      final row =
-          await client.from('profiles').select('role').eq('user_id', user.id).maybeSingle();
-      final role = row?['role']?.toString();
-      if (role != 'admin') {
-        await client.auth.signOut();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Нет доступа: требуется роль admin')),
-        );
-        return;
-      }
+      final res = await api.getJson('/me', accessToken: session.accessToken);
+      final user = (res['user'] as Map?) ?? const <String, dynamic>{};
+      final role = (user['role'] ?? '').toString();
+      if (role != 'admin') throw Exception('Нет доступа: требуется роль admin');
+
       if (mounted) setState(() => _checkedAdmin = true);
     } catch (_) {
-      if (mounted) setState(() => _checkedAdmin = true);
+      await ref.read(adminSessionProvider.notifier).clear();
+      if (!mounted) return;
+      setState(() => _checkedAdmin = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Нет доступа: требуется роль admin')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final sessionAsync = ref.watch(adminSessionProvider);
+    final session = sessionAsync.asData?.value;
+
+    if (session != null && !_adminCheckStarted) {
+      _adminCheckStarted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkAdmin(session));
+    }
+
+    final repo = _AdminRepository(
+      api: Sdk.apiOrNull,
+      accessToken: session?.accessToken,
+    );
+
     final pages = <Widget>[
       _TablePage(
         title: 'Семьи',
-        future: _repo.families(),
-        columns: const ['id', 'owner_user_id', 'family_code', 'clan_name'],
+        future: repo.families(),
+        columns: const ['id', 'ownerUserId', 'familyCode', 'clanName'],
       ),
       _TablePage(
         title: 'Пользователи',
-        future: _repo.profiles(),
-        columns: const ['user_id', 'family_id', 'role', 'display_name'],
+        future: repo.profiles(),
+        columns: const ['userId', 'familyId', 'role', 'displayName'],
       ),
-      _ChildrenAdminPage(repo: _repo),
+      _ChildrenAdminPage(repo: repo),
       _TablePage(
         title: 'Квесты',
-        future: _repo.quests(),
-        columns: const ['id', 'family_id', 'title', 'status', 'quest_type', 'reward_amount'],
+        future: repo.quests(),
+        columns: const ['id', 'familyId', 'title', 'status', 'questType', 'reward'],
       ),
       _TablePage(
         title: 'Магазин: товары',
-        future: _repo.products(),
-        columns: const ['id', 'family_id', 'title', 'price', 'is_active'],
+        future: repo.products(),
+        columns: const ['id', 'familyId', 'title', 'price', 'isActive'],
       ),
-      _PurchasesAdminPage(repo: _repo),
-      _SubscriptionsAdminPage(repo: _repo),
-      _PromocodesAdminPage(repo: _repo),
+      _PurchasesAdminPage(repo: repo),
+      _SubscriptionsAdminPage(repo: repo),
+      _PromocodesAdminPage(repo: repo),
       _TablePage(
         title: 'Платежи',
-        future: _repo.payments(),
-        columns: const ['id', 'family_id', 'provider', 'amount_rub', 'status', 'plan_code'],
+        future: repo.payments(),
+        columns: const ['id', 'familyId', 'amountRub', 'status', 'planCode', 'providerPaymentId', 'createdAt'],
       ),
-      _RequestsAdminPage(repo: _repo),
+      _RequestsAdminPage(repo: repo),
       _TablePage(
         title: 'Уведомления',
-        future: _repo.notifications(),
-        columns: const ['id', 'family_id', 'n_type', 'status', 'created_at'],
+        future: repo.notifications(),
+        columns: const ['id', 'familyId', 'nType', 'isRead', 'createdAt'],
       ),
       _TablePage(
         title: 'Аудит',
-        future: _repo.auditLogs(),
-        columns: const ['id', 'family_id', 'action', 'target_type', 'target_id', 'created_at'],
+        future: repo.auditLogs(),
+        columns: const ['id', 'familyId', 'actorUserId', 'action', 'createdAt'],
       ),
-      _SettingsSection(onSignOut: () => _client?.auth.signOut()),
+      _SettingsSection(onSignOut: () => ref.read(adminSessionProvider.notifier).clear()),
     ];
 
     return Scaffold(
@@ -223,8 +235,8 @@ class _ChildrenAdminPageState extends State<_ChildrenAdminPage> {
                       .map(
                         (row) => Card(
                           child: ListTile(
-                            title: Text((row['display_name'] ?? '').toString()),
-                            subtitle: Text('active: ${row['is_active']}'),
+                            title: Text((row['displayName'] ?? '').toString()),
+                            subtitle: Text('active: ${row['isActive']}'),
                             trailing: TextButton(
                               onPressed: () async {
                                 await widget.repo.deactivateChild(row['id'].toString());
@@ -255,7 +267,7 @@ class _SubscriptionsAdminPage extends StatelessWidget {
     return _TablePage(
       title: 'Подписки',
       future: repo.subscriptions(),
-      columns: const ['id', 'family_id', 'plan_code', 'status', 'expires_at', 'source'],
+      columns: const ['id', 'familyId', 'planCode', 'status', 'expiresAt', 'source'],
     );
   }
 }
@@ -374,8 +386,8 @@ class _PromocodesAdminPageState extends State<_PromocodesAdminPage> {
                     ...rows.map(
                       (row) => Card(
                         child: ListTile(
-                          title: Text('${row['code']} (${row['plan_code']})'),
-                          subtitle: Text('used ${row['used_count']}/${row['max_uses']}'),
+                          title: Text('${row['code']} (${row['planCode']})'),
+                          subtitle: Text('used ${row['usedCount']}/${row['maxUses']}'),
                         ),
                       ),
                     ),
@@ -429,8 +441,8 @@ class _PurchasesAdminPageState extends State<_PurchasesAdminPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text('id: ${row['id']}'),
-                                Text('child: ${row['child_id']}'),
-                                Text('price: ${row['total_price']}'),
+                                Text('child: ${row['childId']}'),
+                                Text('price: ${row['totalPrice']}'),
                                 Text('status: ${row['status']}'),
                                 if (row['status'] == 'requested')
                                   Row(
@@ -501,10 +513,10 @@ class _RequestsAdminPageState extends State<_RequestsAdminPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${row['child_last_name'] ?? ''} ${row['child_first_name'] ?? ''}',
+                                  '${row['lastName'] ?? ''} ${row['firstName'] ?? ''}',
                                 ),
-                                Text('family: ${row['family_id']}'),
-                                Text('device: ${row['device_id']}'),
+                                Text('family: ${row['familyId']}'),
+                                Text('device: ${row['deviceId']}'),
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
@@ -574,47 +586,48 @@ class _SettingsSection extends StatelessWidget {
 }
 
 class _AdminRepository {
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  _AdminRepository({required this.api, required this.accessToken});
 
-  Future<List<Map<String, dynamic>>> families() async =>
-      _read('families', 'id, owner_user_id, family_code, clan_name');
-  Future<List<Map<String, dynamic>>> profiles() async =>
-      _read('profiles', 'user_id, family_id, role, display_name');
-  Future<List<Map<String, dynamic>>> children() async =>
-      _read('children', 'id, family_id, display_name, is_active');
-  Future<List<Map<String, dynamic>>> quests() async =>
-      _read('quests', 'id, family_id, title, status, quest_type, reward_amount');
-  Future<List<Map<String, dynamic>>> products() async =>
-      _read('shop_products', 'id, family_id, title, price, is_active');
-  Future<List<Map<String, dynamic>>> purchases() async =>
-      _read('shop_purchases', 'id, child_id, total_price, status');
-  Future<List<Map<String, dynamic>>> subscriptions() async =>
-      _read('family_subscriptions', 'id, family_id, plan_code, status, expires_at, source');
-  Future<List<Map<String, dynamic>>> promocodes() async =>
-      _read('promo_codes', 'id, code, plan_code, duration_days, max_uses, used_count, is_active');
-  Future<List<Map<String, dynamic>>> payments() async =>
-      _read('payment_orders', 'id, family_id, provider, amount_rub, status, plan_code');
-  Future<List<Map<String, dynamic>>> notifications() async =>
-      _read('notifications', 'id, family_id, n_type, status, created_at');
-  Future<List<Map<String, dynamic>>> auditLogs() async =>
-      _read('audit_logs', 'id, family_id, action, target_type, target_id, created_at');
-  Future<List<Map<String, dynamic>>> pendingRequests() async =>
-      _read('child_access_requests', 'id, family_id, child_first_name, child_last_name, device_id, status',
-          filter: (q) => q.eq('status', 'pending'));
+  final ApiClient? api;
+  final String? accessToken;
 
-  Future<List<Map<String, dynamic>>> _read(
-    String table,
-    String fields, {
-    PostgrestFilterBuilder<List<Map<String, dynamic>>> Function(
-      PostgrestFilterBuilder<List<Map<String, dynamic>>> q,
-    )? filter,
+  bool get _hasAuth => api != null && (accessToken ?? '').isNotEmpty;
+
+  Future<List<Map<String, dynamic>>> families() => _getList('/admin/families');
+  Future<List<Map<String, dynamic>>> profiles() => _getList('/admin/profiles');
+  Future<List<Map<String, dynamic>>> children() => _getList('/admin/children');
+  Future<List<Map<String, dynamic>>> quests() => _getList('/admin/quests');
+  Future<List<Map<String, dynamic>>> products() => _getList('/admin/products');
+  Future<List<Map<String, dynamic>>> purchases() => _getList('/admin/purchases');
+  Future<List<Map<String, dynamic>>> subscriptions() => _getList('/admin/subscriptions');
+  Future<List<Map<String, dynamic>>> promocodes() => _getList('/admin/promocodes');
+  Future<List<Map<String, dynamic>>> payments() => _getList('/admin/payments');
+  Future<List<Map<String, dynamic>>> notifications() => _getList('/admin/notifications');
+  Future<List<Map<String, dynamic>>> auditLogs() => _getList('/admin/audit');
+  Future<List<Map<String, dynamic>>> pendingRequests() =>
+      _getList('/admin/access-requests', query: const {'status': 'pending'});
+
+  Future<List<Map<String, dynamic>>> _getList(
+    String path, {
+    Map<String, String>? query,
   }) async {
-    final client = _client;
-    if (client == null) return const [];
-    var q = client.from(table).select(fields);
-    if (filter != null) q = filter(q);
-    final rows = await q.order('created_at', ascending: false);
-    return (rows as List<dynamic>).map((dynamic e) => Map<String, dynamic>.from(e as Map)).toList();
+    if (!_hasAuth) return const [];
+    final res = await api!.getJson(path, accessToken: accessToken, query: query);
+    final items = res['items'];
+    if (items is List) {
+      return items
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    final data = res['data'];
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    return const [];
   }
 
   Future<void> createPromoCode({
@@ -623,42 +636,50 @@ class _AdminRepository {
     required int durationDays,
     required int maxUses,
   }) async {
-    final client = _client;
-    if (client == null) return;
-    await client.from('promo_codes').insert({
-      'code': code.toUpperCase(),
-      'plan_code': planCode,
-      'duration_days': durationDays,
-      'max_uses': maxUses,
-      'is_active': true,
-    });
+    if (!_hasAuth) return;
+    await api!.postJson(
+      '/admin/promocodes',
+      accessToken: accessToken,
+      body: <String, dynamic>{
+        'code': code.toUpperCase(),
+        'planCode': planCode,
+        'durationDays': durationDays,
+        'maxUses': maxUses,
+      },
+    );
   }
 
   Future<void> approveRequest(String requestId) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc('parent_approve_child_request', params: {'p_request_id': requestId});
+    if (!_hasAuth) return;
+    await api!.postJson(
+      '/admin/access-requests/$requestId/approve',
+      accessToken: accessToken,
+    );
   }
 
   Future<void> rejectRequest(String requestId) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc('parent_reject_child_request', params: {'p_request_id': requestId});
+    if (!_hasAuth) return;
+    await api!.postJson(
+      '/admin/access-requests/$requestId/reject',
+      accessToken: accessToken,
+    );
   }
 
   Future<void> deactivateChild(String childId) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc('parent_deactivate_child', params: {'p_child_id': childId});
+    if (!_hasAuth) return;
+    await api!.postJson(
+      '/admin/children/$childId/deactivate',
+      accessToken: accessToken,
+    );
   }
 
   Future<void> decidePurchase(String purchaseId, bool approve) async {
-    final client = _client;
-    if (client == null) return;
-    await client.rpc('parent_decide_purchase', params: {
-      'p_purchase_id': purchaseId,
-      'p_approve': approve,
-    });
+    if (!_hasAuth) return;
+    await api!.postJson(
+      '/admin/purchases/$purchaseId/decide',
+      accessToken: accessToken,
+      body: <String, dynamic>{'approve': approve},
+    );
   }
 }
 

@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/sdk.dart';
+import '../auth/child_session.dart';
+import '../auth/parent_session.dart';
 
 final notificationsRepositoryProvider = Provider<NotificationsRepository>(
-  (ref) => NotificationsRepository(),
+  (ref) => NotificationsRepository(ref),
 );
 
 class InAppNotificationItem {
@@ -24,62 +25,55 @@ class InAppNotificationItem {
 }
 
 class NotificationsRepository {
-  SupabaseClient? get _client => Sdk.supabaseOrNull;
+  NotificationsRepository(this.ref);
+  final Ref ref;
+
+  String? get _token {
+    final p = ref.read(parentSessionProvider).asData?.value?.accessToken;
+    if (p != null && p.isNotEmpty) return p;
+    return ref.read(childSessionProvider).asData?.value?.accessToken;
+  }
 
   Future<void> registerDevice({
-    String? userId,
-    String? childId,
     required String platform,
     required String pseudoPushToken,
   }) async {
-    final client = _client;
-    if (client == null) return;
-    await client.from('notification_devices').upsert(
-      <String, dynamic>{
-        'user_id': userId,
-        'child_id': childId,
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/notifications/devices/register',
+      accessToken: token,
+      body: <String, dynamic>{
         'platform': platform,
-        'push_token': pseudoPushToken,
-        'is_active': true,
-        'updated_at': DateTime.now().toIso8601String(),
+        'pushToken': pseudoPushToken,
       },
-      onConflict: 'push_token',
     );
   }
 
   Future<List<InAppNotificationItem>> listFamilyNotifications(String familyId) async {
-    final client = _client;
-    if (client == null) return const [];
-    final rows = await client
-        .from('notifications')
-        .select('id, n_type, status, payload, created_at')
-        .eq('family_id', familyId)
-        .order('created_at', ascending: false)
-        .limit(200);
-    return (rows as List<dynamic>)
-        .map((dynamic e) => e as Map<String, dynamic>)
-        .map(
-          (row) => InAppNotificationItem(
-            id: row['id'].toString(),
-            type: (row['n_type'] ?? '').toString(),
-            status: (row['status'] ?? '').toString(),
-            createdAt:
-                DateTime.tryParse((row['created_at'] ?? '').toString()) ??
-                    DateTime.now(),
-            payload:
-                (row['payload'] as Map<String, dynamic>? ?? <String, dynamic>{}),
-          ),
-        )
-        .toList();
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/notifications', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return InAppNotificationItem(
+        id: row['id'].toString(),
+        type: (row['nType'] ?? '').toString(),
+        status: (row['isRead'] == true) ? 'read' : 'new',
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
+        payload: (row['payload'] as Map<String, dynamic>? ?? <String, dynamic>{}),
+      );
+    }).toList();
   }
 
   Future<void> markRead(String id) async {
-    final client = _client;
-    if (client == null) return;
-    await client
-        .from('notifications')
-        .update(<String, dynamic>{'status': 'read'})
-        .eq('id', id);
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson('/notifications/$id/read', accessToken: token);
   }
 }
 
