@@ -4,23 +4,24 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_providers.dart';
 import '../features/auth/pages/login_page.dart';
-import '../features/dashboard/pages/dashboard_page.dart';
+import '../features/dashboard/pages/admin_dashboard_page.dart';
 
 final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
   final notifier = RouterRefreshNotifier();
-  ref.listen(adminSessionProvider, (previous, next) => notifier.refresh());
+  ref.listen(authSessionProvider, (previous, next) => notifier.refresh());
   ref.onDispose(notifier.dispose);
   return notifier;
 });
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final sessionAsync = ref.watch(adminSessionProvider);
+  final sessionAsync = ref.watch(authSessionProvider);
 
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: kDebugMode,
     refreshListenable: ref.watch(_routerRefreshProvider),
     redirect: (context, state) {
+      if (sessionAsync.isLoading) return null;
       final path = state.uri.path;
       final loggedIn = sessionAsync.asData?.value != null;
       final inLogin = path == '/login';
@@ -36,7 +37,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/',
-        builder: (context, state) => const DashboardPage(),
+        builder: (context, state) => const AdminDashboardPage(),
       ),
     ],
   );

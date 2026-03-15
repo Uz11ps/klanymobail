@@ -58,6 +58,42 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    String? accessToken,
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    final res = await http.delete(
+      _uri(path, query),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(body ?? <String, dynamic>{}),
+    );
+    return _decode(res);
+  }
+
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    String? accessToken,
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    final res = await http.patch(
+      _uri(path, query),
+      headers: <String, String>{
+        'Content-Type': 'application/json',
+        if (accessToken != null && accessToken.isNotEmpty)
+          'Authorization': 'Bearer $accessToken',
+      },
+      body: jsonEncode(body ?? <String, dynamic>{}),
+    );
+    return _decode(res);
+  }
+
   Map<String, dynamic> _decode(http.Response res) {
     final text = res.body;
     Object? parsed;

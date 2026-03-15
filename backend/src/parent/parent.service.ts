@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -9,21 +10,96 @@ type ParentUser = {
   familyId?: string | null;
 };
 
+type FamilyMemberType = "mom" | "child" | "grandma" | "grandpa";
+
 function ensureFamilyId(user: ParentUser): string {
   const familyId = user.familyId ?? null;
   if (!familyId) throw new ForbiddenException("Нет семьи");
   return familyId;
 }
 
+function generateChildAuthCode(): string {
+  return Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
+}
+
 @Injectable()
 export class ParentService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private parseFamilyMemberType(input: { memberType?: string; role?: string }): FamilyMemberType {
+    const memberType = (input.memberType ?? input.role ?? "").trim().toLowerCase();
+    if (
+      memberType !== "mom" &&
+      memberType !== "child" &&
+      memberType !== "grandma" &&
+      memberType !== "grandpa"
+    ) {
+      throw new BadRequestException("memberType должен быть mom/child/grandma/grandpa");
+    }
+    return memberType;
+  }
+
+  private async generateUniqueFamilyAccessCode(): Promise<string> {
+    for (let i = 0; i < 30; i += 1) {
+      const code = generateChildAuthCode();
+      const [memberCode, child] = await Promise.all([
+        this.prisma.familyMemberCode.findUnique({ where: { code } }),
+        this.prisma.child.findFirst({ where: { authCode: code } }),
+      ]);
+      if (!memberCode && !child) return code;
+    }
+    throw new BadRequestException("Не удалось сгенерировать уникальный код");
+  }
+
+  private async getFamilyGoalAmount(familyId: string): Promise<number> {
+    const row = await this.prisma.auditLog.findFirst({
+      where: { familyId, action: "family_goal_set" },
+      orderBy: { createdAt: "desc" },
+    });
+    const payload = (row?.payload ?? null) as { goalAmount?: number } | null;
+    const parsed = Math.trunc(Number(payload?.goalAmount ?? 0));
+    return parsed > 0 ? parsed : 10000;
+  }
+
+  private async ensurePremiumFamily(familyId: string): Promise<void> {
+    const activeSub = await this.prisma.familySubscription.findFirst({
+      where: { familyId, status: "active" },
+      orderBy: { startedAt: "desc" },
+    });
+    const isPremium = (activeSub?.planCode ?? "basic").toLowerCase() !== "basic";
+    if (!isPremium) {
+      throw new ForbiddenException("Аналитика доступна только на premium");
+    }
+  }
 
   async getFamilyContext(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const family = await this.prisma.family.findUnique({ where: { id: familyId } });
     if (!family) throw new NotFoundException("Семья не найдена");
-    return { familyId: family.id, familyCode: family.familyCode, clanName: family.clanName };
+    const goalAmount = await this.getFamilyGoalAmount(family.id);
+    return {
+      familyId: family.id,
+      familyCode: family.familyCode,
+      clanName: family.clanName,
+      goalAmount,
+    };
+  }
+
+  async setFamilyGoal(user: ParentUser, goalAmountRaw: number) {
+    const familyId = ensureFamilyId(user);
+    const goalAmount = Math.trunc(Number(goalAmountRaw ?? 0));
+    if (!Number.isFinite(goalAmount) || goalAmount <= 0) {
+      throw new BadRequestException("goalAmount должен быть > 0");
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        familyId,
+        actorUserId: user.userId,
+        action: "family_goal_set",
+        payload: { goalAmount },
+      },
+    });
+    return { ok: true, goalAmount };
   }
 
   async listParentMembers(user: ParentUser) {
@@ -50,9 +126,223 @@ export class ParentService {
     return {
       items: rows.map((c) => ({
         childId: c.id,
+        firstName: c.firstName,
+        lastName: c.lastName,
         displayName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim(),
         isActive: c.isActive,
       })),
+    };
+  }
+
+  async listFamilyMemberCodes(user: ParentUser) {
+    const familyId = ensureFamilyId(user);
+    const rows = await this.prisma.familyMemberCode.findMany({
+      where: { familyId },
+      orderBy: { createdAt: "desc" },
+    });
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        role: row.role,
+        code: row.code,
+        displayName: row.displayName,
+        createdAt: row.createdAt,
+      })),
+    };
+  }
+
+  private async getFamilyMemberCodeOrThrow(user: ParentUser, idRaw: string) {
+    const familyId = ensureFamilyId(user);
+    const id = (idRaw ?? "").trim();
+    if (!id) throw new BadRequestException("id обязателен");
+    const row = await this.prisma.familyMemberCode.findUnique({ where: { id } });
+    if (!row || row.familyId !== familyId) throw new NotFoundException("Код не найден");
+    return row;
+  }
+
+  async createFamilyMemberCode(
+    user: ParentUser,
+    input: { memberType?: string; role?: string; displayName: string },
+  ) {
+    const familyId = ensureFamilyId(user);
+    const memberType = this.parseFamilyMemberType(input);
+    const displayName = (input.displayName ?? "").trim();
+    if (!displayName) throw new BadRequestException("displayName обязателен");
+
+    const code = await this.generateUniqueFamilyAccessCode();
+    const isChild = memberType === "child";
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (isChild) {
+        const child = await tx.child.create({
+          data: {
+            familyId,
+            firstName: displayName,
+            lastName: null,
+            authCode: code,
+            isActive: true,
+          },
+        });
+        await tx.wallet.create({
+          data: { familyId, childId: child.id, balance: 0 },
+        });
+        const memberCode = await tx.familyMemberCode.create({
+          data: {
+            familyId,
+            role: memberType,
+            code,
+            displayName,
+            childId: child.id,
+          },
+        });
+        return { memberCode };
+      }
+
+      const pseudoEmail = `${familyId}.${code}@member.klany.local`;
+      const passwordHash = await bcrypt.hash(randomUUID(), 10);
+      const newUser = await tx.user.create({
+        data: {
+          email: pseudoEmail,
+          passwordHash,
+        },
+      });
+      await tx.profile.create({
+        data: {
+          userId: newUser.id,
+          familyId,
+          role: "parent",
+          displayName,
+        },
+      });
+      const memberCode = await tx.familyMemberCode.create({
+        data: {
+          familyId,
+          role: memberType,
+          code,
+          displayName,
+          userId: newUser.id,
+        },
+      });
+      return { memberCode };
+    });
+
+    return {
+      id: result.memberCode.id,
+      role: result.memberCode.role,
+      code: result.memberCode.code,
+      displayName: result.memberCode.displayName,
+      createdAt: result.memberCode.createdAt,
+    };
+  }
+
+  async regenerateFamilyMemberCode(user: ParentUser, idRaw: string) {
+    const row = await this.getFamilyMemberCodeOrThrow(user, idRaw);
+    const nextCode = await this.generateUniqueFamilyAccessCode();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const nextRow = await tx.familyMemberCode.update({
+        where: { id: row.id },
+        data: {
+          code: nextCode,
+        },
+      });
+      if (row.childId) {
+        await tx.child.update({
+          where: { id: row.childId },
+          data: { authCode: nextCode },
+        });
+      }
+      return nextRow;
+    });
+    return {
+      id: updated.id,
+      role: updated.role,
+      code: updated.code,
+      displayName: updated.displayName,
+      createdAt: updated.createdAt,
+    };
+  }
+
+  async deactivateFamilyMemberCode(user: ParentUser, idRaw: string) {
+    const row = await this.getFamilyMemberCodeOrThrow(user, idRaw);
+    await this.prisma.$transaction(async (tx) => {
+      if (row.childId) {
+        await tx.child.update({
+          where: { id: row.childId },
+          data: { authCode: null },
+        });
+      }
+      await tx.familyMemberCode.delete({ where: { id: row.id } });
+    });
+    return { ok: true };
+  }
+
+  async deleteFamilyMemberCode(user: ParentUser, idRaw: string) {
+    const row = await this.getFamilyMemberCodeOrThrow(user, idRaw);
+    await this.prisma.$transaction(async (tx) => {
+      if (row.childId) {
+        await tx.child.update({
+          where: { id: row.childId },
+          data: { authCode: null },
+        });
+      }
+      await tx.familyMemberCode.delete({ where: { id: row.id } });
+    });
+    return { ok: true };
+  }
+
+  async getChildProfile(user: ParentUser, childIdRaw: string) {
+    const familyId = ensureFamilyId(user);
+    const childId = (childIdRaw ?? "").trim();
+    if (!childId) throw new BadRequestException("childId обязателен");
+
+    const child = await this.prisma.child.findUnique({ where: { id: childId } });
+    if (!child || child.familyId !== familyId) throw new NotFoundException("Ребёнок не найден");
+
+    const wallet = await this.prisma.wallet.findUnique({ where: { childId } });
+    const assignments = await this.prisma.questAssignee.findMany({
+      where: { childId },
+      select: { status: true, submittedAt: true },
+      take: 500,
+    });
+
+    const stats = {
+      assigned: assignments.filter((x) => x.status === "assigned").length,
+      inProgress: assignments.filter((x) => x.status === "in_progress").length,
+      onReview: assignments.filter((x) => x.status === "submitted").length,
+      approved: assignments.filter((x) => x.status === "approved").length,
+    };
+
+    return {
+      childId: child.id,
+      displayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
+      isActive: child.isActive,
+      balance: wallet?.balance ?? 0,
+      stats,
+    };
+  }
+
+  async getFamilyAnalytics(user: ParentUser, periodDaysRaw?: number) {
+    const familyId = ensureFamilyId(user);
+    await this.ensurePremiumFamily(familyId);
+    const periodDays = Math.max(1, Math.min(365, Math.trunc(Number(periodDaysRaw ?? 30))));
+    const from = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
+
+    const [childrenCount, questsCompleted, walletTxCount] = await Promise.all([
+      this.prisma.child.count({ where: { familyId } }),
+      this.prisma.questAssignee.count({
+        where: { child: { familyId }, status: "approved", createdAt: { gte: from } },
+      }),
+      this.prisma.walletTransaction.count({
+        where: { wallet: { familyId }, createdAt: { gte: from } },
+      }),
+    ]);
+
+    return {
+      periodDays,
+      from: from.toISOString(),
+      childrenCount,
+      questsCompleted,
+      walletTxCount,
     };
   }
 
@@ -87,12 +377,31 @@ export class ParentService {
     if (req.status !== "pending") throw new BadRequestException("Запрос уже обработан");
 
     const result = await this.prisma.$transaction(async (tx) => {
+      let authCode = generateChildAuthCode();
+      for (let i = 0; i < 10; i += 1) {
+        const exists = await tx.child.findFirst({ where: { authCode } });
+        if (!exists) break;
+        authCode = generateChildAuthCode();
+      }
       const child = await tx.child.create({
         data: {
           familyId,
           firstName: req.firstName,
           lastName: req.lastName,
+          phone: req.phone,
+          email: req.email,
+          authCode,
+          passwordHash: req.passwordHash,
           isActive: true,
+        },
+      });
+      await tx.familyMemberCode.create({
+        data: {
+          familyId,
+          role: "child",
+          code: authCode,
+          displayName: [req.firstName, req.lastName].filter(Boolean).join(" ").trim() || req.firstName,
+          childId: child.id,
         },
       });
 
@@ -199,6 +508,77 @@ export class ParentService {
     });
     // Also revoke sessions/bindings.
     await this.revokeChildDevices(user, childId);
+
+    return { ok: true };
+  }
+
+  async updateChild(
+    user: ParentUser,
+    childIdRaw: string,
+    input: { firstName?: string; lastName?: string | null; isActive?: boolean },
+  ) {
+    const familyId = ensureFamilyId(user);
+    const childId = (childIdRaw ?? "").trim();
+    if (!childId) throw new BadRequestException("childId обязателен");
+    const child = await this.prisma.child.findUnique({ where: { id: childId } });
+    if (!child || child.familyId !== familyId) throw new NotFoundException("Ребёнок не найден");
+
+    const next: Record<string, unknown> = {};
+    if (typeof input.firstName === "string") {
+      const firstName = input.firstName.trim();
+      if (!firstName) throw new BadRequestException("firstName обязателен");
+      next.firstName = firstName;
+    }
+    if (input.lastName !== undefined) {
+      const lastName = (input.lastName ?? "").trim();
+      next.lastName = lastName || null;
+    }
+    if (typeof input.isActive === "boolean") {
+      next.isActive = input.isActive;
+      next.deactivatedAt = input.isActive ? null : new Date();
+    }
+    if (Object.keys(next).length === 0) return { ok: true };
+
+    await this.prisma.child.update({
+      where: { id: childId },
+      data: next,
+    });
+    if (input.isActive === false) {
+      await this.revokeChildDevices(user, childId);
+    }
+    return { ok: true };
+  }
+
+  async deleteChild(user: ParentUser, childIdRaw: string) {
+    const familyId = ensureFamilyId(user);
+    const childId = (childIdRaw ?? "").trim();
+    if (!childId) throw new BadRequestException("childId обязателен");
+    const child = await this.prisma.child.findUnique({ where: { id: childId } });
+    if (!child || child.familyId !== familyId) throw new NotFoundException("Ребёнок не найден");
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.familyMemberCode.deleteMany({ where: { familyId, childId } });
+      await tx.childAccessRequest.updateMany({
+        where: { familyId, childId },
+        data: { childId: null },
+      });
+      await tx.questEvidence.deleteMany({ where: { childId } });
+      await tx.questAssignee.deleteMany({ where: { childId } });
+      await tx.shopPurchase.deleteMany({ where: { childId } });
+      await tx.childSession.deleteMany({ where: { childId } });
+      await tx.childDeviceBinding.deleteMany({ where: { childId } });
+
+      const wallets = await tx.wallet.findMany({
+        where: { familyId, childId },
+        select: { id: true },
+      });
+      const walletIds = wallets.map((w) => w.id);
+      if (walletIds.length > 0) {
+        await tx.walletTransaction.deleteMany({ where: { walletId: { in: walletIds } } });
+      }
+      await tx.wallet.deleteMany({ where: { familyId, childId } });
+      await tx.child.delete({ where: { id: childId } });
+    });
 
     return { ok: true };
   }

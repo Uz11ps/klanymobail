@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.company" "\0"
-            VALUE "FileDescription", "klany_mobile" "\0"
+            VALUE "FileDescription", "Clan Capital" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "klany_mobile" "\0"
+            VALUE "InternalName", "Clan Capital" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.company. All rights reserved." "\0"
-            VALUE "OriginalFilename", "klany_mobile.exe" "\0"
-            VALUE "ProductName", "klany_mobile" "\0"
+            VALUE "OriginalFilename", "clan_capital.exe" "\0"
+            VALUE "ProductName", "Clan Capital" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

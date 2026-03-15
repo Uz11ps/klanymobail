@@ -17,18 +17,32 @@ class ParentQuestItem {
   ParentQuestItem({
     required this.id,
     required this.title,
+    required this.description,
     required this.status,
     required this.questType,
     required this.rewardAmount,
     required this.createdAt,
+    required this.distributionType,
+    required this.autoApprove,
+    required this.timeLimitMinutes,
+    required this.scheduleType,
+    required this.scheduleDays,
+    required this.childIds,
   });
 
   final String id;
   final String title;
+  final String description;
   final String status;
   final String questType;
   final int rewardAmount;
   final DateTime createdAt;
+  final String distributionType;
+  final bool autoApprove;
+  final int? timeLimitMinutes;
+  final String scheduleType;
+  final List<String> scheduleDays;
+  final List<String> childIds;
 }
 
 class ChildQuestAssignmentItem {
@@ -38,6 +52,12 @@ class ChildQuestAssignmentItem {
     required this.title,
     required this.status,
     required this.rewardAmount,
+    required this.distributionType,
+    required this.autoApprove,
+    required this.timeLimitMinutes,
+    required this.scheduleType,
+    required this.scheduleDays,
+    required this.createdAt,
     this.comment,
     this.dueAt,
   });
@@ -47,6 +67,12 @@ class ChildQuestAssignmentItem {
   final String title;
   final String status;
   final int rewardAmount;
+  final String distributionType;
+  final bool autoApprove;
+  final int? timeLimitMinutes;
+  final String scheduleType;
+  final List<String> scheduleDays;
+  final DateTime createdAt;
   final String? comment;
   final DateTime? dueAt;
 }
@@ -59,6 +85,7 @@ class ParentReviewItem {
     required this.title,
     required this.submittedAt,
     this.evidencePath,
+    this.evidenceUrl,
   });
 
   final String questId;
@@ -67,13 +94,11 @@ class ParentReviewItem {
   final String title;
   final DateTime? submittedAt;
   final String? evidencePath;
+  final String? evidenceUrl;
 }
 
 class FamilyChildLite {
-  FamilyChildLite({
-    required this.id,
-    required this.displayName,
-  });
+  FamilyChildLite({required this.id, required this.displayName});
 
   final String id;
   final String displayName;
@@ -89,6 +114,31 @@ class QuestsRepository {
       ref.read(parentSessionProvider).asData?.value?.accessToken;
   String? get _childToken =>
       ref.read(childSessionProvider).asData?.value?.accessToken;
+
+  Future<String?> _presignDownloadUrl({
+    required String token,
+    required String bucket,
+    required String objectKey,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null || objectKey.trim().isEmpty) return null;
+    try {
+      final res = await api.postJson(
+        '/storage/presign-download',
+        accessToken: token,
+        body: <String, dynamic>{
+          'bucket': bucket,
+          'objectKey': objectKey,
+          'expiresSeconds': 3600,
+        },
+      );
+      final url = res['url']?.toString();
+      if (url == null || url.isEmpty) return null;
+      return url;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<List<FamilyChildLite>> getFamilyChildren(String familyId) async {
     final api = Sdk.apiOrNull;
@@ -114,6 +164,11 @@ class QuestsRepository {
     required String questType,
     required DateTime? dueAt,
     required List<String> childIds,
+    required String distributionType,
+    required bool autoApprove,
+    required int? timeLimitMinutes,
+    required String scheduleType,
+    required List<String> scheduleDays,
   }) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken;
@@ -128,6 +183,11 @@ class QuestsRepository {
         'questType': questType,
         'dueAt': dueAt?.toIso8601String(),
         'childIds': childIds,
+        'distributionType': distributionType,
+        'autoApprove': autoApprove,
+        'timeLimitMinutes': timeLimitMinutes,
+        'scheduleType': scheduleType,
+        'scheduleDays': scheduleDays,
       },
     );
   }
@@ -143,16 +203,74 @@ class QuestsRepository {
       return ParentQuestItem(
         id: row['id'].toString(),
         title: (row['title'] ?? '').toString(),
+        description: (row['description'] ?? '').toString(),
         status: (row['status'] ?? '').toString(),
         questType: (row['questType'] ?? '').toString(),
         rewardAmount: (row['reward'] as num?)?.toInt() ?? 0,
-        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+        createdAt:
+            DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
             DateTime.now(),
+        distributionType: (row['distributionType'] ?? 'assigned').toString(),
+        autoApprove: row['autoApprove'] == true,
+        timeLimitMinutes: (row['timeLimitMinutes'] as num?)?.toInt(),
+        scheduleType: (row['scheduleType'] ?? 'none').toString(),
+        scheduleDays:
+            (row['scheduleDays'] as List<dynamic>? ?? const <dynamic>[])
+                .map((e) => e.toString())
+                .toList(),
+        childIds: (row['childIds'] as List<dynamic>? ?? const <dynamic>[])
+            .map((e) => e.toString())
+            .toList(),
       );
     }).toList();
   }
 
-  Future<List<ChildQuestAssignmentItem>> getChildAssignments(String childId) async {
+  Future<void> updateQuest({
+    required String questId,
+    required String title,
+    required String description,
+    required int rewardAmount,
+    required String questType,
+    required String status,
+    required List<String> childIds,
+    required String distributionType,
+    required bool autoApprove,
+    required int? timeLimitMinutes,
+    required String scheduleType,
+    required List<String> scheduleDays,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.patchJson(
+      '/quests/$questId',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'description': description.trim(),
+        'rewardAmount': rewardAmount,
+        'questType': questType.trim(),
+        'status': status.trim(),
+        'childIds': childIds,
+        'distributionType': distributionType,
+        'autoApprove': autoApprove,
+        'timeLimitMinutes': timeLimitMinutes,
+        'scheduleType': scheduleType,
+        'scheduleDays': scheduleDays,
+      },
+    );
+  }
+
+  Future<void> deleteQuest(String questId) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.deleteJson('/quests/$questId', accessToken: token);
+  }
+
+  Future<List<ChildQuestAssignmentItem>> getChildAssignments(
+    String childId,
+  ) async {
     final api = Sdk.apiOrNull;
     final token = _childToken;
     if (api == null || token == null) return const [];
@@ -166,10 +284,32 @@ class QuestsRepository {
         title: (row['title'] ?? '').toString(),
         status: (row['status'] ?? '').toString(),
         rewardAmount: (row['rewardAmount'] as num?)?.toInt() ?? 0,
+        distributionType: (row['distributionType'] ?? 'assigned').toString(),
+        autoApprove: row['autoApprove'] == true,
+        timeLimitMinutes: (row['timeLimitMinutes'] as num?)?.toInt(),
+        scheduleType: (row['scheduleType'] ?? 'none').toString(),
+        scheduleDays:
+            (row['scheduleDays'] as List<dynamic>? ?? const <dynamic>[])
+                .map((e) => e.toString())
+                .toList(),
+        createdAt:
+            DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.now(),
         comment: row['comment']?.toString(),
         dueAt: DateTime.tryParse((row['dueAt'] ?? '').toString()),
       );
     }).toList();
+  }
+
+  Future<void> takeFromMarket(String questId) async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/quests/child/take',
+      accessToken: token,
+      body: <String, dynamic>{'questId': questId},
+    );
   }
 
   Future<void> submitQuestWithEvidence({
@@ -192,8 +332,11 @@ class QuestsRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(Uri.parse(url),
-            headers: <String, String>{'Content-Type': 'image/jpeg'}, body: bytes);
+        await http.put(
+          Uri.parse(url),
+          headers: <String, String>{'Content-Type': 'image/jpeg'},
+          body: bytes,
+        );
         evidenceKey = key;
       }
     }
@@ -212,16 +355,27 @@ class QuestsRepository {
     final data = await api.getJson('/quests/review', accessToken: token);
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows.map((row) {
-      return ParentReviewItem(
-        questId: row['questId'].toString(),
-        childId: row['childId'].toString(),
-        childName: (row['childName'] ?? '').toString(),
-        title: (row['title'] ?? '').toString(),
-        submittedAt: DateTime.tryParse((row['submittedAt'] ?? '').toString()),
-        evidencePath: row['evidenceKey']?.toString(),
-      );
-    }).toList();
+    return Future.wait(
+      rows.map((row) async {
+        final evidencePath = row['evidenceKey']?.toString();
+        final evidenceUrl = (evidencePath != null && evidencePath.isNotEmpty)
+            ? await _presignDownloadUrl(
+                token: token,
+                bucket: 'quest-evidence',
+                objectKey: evidencePath,
+              )
+            : null;
+        return ParentReviewItem(
+          questId: row['questId'].toString(),
+          childId: row['childId'].toString(),
+          childName: (row['childName'] ?? '').toString(),
+          title: (row['title'] ?? '').toString(),
+          submittedAt: DateTime.tryParse((row['submittedAt'] ?? '').toString()),
+          evidencePath: evidencePath,
+          evidenceUrl: evidenceUrl,
+        );
+      }),
+    );
   }
 
   Future<void> reviewSubmission({
@@ -245,4 +399,3 @@ class QuestsRepository {
     );
   }
 }
-

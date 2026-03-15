@@ -51,7 +51,9 @@ class NotificationsRepository {
     );
   }
 
-  Future<List<InAppNotificationItem>> listFamilyNotifications(String familyId) async {
+  Future<List<InAppNotificationItem>> listFamilyNotifications(
+    String familyId,
+  ) async {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) return const [];
@@ -63,8 +65,11 @@ class NotificationsRepository {
         id: row['id'].toString(),
         type: (row['nType'] ?? '').toString(),
         status: (row['isRead'] == true) ? 'read' : 'new',
-        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
-        payload: (row['payload'] as Map<String, dynamic>? ?? <String, dynamic>{}),
+        createdAt:
+            DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.now(),
+        payload:
+            (row['payload'] as Map<String, dynamic>? ?? <String, dynamic>{}),
       );
     }).toList();
   }
@@ -75,5 +80,11 @@ class NotificationsRepository {
     if (api == null || token == null) return;
     await api.postJson('/notifications/$id/read', accessToken: token);
   }
-}
 
+  Future<void> clearAll() async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson('/notifications/clear', accessToken: token);
+  }
+}

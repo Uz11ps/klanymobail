@@ -26,6 +26,18 @@ class ChildWalletPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (walletSnap.connectionState == ConnectionState.waiting)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    if (walletSnap.hasError)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('Ошибка: ${walletSnap.error}'),
+                        ),
+                      ),
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.account_balance_wallet),
@@ -43,6 +55,14 @@ class ChildWalletPage extends ConsumerWidget {
                           final list = txSnap.data ?? const <WalletTxItem>[];
                           if (txSnap.connectionState == ConnectionState.waiting) {
                             return const Center(child: CircularProgressIndicator());
+                          }
+                          if (txSnap.hasError) {
+                            return Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text('Ошибка: ${txSnap.error}'),
+                              ),
+                            );
                           }
                           if (list.isEmpty) {
                             return const Card(

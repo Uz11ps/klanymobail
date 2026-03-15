@@ -8,11 +8,13 @@ class ParentFamilyContext {
     required this.familyId,
     required this.familyCode,
     this.clanName,
+    required this.goalAmount,
   });
 
   final String familyId;
   final String familyCode;
   final String? clanName;
+  final int goalAmount;
 }
 
 class ChildAccessRequestItem {
@@ -55,6 +57,41 @@ class ChildMemberItem {
   final bool isActive;
 }
 
+class FamilyMemberCodeItem {
+  FamilyMemberCodeItem({
+    required this.id,
+    required this.role,
+    required this.code,
+    required this.displayName,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String role;
+  final String code;
+  final String displayName;
+  final bool isActive;
+  final DateTime createdAt;
+}
+
+String familyMemberTypeLabel(String value) {
+  switch (value) {
+    case 'mom':
+      return 'Мама';
+    case 'child':
+      return 'Ребёнок';
+    case 'grandma':
+      return 'Бабушка';
+    case 'grandpa':
+      return 'Дедушка';
+    case 'parent':
+      return 'Взрослый';
+    default:
+      return value;
+  }
+}
+
 final parentAccessRepositoryProvider = Provider<ParentAccessRepository>(
   (ref) => ParentAccessRepository(ref),
 );
@@ -80,6 +117,18 @@ class ParentAccessRepository {
       familyId: (data['familyId'] ?? _familyId ?? '').toString(),
       familyCode: (data['familyCode'] ?? '').toString(),
       clanName: data['clanName']?.toString(),
+      goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+    );
+  }
+
+  Future<void> setFamilyGoal(int goalAmount) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/family/goal',
+      accessToken: token,
+      body: <String, dynamic>{'goalAmount': goalAmount},
     );
   }
 
@@ -154,6 +203,24 @@ class ParentAccessRepository {
     }).toList();
   }
 
+  Future<Map<String, dynamic>> getChildProfile(String childId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return <String, dynamic>{};
+    return api.getJson('/parent/children/$childId/profile', accessToken: token);
+  }
+
+  Future<Map<String, dynamic>> getPremiumAnalytics({int periodDays = 30}) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return <String, dynamic>{};
+    return api.getJson(
+      '/parent/analytics',
+      accessToken: token,
+      query: <String, String>{'periodDays': periodDays.toString()},
+    );
+  }
+
   Future<String> createParentInvite(String email) async {
     throw UnimplementedError('Инвайты будут добавлены следующим шагом');
   }
@@ -185,6 +252,88 @@ class ParentAccessRepository {
     final token = _token;
     if (api == null || token == null) return;
     await api.postJson('/parent/children/$childId/deactivate', accessToken: token);
+  }
+
+  Future<void> deleteChild(String childId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.deleteJson('/parent/children/$childId', accessToken: token);
+  }
+
+  Future<List<FamilyMemberCodeItem>> getFamilyMemberCodes() async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/parent/member-codes', accessToken: token);
+    final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return items.map((row) {
+      return FamilyMemberCodeItem(
+        id: (row['id'] ?? '').toString(),
+        role: (row['role'] ?? '').toString(),
+        code: (row['code'] ?? '').toString(),
+        displayName: (row['displayName'] ?? '').toString(),
+        isActive: row['isActive'] != false,
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      );
+    }).toList();
+  }
+
+  Future<FamilyMemberCodeItem> createFamilyMemberCode({
+    required String memberType,
+    required String displayName,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) {
+      throw Exception('API не настроен');
+    }
+    final data = await api.postJson(
+      '/parent/member-codes',
+      accessToken: token,
+      body: <String, dynamic>{
+        'memberType': memberType,
+        'displayName': displayName.trim(),
+      },
+    );
+    return FamilyMemberCodeItem(
+      id: (data['id'] ?? '').toString(),
+      role: (data['role'] ?? '').toString(),
+      code: (data['code'] ?? '').toString(),
+      displayName: (data['displayName'] ?? '').toString(),
+      isActive: data['isActive'] != false,
+      createdAt: DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
+    );
+  }
+
+  Future<FamilyMemberCodeItem> regenerateFamilyMemberCode(String codeId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('API не настроен');
+    final data = await api.postJson('/parent/member-codes/$codeId/regenerate', accessToken: token);
+    return FamilyMemberCodeItem(
+      id: (data['id'] ?? '').toString(),
+      role: (data['role'] ?? '').toString(),
+      code: (data['code'] ?? '').toString(),
+      displayName: (data['displayName'] ?? '').toString(),
+      isActive: data['isActive'] != false,
+      createdAt: DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
+    );
+  }
+
+  Future<void> deactivateFamilyMemberCode(String codeId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('API не настроен');
+    await api.postJson('/parent/member-codes/$codeId/deactivate', accessToken: token);
+  }
+
+  Future<void> deleteFamilyMemberCode(String codeId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('API не настроен');
+    await api.deleteJson('/parent/member-codes/$codeId', accessToken: token);
   }
 }
 

@@ -1,9 +1,9 @@
 services:
   postgres:
-    ports:
-      - "${POSTGRES_PORT:-5434}:5432"
     image: postgres:16-alpine
     container_name: klany-postgres
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-klany}
       POSTGRES_USER: ${POSTGRES_USER:-klany}
@@ -15,6 +15,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -22,6 +23,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+    restart: unless-stopped
 
   minio:
     image: minio/minio:RELEASE.2025-01-20T14-49-07Z
@@ -35,9 +37,11 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
+    restart: unless-stopped
 
-  # Temporary stub; replaced by NestJS in next todo.
   api:
+    build:
+      context: ./backend
     container_name: klany-api
     environment:
       PORT: "3000"
@@ -58,23 +62,45 @@ services:
       MINIO_BUCKET_QUEST_EVIDENCE: ${MINIO_BUCKET_QUEST_EVIDENCE:-quest-evidence}
       MINIO_BUCKET_SHOP_PRODUCTS: ${MINIO_BUCKET_SHOP_PRODUCTS:-shop-products}
       MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
     ports:
       - "${API_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy
-    build:
-      context: ./backend
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   nginx:
-    container_name: klany-nginx
-    ports:
-      - "${HTTP_PORT:-8080}:80"
     build:
       context: .
       dockerfile: ./infra/nginx/Dockerfile
+    container_name: klany-nginx
+    ports:
+      - "${HTTP_PORT:-8782}:80"
+      # Telegram allows webhooks on 8443 (HTTPS required)
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - "${NGINX_CERTS_DIR:-/opt/klany/shared/certs}:/etc/nginx/certs:ro"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
 volumes:
   postgres_data:

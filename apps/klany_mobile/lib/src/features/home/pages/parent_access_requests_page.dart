@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +16,21 @@ class ParentAccessRequestsPage extends ConsumerStatefulWidget {
 
 class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsPage> {
   bool _busy = false;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> _shareInvite(ParentFamilyContext contextData) async {
     final clanName = (contextData.clanName ?? '').trim().isEmpty

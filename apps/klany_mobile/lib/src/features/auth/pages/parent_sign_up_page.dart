@@ -15,14 +15,16 @@ class ParentSignUpPage extends ConsumerStatefulWidget {
 class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _recoveryEmail = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
 
   @override
   void dispose() {
     _name.dispose();
-    _email.dispose();
+    _phone.dispose();
+    _recoveryEmail.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -40,9 +42,10 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
     setState(() => _busy = true);
     try {
       await ref.read(authActionsProvider).parentSignUp(
-            email: _email.text,
+            phone: _phone.text,
             password: _password.text,
             displayName: _name.text,
+            recoveryEmail: _recoveryEmail.text,
           );
       if (!mounted) return;
       if (mounted) context.go('/parent');
@@ -59,7 +62,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Родитель: регистрация')),
+      appBar: AppBar(title: const Text('Пользователь: регистрация')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -78,11 +81,26 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _email,
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    autofillHints: const [AutofillHints.telephoneNumber],
+                    decoration: const InputDecoration(
+                      labelText: 'Телефон',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return 'Введите телефон';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _recoveryEmail,
                     keyboardType: TextInputType.emailAddress,
                     autofillHints: const [AutofillHints.email],
                     decoration: const InputDecoration(
-                      labelText: 'Email',
+                      labelText: 'Email для входа в веб-админку',
                       prefixIcon: Icon(Icons.email),
                     ),
                     validator: (v) {

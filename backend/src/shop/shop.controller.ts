@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 
 import { Roles } from "../auth/roles/roles.decorator";
@@ -29,6 +29,22 @@ export class ShopController {
   @Roles("parent", "admin")
   async toggle(@Req() req: any, @Param("id") id: string, @Body() body: { isActive: boolean }) {
     return this.shop.toggleProduct(req.user, id, body.isActive);
+  }
+
+  @Patch("shop/products/:id")
+  @Roles("parent", "admin")
+  async updateProduct(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { title?: string; description?: string | null; price?: number; isActive?: boolean },
+  ) {
+    return this.shop.updateProduct(req.user, id, body);
+  }
+
+  @Delete("shop/products/:id")
+  @Roles("parent", "admin")
+  async deleteProduct(@Req() req: any, @Param("id") id: string) {
+    return this.shop.deleteProduct(req.user, id);
   }
 
   @Post("shop/purchases/request")

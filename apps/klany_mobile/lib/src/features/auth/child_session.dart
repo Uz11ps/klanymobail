@@ -32,6 +32,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
   static const _kFamilyId = 'child_session_family_id';
   static const _kChildDisplayName = 'child_session_child_display_name';
   static const _kAccessToken = 'child_session_access_token';
+  static const _kRestoreHint = 'child_session_restore_hint';
 
   @override
   Future<ChildSession?> build() async {
@@ -40,6 +41,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     final savedFamilyId = prefs.getString(_kFamilyId);
     final savedDisplayName = prefs.getString(_kChildDisplayName);
     final savedAccessToken = prefs.getString(_kAccessToken);
+    final restoreHint = prefs.getBool(_kRestoreHint) ?? false;
 
     if ((savedChildId ?? '').isNotEmpty &&
         (savedFamilyId ?? '').isNotEmpty &&
@@ -52,10 +54,17 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
       );
     }
 
+    // Fast path for first app start: avoid network restore if no child session was ever created.
+    if (!restoreHint) return null;
+
     final device = await DeviceIdentityStore.getOrCreate();
     final restored = await ref
         .read(passwordlessChildRepositoryProvider)
-        .restoreSession(device);
+        .restoreSession(device)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => null,
+        );
     if (restored == null) return null;
 
     final session = ChildSession(
@@ -90,6 +99,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     await prefs.remove(_kFamilyId);
     await prefs.remove(_kChildDisplayName);
     await prefs.remove(_kAccessToken);
+    await prefs.remove(_kRestoreHint);
     state = const AsyncData(null);
   }
 
@@ -121,6 +131,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     await prefs.setString(_kFamilyId, session.familyId);
     await prefs.setString(_kChildDisplayName, session.childDisplayName);
     await prefs.setString(_kAccessToken, session.accessToken);
+    await prefs.setBool(_kRestoreHint, true);
   }
 }
 

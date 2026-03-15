@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
+import { AuthGuardJwt } from "../auth/guards/auth-guard-jwt";
 
 import { Roles } from "../auth/roles/roles.decorator";
 import { RolesGuard } from "../auth/roles/roles.guard";
@@ -14,6 +16,12 @@ export class ParentController {
   @Roles("parent", "admin")
   async familyContext(@Req() req: any) {
     return this.parent.getFamilyContext(req.user);
+  }
+
+  @Post("family/goal")
+  @Roles("parent", "admin")
+  async setFamilyGoal(@Req() req: any, @Body() body: { goalAmount: number }) {
+    return this.parent.setFamilyGoal(req.user, body.goalAmount);
   }
 
   @Get("parent/access-requests")
@@ -46,6 +54,52 @@ export class ParentController {
     return this.parent.listChildren(req.user);
   }
 
+  @Get("parent/member-codes")
+  @Roles("parent", "admin")
+  async memberCodes(@Req() req: any) {
+    return this.parent.listFamilyMemberCodes(req.user);
+  }
+
+  @Post("parent/member-codes")
+  @Roles("parent", "admin")
+  async createMemberCode(
+    @Req() req: any,
+    @Body() body: { memberType?: string; role?: string; displayName: string },
+  ) {
+    return this.parent.createFamilyMemberCode(req.user, body);
+  }
+
+  @Post("parent/member-codes/:id/regenerate")
+  @Roles("parent", "admin")
+  async regenerateMemberCode(@Req() req: any, @Param("id") id: string) {
+    return this.parent.regenerateFamilyMemberCode(req.user, id);
+  }
+
+  @Post("parent/member-codes/:id/deactivate")
+  @Roles("parent", "admin")
+  async deactivateMemberCode(@Req() req: any, @Param("id") id: string) {
+    return this.parent.deactivateFamilyMemberCode(req.user, id);
+  }
+
+  @Delete("parent/member-codes/:id")
+  @Roles("parent", "admin")
+  async deleteMemberCode(@Req() req: any, @Param("id") id: string) {
+    return this.parent.deleteFamilyMemberCode(req.user, id);
+  }
+
+  @Get("parent/children/:childId/profile")
+  @Roles("parent", "admin")
+  async childProfile(@Req() req: any, @Param("childId") childId: string) {
+    return this.parent.getChildProfile(req.user, childId);
+  }
+
+  @Get("parent/analytics")
+  @Roles("parent", "admin")
+  async analytics(@Req() req: any) {
+    const periodDaysRaw = Number(req.query?.periodDays ?? 30);
+    return this.parent.getFamilyAnalytics(req.user, periodDaysRaw);
+  }
+
   @Post("parent/grant-admin")
   @Roles("admin")
   async grantAdmin(@Req() req: any, @Body() body: { targetUserId: string }) {
@@ -62,6 +116,22 @@ export class ParentController {
   @Roles("parent", "admin")
   async deactivate(@Req() req: any, @Param("childId") childId: string) {
     return this.parent.deactivateChild(req.user, childId);
+  }
+
+  @Delete("parent/children/:childId")
+  @Roles("parent", "admin")
+  async deleteChild(@Req() req: any, @Param("childId") childId: string) {
+    return this.parent.deleteChild(req.user, childId);
+  }
+
+  @Patch("parent/children/:childId")
+  @Roles("parent", "admin")
+  async updateChild(
+    @Req() req: any,
+    @Param("childId") childId: string,
+    @Body() body: { firstName?: string; lastName?: string | null; isActive?: boolean },
+  ) {
+    return this.parent.updateChild(req.user, childId, body);
   }
 }
 

@@ -13,12 +13,14 @@ class ChildWaitApprovalPage extends ConsumerStatefulWidget {
   final String requestId;
 
   @override
-  ConsumerState<ChildWaitApprovalPage> createState() => _ChildWaitApprovalPageState();
+  ConsumerState<ChildWaitApprovalPage> createState() =>
+      _ChildWaitApprovalPageState();
 }
 
 class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
   Timer? _timer;
-  String _statusText = 'Запрос отправлен папе. Дождись подтверждения.';
+  String _statusText =
+      'Запрос отправлен родителю. После подтверждения вход выполнится автоматически.';
   bool _busy = false;
 
   @override
@@ -49,15 +51,15 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
     _busy = true;
     try {
       final device = await DeviceIdentityStore.getOrCreate();
-      final result = await ref.read(passwordlessChildRepositoryProvider).pollAccessRequest(
-            requestId: widget.requestId,
-            device: device,
-          );
+      final result = await ref
+          .read(passwordlessChildRepositoryProvider)
+          .pollAccessRequest(requestId: widget.requestId, device: device);
       if (!mounted || result == null) return;
 
       if (result.status == 'pending') {
         setState(() {
-          _statusText = 'Запрос отправлен папе. Дождись подтверждения.';
+          _statusText =
+              'Ожидаем подтверждение родителя. Если родитель подтвердит позже, откройте "Вход -> Ребёнок" на этом же устройстве.';
         });
         return;
       }
@@ -75,7 +77,9 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
           (result.familyId ?? '').isNotEmpty &&
           (result.accessToken ?? '').isNotEmpty) {
         _timer?.cancel();
-        await ref.read(childSessionProvider.notifier).activateFromApproval(
+        await ref
+            .read(childSessionProvider.notifier)
+            .activateFromApproval(
               childId: result.childId!,
               familyId: result.familyId!,
               childDisplayName: result.childDisplayName ?? '',
@@ -107,9 +111,18 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
               const SizedBox(height: 20),
               Text(_statusText, textAlign: TextAlign.center),
               const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _busy ? null : _poll,
+                child: const Text('Проверить сейчас'),
+              ),
+              const SizedBox(height: 8),
               TextButton(
                 onPressed: () => context.go('/auth/child/request'),
                 child: const Text('Отправить новую заявку'),
+              ),
+              TextButton(
+                onPressed: () => context.go('/auth/sign-in-role'),
+                child: const Text('К выбору роли'),
               ),
             ],
           ),
@@ -118,4 +131,3 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
     );
   }
 }
-

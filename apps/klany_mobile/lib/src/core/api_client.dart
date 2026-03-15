@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
@@ -15,6 +16,7 @@ class ApiClient {
   ApiClient(this.baseUrl);
 
   final String baseUrl;
+  static const Duration _timeout = Duration(seconds: 4);
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final p = path.startsWith('/') ? path : '/$path';
@@ -29,13 +31,18 @@ class ApiClient {
     String? accessToken,
     Map<String, String>? query,
   }) async {
-    final res = await http.get(
-      _uri(path, query),
-      headers: <String, String>{
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      },
-    );
+    final res = await http
+        .get(
+          _uri(path, query),
+          headers: <String, String>{
+            if (accessToken != null && accessToken.isNotEmpty)
+              'Authorization': 'Bearer $accessToken',
+          },
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () => throw TimeoutException('network_timeout'),
+        );
     return _decode(res);
   }
 
@@ -45,15 +52,66 @@ class ApiClient {
     Map<String, String>? query,
     Object? body,
   }) async {
-    final res = await http.post(
-      _uri(path, query),
-      headers: <String, String>{
-        'Content-Type': 'application/json',
-        if (accessToken != null && accessToken.isNotEmpty)
-          'Authorization': 'Bearer $accessToken',
-      },
-      body: jsonEncode(body ?? <String, dynamic>{}),
-    );
+    final res = await http
+        .post(
+          _uri(path, query),
+          headers: <String, String>{
+            'Content-Type': 'application/json',
+            if (accessToken != null && accessToken.isNotEmpty)
+              'Authorization': 'Bearer $accessToken',
+          },
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () => throw TimeoutException('network_timeout'),
+        );
+    return _decode(res);
+  }
+
+  Future<Map<String, dynamic>> patchJson(
+    String path, {
+    String? accessToken,
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    final res = await http
+        .patch(
+          _uri(path, query),
+          headers: <String, String>{
+            'Content-Type': 'application/json',
+            if (accessToken != null && accessToken.isNotEmpty)
+              'Authorization': 'Bearer $accessToken',
+          },
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () => throw TimeoutException('network_timeout'),
+        );
+    return _decode(res);
+  }
+
+  Future<Map<String, dynamic>> deleteJson(
+    String path, {
+    String? accessToken,
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    final res = await http
+        .delete(
+          _uri(path, query),
+          headers: <String, String>{
+            'Content-Type': 'application/json',
+            if (accessToken != null && accessToken.isNotEmpty)
+              'Authorization': 'Bearer $accessToken',
+          },
+          body: jsonEncode(body ?? <String, dynamic>{}),
+        )
+        .timeout(
+          _timeout,
+          onTimeout: () => throw TimeoutException('network_timeout'),
+        );
     return _decode(res);
   }
 
@@ -73,4 +131,3 @@ class ApiClient {
     throw ApiException(res.statusCode, parsed);
   }
 }
-

@@ -29,6 +29,13 @@ class ParentWalletsPage extends ConsumerWidget {
                       children: [
                         if (snapshot.connectionState == ConnectionState.waiting)
                           const CircularProgressIndicator(),
+                        if (snapshot.hasError)
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text('Ошибка: ${snapshot.error}'),
+                            ),
+                          ),
                         ...items.map(
                           (item) => Card(
                             child: ListTile(

@@ -13,6 +13,7 @@ export class StorageService {
   private internalClient: Client;
   private signerClient: Client;
   private ensuredBuckets = new Set<string>();
+  private enabled: boolean;
 
   constructor() {
     const endPoint = process.env.MINIO_ENDPOINT ?? "minio";
@@ -20,9 +21,7 @@ export class StorageService {
     const useSSL = toBool(process.env.MINIO_USE_SSL, false);
     const accessKey = process.env.MINIO_ACCESS_KEY ?? process.env.MINIO_ROOT_USER ?? "";
     const secretKey = process.env.MINIO_SECRET_KEY ?? process.env.MINIO_ROOT_PASSWORD ?? "";
-    if (!accessKey || !secretKey) {
-      // MinIO is optional in dev, but endpoints will fail with clear error.
-    }
+    this.enabled = Boolean(accessKey && secretKey);
 
     this.internalClient = new Client({
       endPoint,
@@ -50,7 +49,14 @@ export class StorageService {
     }
   }
 
+  private assertEnabled() {
+    if (!this.enabled) {
+      throw new BadRequestException("MinIO не настроен (MINIO_ACCESS_KEY/MINIO_SECRET_KEY)");
+    }
+  }
+
   private async ensureBucket(bucket: string) {
+    this.assertEnabled();
     if (this.ensuredBuckets.has(bucket)) return;
     const exists = await this.internalClient.bucketExists(bucket).catch(() => false);
     if (!exists) {
@@ -66,6 +72,7 @@ export class StorageService {
   }
 
   async presignUpload(bucketName: BucketName, objectKey: string, expiresSeconds: number) {
+    this.assertEnabled();
     const bucket = this.resolveBucket(bucketName);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");
@@ -76,6 +83,7 @@ export class StorageService {
   }
 
   async presignDownload(bucketName: BucketName, objectKey: string, expiresSeconds: number) {
+    this.assertEnabled();
     const bucket = this.resolveBucket(bucketName);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");
@@ -86,6 +94,7 @@ export class StorageService {
   }
 
   async uploadBuffer(bucketName: BucketName, objectKey: string, buffer: Buffer, contentType: string) {
+    this.assertEnabled();
     const bucket = this.resolveBucket(bucketName);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");

@@ -36,6 +36,7 @@ enum PaymentStatus {
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique
+  phone        String?  @unique
   passwordHash String
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
   lastLoginAt  DateTime? @db.Timestamptz(6)
@@ -69,8 +70,27 @@ model Family {
   accessRequests ChildAccessRequest[]
   deviceBindings ChildDeviceBinding[]
   childSessions ChildSession[]
+  memberCodes   FamilyMemberCode[]
 
   @@map("families")
+}
+
+model FamilyMemberCode {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familyId    String   @db.Uuid
+  code        String   @unique
+  role        String
+  displayName String
+  isActive    Boolean  @default(true)
+  deactivatedAt DateTime? @db.Timestamptz(6)
+  userId      String?  @db.Uuid
+  childId     String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  family      Family   @relation(fields: [familyId], references: [id])
+
+  @@index([familyId])
+  @@map("family_member_codes")
 }
 
 model Profile {
@@ -92,6 +112,10 @@ model Child {
   familyId    String   @db.Uuid
   firstName   String
   lastName    String?
+  phone       String?
+  email       String?
+  authCode    String?  @unique
+  passwordHash String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   deactivatedAt DateTime? @db.Timestamptz(6)
@@ -104,6 +128,8 @@ model Child {
   sessions    ChildSession[]
 
   @@index([familyId])
+  @@unique([phone], map: "children_phone_unique")
+  @@unique([email], map: "children_email_unique")
   @@map("children")
 }
 
@@ -112,6 +138,9 @@ model ChildAccessRequest {
   familyId   String   @db.Uuid
   firstName  String
   lastName   String?
+  phone      String?
+  email      String?
+  passwordHash String?
   deviceId   String
   deviceKey  String
   status     ChildAccessRequestStatus @default(pending)

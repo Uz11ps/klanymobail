@@ -8,6 +8,9 @@
 /.env.server
 /.env.server.*
 !.env.server.example
+/.env.deploy
+/.env.deploy.*
+!.env.deploy.example
 
 # Flutter / Dart artifacts (root-level safety; apps have their own .gitignore too)
 **/.dart_tool/
@@ -28,3 +31,10 @@
 **/dist/
 **/.npm/
 **/.pnpm-store/
+
+# Firebase secrets (NEVER commit service account keys)
+**/*firebase-adminsdk*.json
+**/*-firebase-adminsdk-*.json
+
+# built admin web for deploy
+infra/nginx/admin_web/

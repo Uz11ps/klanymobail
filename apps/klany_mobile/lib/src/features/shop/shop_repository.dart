@@ -21,6 +21,7 @@ class ShopProductItem {
     required this.isActive,
     this.description,
     this.imagePath,
+    this.imageUrl,
   });
 
   final String id;
@@ -29,6 +30,7 @@ class ShopProductItem {
   final bool isActive;
   final String? description;
   final String? imagePath;
+  final String? imageUrl;
 }
 
 class ShopPurchaseItem {
@@ -58,6 +60,31 @@ class ShopRepository {
   String? get _childToken =>
       ref.read(childSessionProvider).asData?.value?.accessToken;
 
+  Future<String?> _presignDownloadUrl({
+    required String token,
+    required String bucket,
+    required String objectKey,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null || objectKey.trim().isEmpty) return null;
+    try {
+      final res = await api.postJson(
+        '/storage/presign-download',
+        accessToken: token,
+        body: <String, dynamic>{
+          'bucket': bucket,
+          'objectKey': objectKey,
+          'expiresSeconds': 3600,
+        },
+      );
+      final url = res['url']?.toString();
+      if (url == null || url.isEmpty) return null;
+      return url;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<ShopProductItem>> getProducts(String familyId) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken ?? _childToken;
@@ -65,18 +92,27 @@ class ShopRepository {
     final data = await api.getJson('/shop/products', accessToken: token);
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => ShopProductItem(
-            id: row['id'].toString(),
-            title: (row['title'] ?? '').toString(),
-            description: row['description']?.toString(),
-            price: (row['price'] as num?)?.toInt() ?? 0,
-            imagePath: row['imageKey']?.toString(),
-            isActive: row['isActive'] == true,
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final imagePath = row['imageKey']?.toString();
+        final imageUrl = (imagePath != null && imagePath.isNotEmpty)
+            ? await _presignDownloadUrl(
+                token: token,
+                bucket: 'shop-products',
+                objectKey: imagePath,
+              )
+            : null;
+        return ShopProductItem(
+          id: row['id'].toString(),
+          title: (row['title'] ?? '').toString(),
+          description: row['description']?.toString(),
+          price: (row['price'] as num?)?.toInt() ?? 0,
+          imagePath: imagePath,
+          imageUrl: imageUrl,
+          isActive: row['isActive'] == true,
+        );
+      }),
+    );
   }
 
   Future<void> createProduct({
@@ -92,7 +128,8 @@ class ShopRepository {
     String? imageKey;
     if (imageFile != null) {
       final Uint8List bytes = await imageFile.readAsBytes();
-      final key = 'shop/${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4()}.jpg';
+      final key =
+          'shop/${DateTime.now().millisecondsSinceEpoch}-${_uuid.v4()}.jpg';
       final presign = await api.postJson(
         '/storage/presign-upload',
         accessToken: token,
@@ -100,8 +137,11 @@ class ShopRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(Uri.parse(url),
-            headers: <String, String>{'Content-Type': 'image/jpeg'}, body: bytes);
+        await http.put(
+          Uri.parse(url),
+          headers: <String, String>{'Content-Type': 'image/jpeg'},
+          body: bytes,
+        );
         imageKey = key;
       }
     }
@@ -129,6 +169,35 @@ class ShopRepository {
     );
   }
 
+  Future<void> updateProduct({
+    required String productId,
+    required String title,
+    required String description,
+    required int price,
+    required bool isActive,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.patchJson(
+      '/shop/products/$productId',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'description': description.trim().isEmpty ? null : description.trim(),
+        'price': price,
+        'isActive': isActive,
+      },
+    );
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.deleteJson('/shop/products/$productId', accessToken: token);
+  }
+
   Future<void> requestPurchase(String productId) async {
     final api = Sdk.apiOrNull;
     final token = _childToken;
@@ -144,7 +213,10 @@ class ShopRepository {
     final api = Sdk.apiOrNull;
     final token = _parentToken;
     if (api == null || token == null) return const [];
-    final data = await api.getJson('/shop/purchases/pending', accessToken: token);
+    final data = await api.getJson(
+      '/shop/purchases/pending',
+      accessToken: token,
+    );
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
     return rows
@@ -171,4 +243,3 @@ class ShopRepository {
     );
   }
 }
-

@@ -14,15 +14,104 @@ $$;
 
 create or replace function public.is_admin()
 returns boolean
-language sql
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set row_security = off
 stable
 as $$
-  select exists (
+begin
+  -- Allow running schema from scratch: helper is defined before tables.
+  if to_regclass('public.profiles') is null then
+    return false;
+  end if;
+
+  return exists (
     select 1
     from public.profiles p
     where p.user_id = auth.uid()
       and p.role = 'admin'
-  )
+  );
+end;
+$$;
+
+create or replace function public.current_profile_role()
+returns text
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set row_security = off
+stable
+as $$
+declare
+  v_role text;
+begin
+  if to_regclass('public.profiles') is null then
+    return null;
+  end if;
+
+  select p.role into v_role
+  from public.profiles p
+  where p.user_id = auth.uid();
+
+  return v_role;
+end;
+$$;
+
+create or replace function public.current_profile_family_id()
+returns uuid
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set row_security = off
+stable
+as $$
+declare
+  v_family_id uuid;
+begin
+  if to_regclass('public.profiles') is null then
+    return null;
+  end if;
+
+  select p.family_id into v_family_id
+  from public.profiles p
+  where p.user_id = auth.uid();
+
+  return v_family_id;
+end;
+$$;
+
+create or replace function public.admin_counts(p_period text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+set row_security = off
+stable
+as $$
+declare
+  v_from timestamptz;
+begin
+  if not public.is_admin() then
+    raise exception 'Access denied';
+  end if;
+
+  if p_period = 'today' then
+    v_from := date_trunc('day', now());
+  elsif p_period = '30d' then
+    v_from := now() - interval '30 days';
+  else
+    v_from := now() - interval '7 days';
+  end if;
+
+  return jsonb_build_object(
+    'families_new', (select count(*) from public.families where created_at >= v_from),
+    'children_new', (select count(*) from public.children where created_at >= v_from),
+    'access_requests_new', (select count(*) from public.child_access_requests where created_at >= v_from),
+    'purchases_new', (select count(*) from public.shop_purchases where created_at >= v_from),
+    'quests_submitted', (select count(*) from public.quest_assignees where submitted_at >= v_from and status = 'submitted')
+  );
+end;
 $$;
 
 -- ===== Core entities =====
@@ -210,14 +299,9 @@ using (
   public.is_admin()
   or user_id = auth.uid()
   or (
-    exists (
-      select 1
-      from public.profiles me
-      where me.user_id = auth.uid()
-        and me.role = 'parent'
-        and me.family_id is not null
-        and me.family_id = profiles.family_id
-    )
+    public.current_profile_role() = 'parent'
+    and public.current_profile_family_id() is not null
+    and public.current_profile_family_id() = profiles.family_id
   )
 );
 
@@ -901,6 +985,7 @@ as $$
 declare
   v_user_id uuid;
   v_parent_family_id uuid;
+  v_role text;
   v_request record;
   v_child_id uuid;
   v_display_name text;
@@ -913,11 +998,19 @@ begin
     raise exception 'Unauthorized';
   end if;
 
-  select p.family_id into v_parent_family_id
+  select p.role, p.family_id into v_role, v_parent_family_id
   from public.profiles p
   where p.user_id = v_user_id
     and p.role in ('parent', 'admin')
   limit 1;
+
+  -- Global admin can approve requests across families without being bound to one family_id.
+  if v_role = 'admin' and v_parent_family_id is null then
+    select r.family_id into v_parent_family_id
+    from public.child_access_requests r
+    where r.id = p_request_id
+    limit 1;
+  end if;
 
   if v_parent_family_id is null then
     raise exception 'Parent family not found';
@@ -1065,17 +1158,26 @@ as $$
 declare
   v_user_id uuid;
   v_parent_family_id uuid;
+  v_role text;
 begin
   v_user_id := auth.uid();
   if v_user_id is null then
     raise exception 'Unauthorized';
   end if;
 
-  select p.family_id into v_parent_family_id
+  select p.role, p.family_id into v_role, v_parent_family_id
   from public.profiles p
   where p.user_id = v_user_id
     and p.role in ('parent', 'admin')
   limit 1;
+
+  -- Global admin can reject requests across families without being bound to one family_id.
+  if v_role = 'admin' and v_parent_family_id is null then
+    select r.family_id into v_parent_family_id
+    from public.child_access_requests r
+    where r.id = p_request_id
+    limit 1;
+  end if;
 
   if v_parent_family_id is null then
     raise exception 'Parent family not found';
@@ -1730,12 +1832,48 @@ set search_path = public
 as $$
 declare
   v_user_id uuid;
+  v_family_id uuid;
+  v_profile_family_id uuid;
+  v_role text;
   v_wallet_id uuid;
   v_reward int;
 begin
   v_user_id := auth.uid();
   if v_user_id is null then
     raise exception 'Unauthorized';
+  end if;
+
+  select q.family_id into v_family_id
+  from public.quests q
+  where q.id = p_quest_id
+  limit 1;
+  if v_family_id is null then
+    raise exception 'Quest not found';
+  end if;
+
+  select p.role, p.family_id into v_role, v_profile_family_id
+  from public.profiles p
+  where p.user_id = v_user_id
+    and p.role in ('parent', 'admin')
+  limit 1;
+
+  if v_role is null then
+    raise exception 'Access denied';
+  end if;
+
+  if v_role = 'parent' and v_profile_family_id is distinct from v_family_id then
+    raise exception 'Access denied';
+  end if;
+
+  -- Only review submitted items.
+  if not exists (
+    select 1
+    from public.quest_assignees qa
+    where qa.quest_id = p_quest_id
+      and qa.child_id = p_child_id
+      and qa.status = 'submitted'
+  ) then
+    raise exception 'Submission not found';
   end if;
 
   if p_approve then
@@ -1898,12 +2036,23 @@ set search_path = public
 as $$
 declare
   v_user_id uuid;
+  v_role text;
+  v_profile_family_id uuid;
   v_row record;
   v_wallet_id uuid;
 begin
   v_user_id := auth.uid();
   if v_user_id is null then
     raise exception 'Unauthorized';
+  end if;
+
+  select p.role, p.family_id into v_role, v_profile_family_id
+  from public.profiles p
+  where p.user_id = v_user_id
+    and p.role in ('parent', 'admin')
+  limit 1;
+  if v_role is null then
+    raise exception 'Access denied';
   end if;
 
   select spu.*, c.family_id
@@ -1915,6 +2064,16 @@ begin
 
   if v_row.id is null then
     raise exception 'Purchase not found';
+  end if;
+
+  -- Parents can only decide purchases within their family.
+  if v_role = 'parent' and v_profile_family_id is distinct from v_row.family_id then
+    raise exception 'Access denied';
+  end if;
+
+  -- Only handle requested purchases once.
+  if v_row.status is distinct from 'requested' then
+    raise exception 'Purchase is not in requested status';
   end if;
 
   if p_approve then

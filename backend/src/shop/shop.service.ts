@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 type ParentUser = {
@@ -22,7 +23,10 @@ function ensureFamilyId(user: { familyId?: string | null }): string {
 
 @Injectable()
 export class ShopService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private async ensureWallet(childId: string, familyId: string) {
     const existing = await this.prisma.wallet.findUnique({ where: { childId } });
@@ -70,6 +74,58 @@ export class ShopService {
     return { ok: true };
   }
 
+  async updateProduct(
+    user: ParentUser,
+    productId: string,
+    input: { title?: string; description?: string | null; price?: number; isActive?: boolean },
+  ) {
+    const familyId = ensureFamilyId(user);
+    const row = await this.prisma.shopProduct.findUnique({ where: { id: productId } });
+    if (!row || row.familyId !== familyId) throw new NotFoundException("Товар не найден");
+
+    const next: Record<string, unknown> = {};
+    if (typeof input.title === "string") {
+      const title = input.title.trim();
+      if (!title) throw new BadRequestException("title обязателен");
+      next.title = title;
+    }
+    if (input.description !== undefined) {
+      const description = (input.description ?? "").trim();
+      next.description = description || null;
+    }
+    if (input.price !== undefined) {
+      const price = Math.trunc(Number(input.price));
+      if (!Number.isFinite(price) || price <= 0) throw new BadRequestException("price должен быть > 0");
+      next.price = price;
+    }
+    if (input.isActive !== undefined) {
+      next.isActive = input.isActive === true;
+    }
+    if (Object.keys(next).length === 0) return { ok: true };
+
+    await this.prisma.shopProduct.update({
+      where: { id: row.id },
+      data: next,
+    });
+    return { ok: true };
+  }
+
+  async deleteProduct(user: ParentUser, productId: string) {
+    const familyId = ensureFamilyId(user);
+    const row = await this.prisma.shopProduct.findUnique({ where: { id: productId } });
+    if (!row || row.familyId !== familyId) throw new NotFoundException("Товар не найден");
+    const purchasesCount = await this.prisma.shopPurchase.count({ where: { productId: row.id } });
+    if (purchasesCount > 0) {
+      await this.prisma.shopProduct.update({
+        where: { id: row.id },
+        data: { isActive: false },
+      });
+      return { ok: true, soft: true };
+    }
+    await this.prisma.shopProduct.delete({ where: { id: row.id } });
+    return { ok: true };
+  }
+
   async requestPurchase(user: ChildUser, productIdRaw: string, quantityRaw: number) {
     const familyId = ensureFamilyId(user);
     const productId = (productIdRaw ?? "").trim();
@@ -111,6 +167,36 @@ export class ShopService {
       });
     });
 
+    const parentProfiles = await this.prisma.profile.findMany({
+      where: {
+        familyId,
+        role: { in: ["parent", "admin"] },
+      },
+      select: { userId: true },
+      take: 100,
+    });
+    const recipients = [...new Set(parentProfiles.map((p) => p.userId).filter(Boolean))];
+    if (recipients.length > 0) {
+      await this.prisma.notification.createMany({
+        data: recipients.map((userId) => ({
+          familyId,
+          toUserId: userId,
+          nType: "shop_purchase_requested",
+          payload: {
+            purchaseId: purchase.id,
+            productTitle: product.title,
+            totalPrice: purchase.totalPrice,
+          },
+        })),
+      });
+    }
+    await this.notifications.notifyFamilyPush(
+      familyId,
+      "Новая заявка на покупку",
+      `${product.title} • ${purchase.totalPrice} монет`,
+      "shop_purchase_requested",
+    );
+
     return { purchaseId: purchase.id };
   }
 
@@ -147,10 +233,39 @@ export class ShopService {
     if (purchase.status !== "requested") throw new BadRequestException("Покупка уже обработана");
 
     if (approve) {
+      const parentProfiles = await this.prisma.profile.findMany({
+        where: {
+          familyId,
+          role: { in: ["parent", "admin"] },
+        },
+        select: { userId: true },
+        take: 100,
+      });
+      const recipients = [...new Set(parentProfiles.map((p) => p.userId).filter(Boolean))];
       await this.prisma.shopPurchase.update({
         where: { id: purchase.id },
         data: { status: "approved", decidedAt: new Date(), decidedBy: user.userId },
       });
+      if (recipients.length > 0) {
+        await this.prisma.notification.createMany({
+          data: recipients.map((userId) => ({
+            familyId,
+            toUserId: userId,
+            nType: "shop_purchase_approved",
+            payload: {
+              purchaseId: purchase.id,
+              productTitle: purchase.product.title,
+              totalPrice: purchase.totalPrice,
+            },
+          })),
+        });
+      }
+      await this.notifications.notifyFamilyPush(
+        familyId,
+        "Покупка подтверждена",
+        `${purchase.product.title} подтверждена`,
+        "shop_purchase_approved",
+      );
       return { ok: true };
     }
 
@@ -173,6 +288,36 @@ export class ShopService {
         data: { status: "rejected", decidedAt: new Date(), decidedBy: user.userId },
       });
     });
+
+    const parentProfiles = await this.prisma.profile.findMany({
+      where: {
+        familyId,
+        role: { in: ["parent", "admin"] },
+      },
+      select: { userId: true },
+      take: 100,
+    });
+    const recipients = [...new Set(parentProfiles.map((p) => p.userId).filter(Boolean))];
+    if (recipients.length > 0) {
+      await this.prisma.notification.createMany({
+        data: recipients.map((userId) => ({
+          familyId,
+          toUserId: userId,
+          nType: "shop_purchase_rejected",
+          payload: {
+            purchaseId: purchase.id,
+            productTitle: purchase.product.title,
+            totalPrice: purchase.totalPrice,
+          },
+        })),
+      });
+    }
+    await this.notifications.notifyFamilyPush(
+      familyId,
+      "Покупка отклонена",
+      `${purchase.product.title} отклонена`,
+      "shop_purchase_rejected",
+    );
 
     return { ok: true };
   }

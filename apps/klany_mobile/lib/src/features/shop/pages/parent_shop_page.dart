@@ -22,7 +22,8 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Ошибка: $error')),
       data: (family) {
-        if (family == null) return const Center(child: Text('Семья не найдена'));
+        if (family == null)
+          return const Center(child: Text('Семья не найдена'));
         final pages = <Widget>[
           _ParentProductsList(familyId: family.familyId),
           _ParentCreateProductForm(familyId: family.familyId),
@@ -35,8 +36,14 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
             onDestinationSelected: (i) => setState(() => _tab = i),
             destinations: const [
               NavigationDestination(icon: Icon(Icons.store), label: 'Товары'),
-              NavigationDestination(icon: Icon(Icons.add_box), label: 'Добавить'),
-              NavigationDestination(icon: Icon(Icons.shopping_bag), label: 'Запросы'),
+              NavigationDestination(
+                icon: Icon(Icons.add_box),
+                label: 'Добавить',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.shopping_bag),
+                label: 'Запросы',
+              ),
             ],
           ),
         );
@@ -45,42 +52,272 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
   }
 }
 
-class _ParentProductsList extends ConsumerWidget {
+class _ParentProductsList extends ConsumerStatefulWidget {
   const _ParentProductsList({required this.familyId});
   final String familyId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ParentProductsList> createState() =>
+      _ParentProductsListState();
+}
+
+class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
+  Future<List<ShopProductItem>>? _future;
+
+  void _reload() {
+    setState(() {
+      _future = ref.read(shopRepositoryProvider).getProducts(widget.familyId);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ShopProductItem>>(
-      future: ref.read(shopRepositoryProvider).getProducts(familyId),
+      future:
+          _future ??
+          ref.read(shopRepositoryProvider).getProducts(widget.familyId),
       builder: (context, snapshot) {
         final products = snapshot.data ?? const <ShopProductItem>[];
         return CustomScrollView(
           slivers: [
-            const SliverAppBar(pinned: true, title: Text('Магазин: товары')),
+            SliverAppBar(
+              pinned: true,
+              title: const Text('Магазин: товары'),
+              actions: [
+                IconButton(
+                  tooltip: 'Обновить',
+                  onPressed: _reload,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  children: products
-                      .map(
-                        (p) => Card(
-                          child: SwitchListTile(
-                            title: Text(p.title),
-                            subtitle: Text('${p.price} монет'),
-                            value: p.isActive,
-                            onChanged: (v) async {
-                              await ref.read(shopRepositoryProvider).toggleProduct(p.id, v);
-                              if (context.mounted) {
+                  children: [
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const Center(child: CircularProgressIndicator()),
+                    if (snapshot.hasError)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('Ошибка: ${snapshot.error}'),
+                        ),
+                      ),
+                    if (products.isEmpty &&
+                        snapshot.connectionState != ConnectionState.waiting)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Товаров пока нет'),
+                        ),
+                      ),
+                    ...products.map(
+                      (p) => Card(
+                        child: ListTile(
+                          leading: (p.imageUrl ?? '').isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    p.imageUrl!,
+                                    width: 52,
+                                    height: 52,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
+                                              Icons.image_not_supported,
+                                            ),
+                                  ),
+                                )
+                              : const Icon(Icons.image),
+                          title: Text(p.title),
+                          subtitle: Text(
+                            '${p.price} монет • ${p.isActive ? 'active' : 'inactive'}',
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) async {
+                              if (value == 'toggle') {
+                                await ref
+                                    .read(shopRepositoryProvider)
+                                    .toggleProduct(p.id, !p.isActive);
+                                if (!context.mounted) return;
+                                _reload();
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Статус товара обновлён')),
+                                  const SnackBar(
+                                    content: Text('Статус товара обновлён'),
+                                  ),
                                 );
                               }
+                              if (value == 'edit') {
+                                final titleCtl = TextEditingController(
+                                  text: p.title,
+                                );
+                                final descCtl = TextEditingController(
+                                  text: p.description ?? '',
+                                );
+                                final priceCtl = TextEditingController(
+                                  text: p.price.toString(),
+                                );
+                                var isActive = p.isActive;
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => StatefulBuilder(
+                                    builder: (ctx, setLocalState) =>
+                                        AlertDialog(
+                                          title: const Text(
+                                            'Редактировать товар',
+                                          ),
+                                          content: SingleChildScrollView(
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                TextField(
+                                                  controller: titleCtl,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText: 'Название',
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                TextField(
+                                                  controller: descCtl,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText: 'Описание',
+                                                      ),
+                                                  maxLines: 3,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                TextField(
+                                                  controller: priceCtl,
+                                                  keyboardType:
+                                                      TextInputType.number,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText: 'Цена',
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                SwitchListTile(
+                                                  contentPadding:
+                                                      EdgeInsets.zero,
+                                                  value: isActive,
+                                                  title: const Text('Активен'),
+                                                  onChanged: (v) =>
+                                                      setLocalState(
+                                                        () => isActive = v,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, false),
+                                              child: const Text('Отмена'),
+                                            ),
+                                            FilledButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(ctx, true),
+                                              child: const Text('Сохранить'),
+                                            ),
+                                          ],
+                                        ),
+                                  ),
+                                );
+                                if (ok == true) {
+                                  final price = int.tryParse(
+                                    priceCtl.text.trim(),
+                                  );
+                                  if (price == null || price <= 0) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Цена должна быть > 0'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  await ref
+                                      .read(shopRepositoryProvider)
+                                      .updateProduct(
+                                        productId: p.id,
+                                        title: titleCtl.text.trim(),
+                                        description: descCtl.text.trim(),
+                                        price: price,
+                                        isActive: isActive,
+                                      );
+                                  if (!context.mounted) return;
+                                  _reload();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Товар обновлён'),
+                                    ),
+                                  );
+                                }
+                              }
+                              if (value == 'delete') {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Удалить товар'),
+                                    content: const Text(
+                                      'Удалить товар с витрины?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Отмена'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Удалить'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await ref
+                                      .read(shopRepositoryProvider)
+                                      .deleteProduct(p.id);
+                                  if (!context.mounted) return;
+                                  _reload();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Товар удалён'),
+                                    ),
+                                  );
+                                }
+                              }
                             },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'toggle',
+                                child: Text(
+                                  p.isActive
+                                      ? 'Деактивировать'
+                                      : 'Активировать',
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Редактировать'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Удалить'),
+                              ),
+                            ],
                           ),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -100,7 +337,8 @@ class _ParentCreateProductForm extends ConsumerStatefulWidget {
       _ParentCreateProductFormState();
 }
 
-class _ParentCreateProductFormState extends ConsumerState<_ParentCreateProductForm> {
+class _ParentCreateProductFormState
+    extends ConsumerState<_ParentCreateProductForm> {
   final _title = TextEditingController();
   final _description = TextEditingController();
   final _price = TextEditingController(text: '100');
@@ -128,7 +366,9 @@ class _ParentCreateProductFormState extends ConsumerState<_ParentCreateProductFo
               children: [
                 TextField(
                   controller: _title,
-                  decoration: const InputDecoration(labelText: 'Название товара'),
+                  decoration: const InputDecoration(
+                    labelText: 'Название товара',
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -164,10 +404,13 @@ class _ParentCreateProductFormState extends ConsumerState<_ParentCreateProductFo
                         ? null
                         : () async {
                             final price = int.tryParse(_price.text.trim());
-                            if (price == null || _title.text.trim().isEmpty) return;
+                            if (price == null || _title.text.trim().isEmpty)
+                              return;
                             setState(() => _busy = true);
                             try {
-                              await ref.read(shopRepositoryProvider).createProduct(
+                              await ref
+                                  .read(shopRepositoryProvider)
+                                  .createProduct(
                                     title: _title.text,
                                     description: _description.text,
                                     price: price,
@@ -184,7 +427,9 @@ class _ParentCreateProductFormState extends ConsumerState<_ParentCreateProductFo
                             } catch (e) {
                               if (!mounted) return;
                               ScaffoldMessenger.of(this.context).showSnackBar(
-                                SnackBar(content: Text('Ошибка добавления: $e')),
+                                SnackBar(
+                                  content: Text('Ошибка добавления: $e'),
+                                ),
                               );
                             } finally {
                               if (mounted) setState(() => _busy = false);
@@ -202,14 +447,38 @@ class _ParentCreateProductFormState extends ConsumerState<_ParentCreateProductFo
   }
 }
 
-class _ParentPurchasesQueue extends ConsumerWidget {
+class _ParentPurchasesQueue extends ConsumerStatefulWidget {
   const _ParentPurchasesQueue({required this.familyId});
   final String familyId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ParentPurchasesQueue> createState() =>
+      _ParentPurchasesQueueState();
+}
+
+class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
+  Future<List<ShopPurchaseItem>>? _future;
+
+  void _reload() {
+    setState(() {
+      _future = ref
+          .read(shopRepositoryProvider)
+          .getPendingPurchases(widget.familyId);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ShopPurchaseItem>>(
-      future: ref.read(shopRepositoryProvider).getPendingPurchases(familyId),
+      future:
+          _future ??
+          ref.read(shopRepositoryProvider).getPendingPurchases(widget.familyId),
       builder: (context, snapshot) {
         final purchases = snapshot.data ?? const <ShopPurchaseItem>[];
         return CustomScrollView(
@@ -219,58 +488,89 @@ class _ParentPurchasesQueue extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  children: purchases
-                      .map(
-                        (p) => Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${p.productTitle} • ${p.totalPrice} монет'),
-                                Text('Ребёнок: ${p.childName}'),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () async {
-                                          await ref
-                                              .read(shopRepositoryProvider)
-                                              .decidePurchase(p.id, false);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Покупка отклонена')),
-                                            );
-                                          }
-                                        },
-                                        child: const Text('Отклонить'),
-                                      ),
+                  children: [
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const Center(child: CircularProgressIndicator()),
+                    if (snapshot.hasError)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('Ошибка: ${snapshot.error}'),
+                        ),
+                      ),
+                    if (purchases.isEmpty &&
+                        snapshot.connectionState != ConnectionState.waiting)
+                      const Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Text('Нет запросов на покупку'),
+                        ),
+                      ),
+                    ...purchases.map(
+                      (p) => Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${p.productTitle} • ${p.totalPrice} монет'),
+                              Text('Ребёнок: ${p.childName}'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () async {
+                                        await ref
+                                            .read(shopRepositoryProvider)
+                                            .decidePurchase(p.id, false);
+                                        if (mounted) _reload();
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Покупка отклонена',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Отклонить'),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: FilledButton(
-                                        onPressed: () async {
-                                          await ref
-                                              .read(shopRepositoryProvider)
-                                              .decidePurchase(p.id, true);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Покупка подтверждена')),
-                                            );
-                                          }
-                                        },
-                                        child: const Text('Подтвердить'),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: () async {
+                                        await ref
+                                            .read(shopRepositoryProvider)
+                                            .decidePurchase(p.id, true);
+                                        if (mounted) _reload();
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Покупка подтверждена',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Подтвердить'),
                                     ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -280,4 +580,3 @@ class _ParentPurchasesQueue extends ConsumerWidget {
     );
   }
 }
-

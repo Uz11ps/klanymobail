@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 
 import { Roles } from "../auth/roles/roles.decorator";
@@ -20,6 +20,12 @@ type CreatePromoBody = {
 
 type DecidePurchaseBody = {
   approve: boolean;
+};
+
+type CreateAdminAccountBody = {
+  email: string;
+  password: string;
+  displayName?: string;
 };
 
 @Controller()
@@ -99,6 +105,12 @@ export class AdminController {
     return this.admin.accessRequests(status);
   }
 
+  @Get("admin/admin-accounts")
+  @Roles("admin")
+  adminAccounts() {
+    return this.admin.adminAccounts();
+  }
+
   @Post("admin/promocodes")
   @Roles("admin")
   @HttpCode(HttpStatus.OK)
@@ -127,11 +139,79 @@ export class AdminController {
     return this.admin.deactivateChild(req.user as AdminUser, id);
   }
 
+  @Delete("admin/children/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  deleteChild(@Param("id") id: string, @Req() req: any) {
+    return this.admin.deleteChild(req.user as AdminUser, id);
+  }
+
+  @Patch("admin/children/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  updateChild(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() body: { firstName?: string; lastName?: string | null; isActive?: boolean },
+  ) {
+    return this.admin.updateChild(req.user as AdminUser, id, body);
+  }
+
+  @Patch("admin/products/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  updateProduct(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() body: { title?: string; description?: string | null; price?: number; isActive?: boolean },
+  ) {
+    return this.admin.updateProduct(req.user as AdminUser, id, body);
+  }
+
+  @Delete("admin/products/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  deleteProduct(@Param("id") id: string, @Req() req: any) {
+    return this.admin.deleteProduct(req.user as AdminUser, id);
+  }
+
+  @Patch("admin/quests/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  updateQuest(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Body() body: { title?: string; rewardAmount?: number; status?: string },
+  ) {
+    return this.admin.updateQuest(req.user as AdminUser, id, body);
+  }
+
+  @Delete("admin/quests/:id")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  deleteQuest(@Param("id") id: string, @Req() req: any) {
+    return this.admin.deleteQuest(req.user as AdminUser, id);
+  }
+
   @Post("admin/purchases/:id/decide")
   @Roles("admin")
   @HttpCode(HttpStatus.OK)
   decidePurchase(@Param("id") id: string, @Body() body: DecidePurchaseBody, @Req() req: any) {
     return this.admin.decidePurchase(req.user as AdminUser, id, body?.approve === true);
+  }
+
+  @Post("admin/admin-accounts")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  createAdminAccount(@Req() req: any, @Body() body: CreateAdminAccountBody) {
+    return this.admin.createAdminAccount(req.user as AdminUser, body);
+  }
+
+  @Delete("admin/admin-accounts/:userId")
+  @Roles("admin")
+  @HttpCode(HttpStatus.OK)
+  deleteAdminAccount(@Req() req: any, @Param("userId") userId: string) {
+    return this.admin.deleteAdminAccount(req.user as AdminUser, userId);
   }
 }
 

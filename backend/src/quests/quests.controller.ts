@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 
 import { Roles } from "../auth/roles/roles.decorator";
@@ -24,9 +24,43 @@ export class QuestsController {
     rewardAmount: number;
     questType: string;
     dueAt?: string | null;
-    childIds: string[];
+    childIds?: string[];
+    distributionType?: "assigned" | "exchange";
+    autoApprove?: boolean;
+    timeLimitMinutes?: number | null;
+    scheduleType?: "none" | "daily" | "weekly" | "custom_days";
+    scheduleDays?: string[] | null;
   }) {
     return this.quests.createQuest(req.user, body);
+  }
+
+  @Patch("quests/:id")
+  @Roles("parent", "admin")
+  async update(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: {
+      title?: string;
+      description?: string | null;
+      rewardAmount?: number;
+      status?: string;
+      questType?: string;
+      dueAt?: string | null;
+      childIds?: string[];
+      distributionType?: "assigned" | "exchange";
+      autoApprove?: boolean;
+      timeLimitMinutes?: number | null;
+      scheduleType?: "none" | "daily" | "weekly" | "custom_days";
+      scheduleDays?: string[] | null;
+    },
+  ) {
+    return this.quests.updateQuest(req.user, id, body);
+  }
+
+  @Delete("quests/:id")
+  @Roles("parent", "admin")
+  async delete(@Req() req: any, @Param("id") id: string) {
+    return this.quests.deleteQuest(req.user, id);
   }
 
   @Get("quests/parent")
@@ -39,6 +73,12 @@ export class QuestsController {
   @Roles("child")
   async childAssignments(@Req() req: any) {
     return this.quests.listChildAssignments(req.user);
+  }
+
+  @Post("quests/child/take")
+  @Roles("child")
+  async takeFromMarket(@Req() req: any, @Body() body: { questId: string }) {
+    return this.quests.takeFromMarket(req.user, body.questId);
   }
 
   @Post("quests/child/submit")

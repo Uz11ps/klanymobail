@@ -5,6 +5,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../auth/auth_actions.dart';
 import '../../auth/parent_access_repository.dart';
+import '../../onboarding/onboarding_store.dart';
+import '../../onboarding/onboarding_steps.dart';
+import '../../onboarding/onboarding_tour_dialog.dart';
 import '../../subscriptions/subscription_repository.dart';
 
 class ParentFamilySettingsPage extends ConsumerStatefulWidget {
@@ -18,14 +21,50 @@ class ParentFamilySettingsPage extends ConsumerStatefulWidget {
 class _ParentFamilySettingsPageState
     extends ConsumerState<ParentFamilySettingsPage> {
   final _inviteEmail = TextEditingController();
+  final _memberName = TextEditingController();
   final _promoCode = TextEditingController();
+  final _goalAmount = TextEditingController();
+  String _memberRole = 'mom';
   bool _busy = false;
 
   @override
   void dispose() {
     _inviteEmail.dispose();
+    _memberName.dispose();
     _promoCode.dispose();
+    _goalAmount.dispose();
     super.dispose();
+  }
+
+  Future<void> _createMemberCode() async {
+    if (_busy) return;
+    final name = _memberName.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите имя участника')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final code = await ref.read(parentAccessRepositoryProvider).createFamilyMemberCode(
+            memberType: _memberRole,
+            displayName: name,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Код для ${code.displayName}: ${code.code}')),
+      );
+      _memberName.clear();
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка создания кода: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _inviteByEmail(ParentFamilyContext family) async {
@@ -123,6 +162,53 @@ class _ParentFamilySettingsPageState
     }
   }
 
+  Future<void> _deleteChild(String childId) async {
+    if (_busy) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить ребёнка'),
+        content: const Text('Ребёнок будет удалён из семьи полностью. Продолжить?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Удалить')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(parentAccessRepositoryProvider).deleteChild(childId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ребёнок удалён')),
+        );
+      }
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка удаления: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _showTourAgain() async {
+    if (_busy) return;
+    await showOnboardingTourDialog(
+      context: context,
+      title: parentTourTitle,
+      steps: parentTourSteps,
+    );
+    await OnboardingStore.setParentTourSeen();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Обучение показано повторно')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final familyAsync = ref.watch(parentFamilyContextProvider);
@@ -133,16 +219,18 @@ class _ParentFamilySettingsPageState
       data: (family) {
         if (family == null) return const Center(child: Text('Семья не найдена'));
 
-        return FutureBuilder<(List<ParentMemberItem>, List<ChildMemberItem>)>(
+        return FutureBuilder<(List<ParentMemberItem>, List<ChildMemberItem>, List<FamilyMemberCodeItem>)>(
           future: () async {
             final repo = ref.read(parentAccessRepositoryProvider);
             final parents = await repo.getParentMembers(family.familyId);
             final children = await repo.getChildren(family.familyId);
-            return (parents, children);
+            final codes = await repo.getFamilyMemberCodes();
+            return (parents, children, codes);
           }(),
           builder: (context, snapshot) {
             final parents = snapshot.data?.$1 ?? const <ParentMemberItem>[];
             final children = snapshot.data?.$2 ?? const <ChildMemberItem>[];
+            final codes = snapshot.data?.$3 ?? const <FamilyMemberCodeItem>[];
 
             return CustomScrollView(
               slivers: [
@@ -172,6 +260,72 @@ class _ParentFamilySettingsPageState
                                 ? family.clanName!
                                 : 'Клан'),
                             subtitle: Text('Family ID: ${family.familyCode}'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.school),
+                            title: const Text('Показать обучение снова'),
+                            subtitle: const Text('Повторно открыть мини-тур по разделам'),
+                            onTap: _showTourAgain,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Общая цель семьи',
+                                    style: Theme.of(context).textTheme.titleSmall),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _goalAmount,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: 'Цель в 🏠',
+                                    hintText: family.goalAmount.toString(),
+                                    prefixIcon: const Icon(Icons.flag),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                FilledButton.tonal(
+                                  onPressed: _busy
+                                      ? null
+                                      : () async {
+                                                  final messenger =
+                                                      ScaffoldMessenger.of(context);
+                                          final parsed =
+                                              int.tryParse(_goalAmount.text.trim());
+                                          if (parsed == null || parsed <= 0) return;
+                                          setState(() => _busy = true);
+                                          try {
+                                            await ref
+                                                .read(parentAccessRepositoryProvider)
+                                                .setFamilyGoal(parsed);
+                                            ref.invalidate(parentFamilyContextProvider);
+                                            if (!mounted) return;
+                                                    messenger.showSnackBar(
+                                              const SnackBar(
+                                                  content: Text('Цель обновлена')),
+                                            );
+                                            _goalAmount.clear();
+                                          } catch (e) {
+                                            if (!mounted) return;
+                                                    messenger.showSnackBar(
+                                              SnackBar(
+                                                  content: Text('Ошибка обновления цели: $e')),
+                                            );
+                                          } finally {
+                                            if (mounted) setState(() => _busy = false);
+                                          }
+                                        },
+                                  child: const Text('Сохранить цель'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -291,6 +445,78 @@ class _ParentFamilySettingsPageState
                           },
                         ),
                         const SizedBox(height: 12),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Коды доступа членов семьи',
+                                    style: Theme.of(context).textTheme.titleSmall),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _memberName,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Имя участника',
+                                    prefixIcon: Icon(Icons.person),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _memberRole,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Роль участника',
+                                    prefixIcon: Icon(Icons.badge),
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'mom',
+                                      child: Text('Мама'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'child',
+                                      child: Text('Ребёнок'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'grandma',
+                                      child: Text('Бабушка'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'grandpa',
+                                      child: Text('Дедушка'),
+                                    ),
+                                  ],
+                                  onChanged: _busy
+                                      ? null
+                                      : (value) {
+                                          if (value == null) return;
+                                          setState(() => _memberRole = value);
+                                        },
+                                ),
+                                const SizedBox(height: 8),
+                                FilledButton.icon(
+                                  onPressed: _busy ? null : _createMemberCode,
+                                  icon: const Icon(Icons.password),
+                                  label: const Text('Создать код доступа'),
+                                ),
+                                const SizedBox(height: 8),
+                                ...codes.take(12).map(
+                                  (item) => ListTile(
+                                    dense: true,
+                                    leading: Icon(
+                                      item.role == 'child'
+                                          ? Icons.child_care
+                                          : Icons.family_restroom,
+                                    ),
+                                    title: Text('${item.displayName} — ${item.code}'),
+                                    subtitle: Text(familyMemberTypeLabel(item.role)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         TextFormField(
                           controller: _inviteEmail,
                           decoration: const InputDecoration(
@@ -303,6 +529,45 @@ class _ParentFamilySettingsPageState
                           onPressed: _busy ? null : () => _inviteByEmail(family),
                           icon: const Icon(Icons.share),
                           label: const Text('Пригласить второго родителя'),
+                        ),
+                        const SizedBox(height: 16),
+                        FutureBuilder<Map<String, dynamic>>(
+                          future: ref
+                              .read(parentAccessRepositoryProvider)
+                              .getPremiumAnalytics(periodDays: 30),
+                          builder: (context, analyticsSnap) {
+                            final data = analyticsSnap.data;
+                            if (analyticsSnap.hasError) {
+                              return Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    'Аналитика доступна на premium',
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              );
+                            }
+                            if (data == null || data.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Premium аналитика',
+                                        style: Theme.of(context).textTheme.titleSmall),
+                                    const SizedBox(height: 8),
+                                    Text('Дети: ${data['childrenCount'] ?? 0}'),
+                                    Text('Квесты завершены: ${data['questsCompleted'] ?? 0}'),
+                                    Text('Транзакции: ${data['walletTxCount'] ?? 0}'),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         Text('Родители', style: Theme.of(context).textTheme.titleMedium),
@@ -352,6 +617,15 @@ class _ParentFamilySettingsPageState
                                               ? null
                                               : () => _deactivateChild(c.childId),
                                           child: const Text('Деактивировать'),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: FilledButton(
+                                          onPressed: _busy
+                                              ? null
+                                              : () => _deleteChild(c.childId),
+                                          child: const Text('Удалить'),
                                         ),
                                       ),
                                     ],

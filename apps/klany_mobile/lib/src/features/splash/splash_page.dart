@@ -22,7 +22,7 @@ class SplashPage extends StatelessWidget {
                 child: Icon(Icons.family_restroom, size: 44, color: scheme.onPrimaryContainer),
               ),
               const SizedBox(height: 16),
-              Text('Klany', style: Theme.of(context).textTheme.headlineMedium),
+              Text('Clan Capital', style: Theme.of(context).textTheme.headlineMedium),
               const SizedBox(height: 12),
               const SizedBox(width: 160, child: LinearProgressIndicator()),
             ],

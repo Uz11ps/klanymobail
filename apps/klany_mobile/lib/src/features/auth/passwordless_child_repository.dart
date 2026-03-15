@@ -35,9 +35,12 @@ class ChildRestoreSessionResult {
 
 class PasswordlessChildRepository {
   Future<String> submitAccessRequest({
-    required String familyCode,
+    required String phone,
+    required String email,
     required String childFirstName,
-    required String childLastName,
+    required String password,
+    String? familyCode,
+    String? parentContact,
     required DeviceIdentity device,
   }) async {
     final api = Sdk.apiOrNull;
@@ -46,9 +49,14 @@ class PasswordlessChildRepository {
     final data = await api.postJson(
       '/child/access-request',
       body: <String, dynamic>{
-        'familyCode': familyCode.trim(),
+        'phone': phone.trim(),
+        'email': email.trim().toLowerCase(),
         'firstName': childFirstName.trim(),
-        'lastName': childLastName.trim(),
+        'password': password,
+        if ((familyCode ?? '').trim().isNotEmpty)
+          'familyCode': familyCode!.trim().toUpperCase(),
+        if ((parentContact ?? '').trim().isNotEmpty)
+          'parentContact': parentContact!.trim(),
         'deviceId': device.deviceId,
         'deviceKey': device.deviceKey,
       },
@@ -98,6 +106,67 @@ class PasswordlessChildRepository {
       childDisplayName: (data['childDisplayName'] ?? '').toString(),
       accessToken: (data['accessToken'] ?? '').toString(),
     );
+  }
+
+  Future<ChildRestoreSessionResult> signInWithPassword({
+    required String login,
+    required String password,
+    required DeviceIdentity device,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw Exception('API не настроен');
+
+    final data = await api.postJson(
+      '/child/sign-in',
+      body: <String, dynamic>{
+        'login': login.trim(),
+        'password': password,
+        'deviceId': device.deviceId,
+        'deviceKey': device.deviceKey,
+      },
+    );
+
+    return ChildRestoreSessionResult(
+      childId: (data['childId'] ?? '').toString(),
+      familyId: (data['familyId'] ?? '').toString(),
+      childDisplayName: (data['childDisplayName'] ?? '').toString(),
+      accessToken: (data['accessToken'] ?? '').toString(),
+    );
+  }
+
+  Future<ChildRestoreSessionResult> signInWithAuthCode({
+    required String authCode,
+    required DeviceIdentity device,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw Exception('API не настроен');
+
+    final data = await api.postJson(
+      '/child/sign-in-code',
+      body: <String, dynamic>{
+        'authCode': authCode.trim(),
+        'deviceId': device.deviceId,
+        'deviceKey': device.deviceKey,
+      },
+    );
+
+    return ChildRestoreSessionResult(
+      childId: (data['childId'] ?? '').toString(),
+      familyId: (data['familyId'] ?? '').toString(),
+      childDisplayName: (data['childDisplayName'] ?? '').toString(),
+      accessToken: (data['accessToken'] ?? '').toString(),
+    );
+  }
+
+  Future<String?> getMyAuthCode({required String accessToken}) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) return null;
+    final data = await api.getJson(
+      '/child/me/auth-code',
+      accessToken: accessToken,
+    );
+    final code = (data['authCode'] ?? '').toString().trim();
+    return code.isEmpty ? null : code;
   }
 }
 

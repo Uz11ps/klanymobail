@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "691168041459",
+    "project_id": "klany-push",
+    "storage_bucket": "klany-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:691168041459:android:43eefab9b45513786f5a86",
+        "android_client_info": {
+          "package_name": "com.company.klany_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVHSmcxzUyKahVHCxnOfPW5Ii4kWQM_Sk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
