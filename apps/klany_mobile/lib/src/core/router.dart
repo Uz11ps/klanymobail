@@ -8,9 +8,14 @@ import '../features/auth/child_session.dart';
 import '../features/auth/parent_session.dart';
 import '../features/auth/pages/auth_landing_page.dart';
 import '../features/auth/pages/child_request_access_page.dart';
+import '../features/auth/pages/child_sign_in_page.dart';
 import '../features/auth/pages/child_wait_approval_page.dart';
+import '../features/auth/pages/join_family_code_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
+import '../features/auth/pages/recover_access_page.dart';
+import '../features/auth/pages/sign_in_role_choice_page.dart';
+import '../features/auth/pages/sign_up_role_choice_page.dart';
 import '../features/home/pages/child_home_page.dart';
 import '../features/home/pages/parent_home_page.dart';
 import '../features/splash/splash_page.dart';
@@ -27,19 +32,42 @@ final _routerRefreshProvider = Provider<RouterRefreshNotifier>((ref) {
 });
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final parentSessionAsync = ref.watch(parentSessionProvider);
-  final role = ref.watch(appRoleProvider);
-  final childSessionAsync = ref.watch(childSessionProvider);
-
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/auth',
     debugLogDiagnostics: kDebugMode,
     refreshListenable: ref.watch(_routerRefreshProvider),
     redirect: (context, state) {
       final path = state.uri.path;
-      final parentLoggedIn = parentSessionAsync.asData?.value != null &&
+      final parentSessionAsync = ref.read(parentSessionProvider);
+      final role = ref.read(appRoleProvider);
+      final childSessionAsync = ref.read(childSessionProvider);
+
+      final parentSession = parentSessionAsync.asData?.value;
+      final childSession = childSessionAsync.asData?.value;
+
+      // Fast path: if parent session already restored, never wait for child restore.
+      if (parentSession != null && (role == AppRole.parent || role == null)) {
+        final inAuth = path.startsWith('/auth');
+        if (inAuth || path == '/' || path.isEmpty || path.startsWith('/child')) {
+          return '/parent';
+        }
+        return null;
+      }
+
+      // Never keep user on splash while async providers are restoring.
+      if ((parentSessionAsync.isLoading || childSessionAsync.isLoading) &&
+          (path == '/' || path.isEmpty)) {
+        return '/auth';
+      }
+
+      // Avoid redirect "flicker": wait until sessions are loaded from storage.
+      if (parentSessionAsync.isLoading || childSessionAsync.isLoading) {
+        return null;
+      }
+
+      final parentLoggedIn = parentSession != null &&
           (role == AppRole.parent || role == null);
-      final childLoggedIn = childSessionAsync.asData?.value != null;
+      final childLoggedIn = childSession != null;
       final inAuth = path.startsWith('/auth');
 
       if (!parentLoggedIn && !childLoggedIn) {
@@ -73,12 +101,39 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthLandingPage(),
         routes: [
           GoRoute(
+            path: 'join',
+            builder: (context, state) {
+              final role = state.uri.queryParameters['role'] ?? 'child';
+              return JoinFamilyCodePage(role: role);
+            },
+          ),
+          GoRoute(
             path: 'parent/sign-in',
             builder: (context, state) => const ParentSignInPage(),
           ),
           GoRoute(
+            path: 'admin/sign-in',
+            builder: (context, state) => const ParentSignInPage(isAdmin: true),
+          ),
+          GoRoute(
             path: 'parent/sign-up',
             builder: (context, state) => const ParentSignUpPage(),
+          ),
+          GoRoute(
+            path: 'sign-in/role',
+            builder: (context, state) => const SignInRoleChoicePage(),
+          ),
+          GoRoute(
+            path: 'child/sign-in',
+            builder: (context, state) => const ChildSignInPage(),
+          ),
+          GoRoute(
+            path: 'sign-up/role',
+            builder: (context, state) => const SignUpRoleChoicePage(),
+          ),
+          GoRoute(
+            path: 'recover',
+            builder: (context, state) => const RecoverAccessPage(),
           ),
           GoRoute(
             path: 'child/request',

@@ -11,7 +11,7 @@ class AuthLandingPage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Вход')),
+      appBar: AppBar(title: const Text('Clan Capital')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -29,75 +29,20 @@ class AuthLandingPage extends StatelessWidget {
                 ),
               ),
             if (!Env.hasApiConfig) const SizedBox(height: 16),
-            _RoleCard(
-              title: 'Я родитель',
-              subtitle: 'Email + пароль, управление семьёй и квестами',
-              icon: Icons.admin_panel_settings,
-              onTap: () => context.go('/auth/parent/sign-in'),
+            const Text(
+              'Выберите роль для входа в семью по персональному коду.',
             ),
             const SizedBox(height: 12),
-            _RoleCard(
-              title: 'Я ребёнок',
-              subtitle: 'Фамилия + имя + Family ID, подтверждение родителя',
-              icon: Icons.emoji_events,
-              onTap: () => context.go('/auth/child/request'),
+            FilledButton(
+              onPressed: () => context.go('/auth/join?role=parent'),
+              child: const Text('Я родитель'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => context.go('/auth/join?role=child'),
+              child: const Text('Я ребёнок'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: scheme.onPrimaryContainer),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
         ),
       ),
     );
