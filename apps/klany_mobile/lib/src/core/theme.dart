@@ -10,37 +10,44 @@ const _pageTransitions = PageTransitionsTheme(
   },
 );
 
+ThemeData _build(ColorScheme colorScheme) {
+  final base = ThemeData(
+    useMaterial3: true,
+    platform: TargetPlatform.android, // widgets look same on iOS and Android
+    colorScheme: colorScheme,
+    pageTransitionsTheme: _pageTransitions,
+  );
+
+  return base.copyWith(
+    textTheme: GoogleFonts.interTextTheme(base.textTheme),
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    // Consistent text field border on both platforms.
+    inputDecorationTheme: InputDecorationTheme(
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      filled: true,
+    ),
+    // Remove iOS extra bottom padding from NavigationBar.
+    navigationBarTheme: const NavigationBarThemeData(
+      height: 64,
+    ),
+    // Consistent card shape.
+    cardTheme: CardThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+    ),
+  );
+}
+
 class AppTheme {
-  static ThemeData light() {
-    final base = ThemeData(
-      useMaterial3: true,
-      platform: TargetPlatform.android,
-      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4F46E5)),
-      pageTransitionsTheme: _pageTransitions,
-    );
+  static ThemeData light() => _build(
+        ColorScheme.fromSeed(seedColor: const Color(0xFF4F46E5)),
+      );
 
-    return base.copyWith(
-      textTheme: GoogleFonts.interTextTheme(base.textTheme),
-      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  static ThemeData dark() {
-    final base = ThemeData(
-      useMaterial3: true,
-      platform: TargetPlatform.android,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF4F46E5),
-        brightness: Brightness.dark,
-      ),
-      pageTransitionsTheme: _pageTransitions,
-    );
-
-    return base.copyWith(
-      textTheme: GoogleFonts.interTextTheme(base.textTheme),
-      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
-    );
-  }
+  static ThemeData dark() => _build(
+        ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4F46E5),
+          brightness: Brightness.dark,
+        ),
+      );
 }
 
