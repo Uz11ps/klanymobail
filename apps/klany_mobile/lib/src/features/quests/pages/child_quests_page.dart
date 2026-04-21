@@ -44,7 +44,9 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         return RefreshIndicator(
           onRefresh: _reload,
           child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
             slivers: [
             const SliverAppBar(pinned: true, title: Text('Мои квесты')),
             SliverToBoxAdapter(
