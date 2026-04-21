@@ -40,7 +40,7 @@ class ParentWalletsPage extends ConsumerWidget {
                           (item) => Card(
                             child: ListTile(
                               title: Text(item.displayName),
-                              subtitle: Text('Баланс: ${item.balance}'),
+                              subtitle: Text('Баланс: ${item.balance} монет'),
                               trailing: TextButton(
                                 onPressed: () => _showAdjustDialog(context, ref, item),
                                 child: const Text('Корректировка'),
@@ -67,44 +67,87 @@ class ParentWalletsPage extends ConsumerWidget {
   ) async {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
+    bool isAdding = true;
+
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text('Корректировка: ${item.displayName}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Сумма (+/-)'),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Корректировка: ${item.displayName}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: isAdding ? Colors.green : null,
+                            foregroundColor: isAdding ? Colors.white : Colors.green,
+                            side: const BorderSide(color: Colors.green),
+                          ),
+                          onPressed: () => setState(() => isAdding = true),
+                          child: const Text('+ Начислить'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: !isAdding ? Colors.red : null,
+                            foregroundColor: !isAdding ? Colors.white : Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                          ),
+                          onPressed: () => setState(() => isAdding = false),
+                          child: const Text('− Списать'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Сумма (монет)',
+                      prefixText: isAdding ? '+' : '−',
+                      prefixStyle: TextStyle(
+                        color: isAdding ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: noteController,
+                    decoration: const InputDecoration(labelText: 'Комментарий'),
+                  ),
+                ],
               ),
-              TextField(
-                controller: noteController,
-                decoration: const InputDecoration(labelText: 'Комментарий'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final amount = int.tryParse(amountController.text.trim());
-                if (amount == null) return;
-                await ref.read(walletRepositoryProvider).adjustWallet(
-                      childId: item.childId,
-                      amount: amount,
-                      note: noteController.text,
-                    );
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Сохранить'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final raw = int.tryParse(amountController.text.trim());
+                    if (raw == null || raw <= 0) return;
+                    final amount = isAdding ? raw : -raw;
+                    await ref.read(walletRepositoryProvider).adjustWallet(
+                          childId: item.childId,
+                          amount: amount,
+                          note: noteController.text,
+                        );
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Сохранить'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

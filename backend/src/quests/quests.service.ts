@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 type ParentUser = {
@@ -22,7 +23,10 @@ function ensureFamilyId(user: { familyId?: string | null }): string {
 
 @Injectable()
 export class QuestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private static readonly META_PREFIX = "__QUEST_META__:";
 
@@ -650,6 +654,33 @@ export class QuestsService {
       }
     });
 
+    if (!meta.autoApprove) {
+      const child = await this.prisma.child.findUnique({ where: { id: user.childId } });
+      const childName = child ? [child.firstName, child.lastName].filter(Boolean).join(" ").trim() : "Ребёнок";
+      const parentProfiles = await this.prisma.profile.findMany({
+        where: { familyId: user.familyId, role: { in: ["parent", "admin"] } },
+        select: { userId: true },
+        take: 100,
+      });
+      const recipients = [...new Set(parentProfiles.map((p) => p.userId).filter(Boolean))];
+      if (recipients.length > 0) {
+        await this.prisma.notification.createMany({
+          data: recipients.map((userId) => ({
+            familyId: user.familyId,
+            toUserId: userId,
+            nType: "quest_submitted",
+            payload: { questId, childId: user.childId, questTitle: assignment.quest.title, childName },
+          })),
+        });
+      }
+      await this.notifications.notifyFamilyPush(
+        user.familyId,
+        "Квест выполнен",
+        `${childName} выполнил(а) «${assignment.quest.title}»`,
+        "quest_submitted",
+      );
+    }
+
     return { ok: true };
   }
 
@@ -785,6 +816,23 @@ export class QuestsService {
         }
       }
     });
+
+    const questTitle = assignment.quest.title;
+    if (approve) {
+      await this.notifications.notifyFamilyPush(
+        familyId,
+        "Квест подтверждён",
+        `«${questTitle}» — вам начислена награда!`,
+        "quest_approved",
+      );
+    } else {
+      await this.notifications.notifyFamilyPush(
+        familyId,
+        "Квест отклонён",
+        `«${questTitle}» — нужно выполнить ещё раз`,
+        "quest_rejected",
+      );
+    }
 
     return { ok: true };
   }
