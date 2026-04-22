@@ -181,18 +181,19 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                       const Text(
                         'CLAN CAPITAL',
                         style: TextStyle(
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.w900,
                           color: kChildBrandBlue,
-                          letterSpacing: 1.4,
+                          letterSpacing: 1.6,
+                          height: 1.05,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         'Главное: $displayName',
                         style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
                           color: kChildInk,
                         ),
                       ),
@@ -386,100 +387,143 @@ class _ChildHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF3B78E0), kChildBrandBlue, kChildBrandBlueDark],
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x4D2E63D8),
-            blurRadius: 28,
-            offset: Offset(0, 16),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [kChildBrandBlue, Color(0xFF5A8EFF)],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x471E2D52),
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // decorative orbit rings (top-right)
+            Positioned(
+              top: -32,
+              right: -32,
+              child: Container(
+                width: 140,
+                height: 140,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '$level',
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    width: 14,
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
+            ),
+            Positioned(
+              top: 20,
+              right: 10,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 82,
+                        height: 82,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.45),
+                            width: 2,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$level',
+                          style: const TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        height: 1.25,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                height: 1.05,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withValues(alpha: 0.92),
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ChildHeroMetric(
+                          title: 'БАЛАНС',
+                          value: '$balance ₽',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ChildHeroMetric(
+                          title: 'ЛИЧНО',
+                          value: personal.toString(),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ChildHeroMetric(
+                          title: 'БИРЖА',
+                          value: exchange.toString(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _ChildHeroMetric(
-                  title: 'БАЛАНС',
-                  value: '$balance ₽',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ChildHeroMetric(
-                  title: 'ЛИЧНО',
-                  value: personal.toString(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ChildHeroMetric(
-                  title: 'БИРЖА',
-                  value: exchange.toString(),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -546,21 +590,21 @@ class _ChildStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChildSoftCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, color: accentColor, size: 22),
+            child: Icon(icon, color: accentColor, size: 26),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Text(
             title,
             style: const TextStyle(
@@ -574,7 +618,7 @@ class _ChildStatCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              fontSize: 34,
+              fontSize: 40,
               fontWeight: FontWeight.w900,
               color: accentColor,
               height: 1,
