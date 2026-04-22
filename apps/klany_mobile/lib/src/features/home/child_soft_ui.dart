@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 // Brand palette reverse-engineered from the shipped APK snapshot.
 const Color kChildBrandBlue = Color(0xFF2E63D8);
@@ -481,6 +482,68 @@ InputDecoration clanInputDecoration({
       borderSide: const BorderSide(color: kChildBrandBlue, width: 1.6),
     ),
   );
+}
+
+class ClanSectionPage extends StatelessWidget {
+  const ClanSectionPage({
+    super.key,
+    required this.title,
+    required this.slivers,
+    this.onRefresh,
+    this.onRefreshAsync,
+  });
+
+  final String title;
+  final List<Widget> slivers;
+  final VoidCallback? onRefresh;
+  final Future<void> Function()? onRefreshAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: ClampingScrollPhysics(),
+      ),
+      slivers: [
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: kChildInk,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: kChildInk,
+            statusBarIconBrightness: Brightness.light,
+            statusBarBrightness: Brightness.dark,
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          actions: [
+            if (onRefresh != null)
+              IconButton(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh, color: Colors.white),
+              ),
+          ],
+        ),
+        ...slivers,
+      ],
+    );
+
+    return Container(
+      color: kChildSurfaceSoft,
+      child: onRefreshAsync != null
+          ? RefreshIndicator(onRefresh: onRefreshAsync!, child: body)
+          : body,
+    );
+  }
 }
 
 class ClanBackButton extends StatelessWidget {

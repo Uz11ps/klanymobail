@@ -275,7 +275,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                         const SizedBox(width: 14),
                         Expanded(
                           child: _ChildStatCard(
-                            icon: Icons.check_circle_outline,
+                            icon: Icons.check_circle,
                             accentColor: kChildAccentGreen,
                             title: 'БИРЖА',
                             value: '0',

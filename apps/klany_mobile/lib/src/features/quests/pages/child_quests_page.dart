@@ -41,111 +41,76 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
       return const Center(child: Text('Сессия ребёнка не найдена'));
     }
 
-    return Container(
-      color: kChildSurfaceSoft,
-      child: FutureBuilder<List<ChildQuestAssignmentItem>>(
-        future: _future ??
-            ref.read(questsRepositoryProvider).getChildAssignments(session.childId),
-        builder: (context, snapshot) {
-          final all = snapshot.data ?? const <ChildQuestAssignmentItem>[];
-          final personal = all
-              .where((a) => a.distributionType != 'exchange')
-              .toList();
-          final exchange = all
-              .where((a) => a.distributionType == 'exchange')
-              .toList();
+    return FutureBuilder<List<ChildQuestAssignmentItem>>(
+      future: _future ??
+          ref.read(questsRepositoryProvider).getChildAssignments(session.childId),
+      builder: (context, snapshot) {
+        final all = snapshot.data ?? const <ChildQuestAssignmentItem>[];
+        final personal = all
+            .where((a) => a.distributionType != 'exchange')
+            .toList();
+        final exchange = all
+            .where((a) => a.distributionType == 'exchange')
+            .toList();
 
-          final current = _tab == 0 ? personal : exchange;
+        final current = _tab == 0 ? personal : exchange;
 
-          return RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              ),
-              padding: EdgeInsets.zero,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Мои задачи',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: kChildInk,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _reload,
-                        icon: const Icon(Icons.refresh, color: kChildInk),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: _ChildQuestsHeroCard(),
-                ),
-                const SizedBox(height: 14),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _ChildQuestTabs(
+        return ClanSectionPage(
+          title: 'Мои задачи',
+          onRefresh: _reload,
+          onRefreshAsync: _reload,
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate.fixed([
+                  const _ChildQuestsHeroCard(),
+                  const SizedBox(height: 14),
+                  _ChildQuestTabs(
                     personalCount: personal.length,
                     exchangeCount: exchange.length,
                     current: _tab,
                     onSelected: (i) => setState(() => _tab = i),
                   ),
-                ),
-                const SizedBox(height: 14),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                if (snapshot.hasError)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ChildSoftCard(
+                  const SizedBox(height: 14),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  if (snapshot.hasError)
+                    ChildSoftCard(
                       child: Text('Ошибка: ${snapshot.error}'),
                     ),
-                  ),
-                if (!snapshot.hasError &&
-                    snapshot.connectionState != ConnectionState.waiting &&
-                    current.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ChildSoftCard(
+                  if (!snapshot.hasError &&
+                      snapshot.connectionState != ConnectionState.waiting &&
+                      current.isEmpty)
+                    ChildSoftCard(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 20),
                       child: Text(
                         _tab == 0
                             ? 'Личных задач пока нет'
                             : 'На бирже пока нет доступных задач',
-                        style:
-                            const TextStyle(color: kChildInkMuted),
+                        style: const TextStyle(color: kChildInkMuted),
+                      ),
+                    ),
+                  ...current.map(
+                    (item) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _ChildQuestCard(
+                        item: item,
+                        onChanged: _reload,
                       ),
                     ),
                   ),
-                ...current.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                    child: _ChildQuestCard(
-                      item: item,
-                      onChanged: _reload,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+                  const SizedBox(height: 20),
+                ]),
+              ),
             ),
-          );
-        },
-      ),
+          ],
+        );
+      },
     );
   }
 }
