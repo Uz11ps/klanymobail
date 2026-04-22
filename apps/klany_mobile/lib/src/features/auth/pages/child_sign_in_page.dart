@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../home/child_soft_ui.dart';
 import '../child_pin_store.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
@@ -78,7 +79,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
           const SnackBar(
             content: Text(
               'Сессия на этом устройстве не найдена. '
-              'Нажмите "Зарегистрироваться".',
+              'Нажмите «Зарегистрироваться».',
             ),
           ),
         );
@@ -159,7 +160,9 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
     if (!hasPin) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN не установлен. Войдите по паролю или устройству.')),
+        const SnackBar(
+          content: Text('PIN не установлен. Войдите по паролю или устройству.'),
+        ),
       );
       return;
     }
@@ -206,82 +209,139 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Вход ребёнка')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Доступные способы входа: код ребёнка, телефон/мейл + пароль, PIN-код, либо по айди устройства.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _authCode,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: const InputDecoration(
-                labelText: 'Код ребёнка (6 цифр)',
-                counterText: '',
-                prefixIcon: Icon(Icons.confirmation_number),
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: 'Вход ребёнка',
+      subtitle:
+          'Доступны: код ребёнка, телефон/мейл + пароль, PIN-код, либо вход по айди устройства.',
+      children: [
+        ChildSoftCard(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'По коду ребёнка',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _busy ? null : _codeSignIn,
-              icon: const Icon(Icons.vpn_key),
-              label: const Text('Вход по коду ребёнка'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _login,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Телефон или мейл',
-                prefixIcon: Icon(Icons.person),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _authCode,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: clanInputDecoration(
+                  label: 'Код ребёнка (6 цифр)',
+                  icon: Icons.confirmation_number,
+                  counterText: '',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Пароль',
-                prefixIcon: Icon(Icons.lock),
+              const SizedBox(height: 12),
+              ClanPrimaryButton(
+                label: 'Вход по коду ребёнка',
+                icon: Icons.vpn_key,
+                busy: _busy,
+                onPressed: _busy ? null : _codeSignIn,
               ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _busy ? null : _passwordSignIn,
-              icon: const Icon(Icons.login),
-              label: const Text('Вход по телефону/мейлу + паролю'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _pinSignIn,
-              icon: const Icon(Icons.pin),
-              label: const Text('Вход по PIN-коду'),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: _busy ? null : () => _quickSignIn(requirePin: false),
-              icon: const Icon(Icons.smartphone),
-              label: Text(_busy ? 'Входим...' : 'Вход по айди устройства'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : () => context.go('/auth/child/request'),
-              icon: const Icon(Icons.person_add),
-              label: const Text('Зарегистрироваться'),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: _busy ? null : () => context.go('/auth/sign-in/role'),
-              child: const Text('Назад к выбору роли'),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 14),
+        ChildSoftCard(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'По телефону/мейлу и паролю',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _login,
+                keyboardType: TextInputType.emailAddress,
+                decoration: clanInputDecoration(
+                  label: 'Телефон или мейл',
+                  icon: Icons.person,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _password,
+                obscureText: true,
+                decoration: clanInputDecoration(
+                  label: 'Пароль',
+                  icon: Icons.lock,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ClanPrimaryButton(
+                label: 'Вход по паролю',
+                icon: Icons.login,
+                busy: _busy,
+                onPressed: _busy ? null : _passwordSignIn,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        ChildSoftCard(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Быстрый вход на этом устройстве',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ClanPrimaryButton(
+                label: _busy ? 'Входим...' : 'Вход по айди устройства',
+                icon: Icons.smartphone,
+                busy: _busy,
+                onPressed: _busy ? null : () => _quickSignIn(requirePin: false),
+              ),
+              const SizedBox(height: 10),
+              ClanSecondaryButton(
+                label: 'Вход по PIN-коду',
+                icon: Icons.pin,
+                onPressed: _busy ? null : _pinSignIn,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        ClanSecondaryButton(
+          label: 'Зарегистрироваться',
+          icon: Icons.person_add,
+          onPressed: _busy ? null : () => context.go('/auth/child/request'),
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: TextButton(
+            onPressed:
+                _busy ? null : () => context.go('/auth/sign-in/role'),
+            child: const Text(
+              'Назад к выбору роли',
+              style: TextStyle(
+                color: kChildBrandBlue,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

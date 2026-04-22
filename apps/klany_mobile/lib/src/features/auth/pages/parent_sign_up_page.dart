@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
+import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 
 class ParentSignUpPage extends ConsumerStatefulWidget {
@@ -34,7 +35,9 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
 
     if (!Env.hasApiConfig) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы зарегистрироваться')),
+        const SnackBar(
+          content: Text('Заполните .env (API_BASE_URL) чтобы зарегистрироваться'),
+        ),
       );
       return;
     }
@@ -48,7 +51,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
             recoveryEmail: _recoveryEmail.text,
           );
       if (!mounted) return;
-      if (mounted) context.go('/parent');
+      context.go('/parent');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -61,89 +64,83 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Пользователь: регистрация')),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Имя (необязательно)',
-                      prefixIcon: Icon(Icons.person),
-                    ),
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: 'Пользователь: регистрация',
+      subtitle:
+          'Создайте родительский аккаунт по телефону. Email нужен для входа в веб-админку.',
+      children: [
+        Form(
+          key: _formKey,
+          child: ChildSoftCard(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: clanInputDecoration(
+                    label: 'Имя (необязательно)',
+                    icon: Icons.person,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phone,
-                    keyboardType: TextInputType.phone,
-                    autofillHints: const [AutofillHints.telephoneNumber],
-                    decoration: const InputDecoration(
-                      labelText: 'Телефон',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Введите телефон';
-                      return null;
-                    },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  autofillHints: const [AutofillHints.telephoneNumber],
+                  decoration: clanInputDecoration(
+                    label: 'Телефон',
+                    icon: Icons.phone,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _recoveryEmail,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [AutofillHints.email],
-                    decoration: const InputDecoration(
-                      labelText: 'Email для входа в веб-админку',
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Введите email';
-                      if (!value.contains('@')) return 'Некорректный email';
-                      return null;
-                    },
+                  validator: (v) {
+                    final value = (v ?? '').trim();
+                    if (value.isEmpty) return 'Введите телефон';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _recoveryEmail,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  decoration: clanInputDecoration(
+                    label: 'Email для входа в веб-админку',
+                    icon: Icons.email,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.newPassword],
-                    decoration: const InputDecoration(
-                      labelText: 'Пароль',
-                      prefixIcon: Icon(Icons.lock),
-                      helperText: 'Минимум 6 символов',
-                    ),
-                    validator: (v) =>
-                        (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
+                  validator: (v) {
+                    final value = (v ?? '').trim();
+                    if (value.isEmpty) return 'Введите email';
+                    if (!value.contains('@')) return 'Некорректный email';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _password,
+                  obscureText: true,
+                  autofillHints: const [AutofillHints.newPassword],
+                  decoration: clanInputDecoration(
+                    label: 'Пароль',
+                    icon: Icons.lock,
+                    hint: 'Минимум 6 символов',
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Создать аккаунт'),
-                    ),
-                  ),
-                ],
-              ),
+                  validator: (v) =>
+                      (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
+                ),
+                const SizedBox(height: 18),
+                ClanPrimaryButton(
+                  label: _busy ? 'Создаём...' : 'Создать аккаунт',
+                  icon: Icons.check_circle,
+                  busy: _busy,
+                  onPressed: _busy ? null : _submit,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
-

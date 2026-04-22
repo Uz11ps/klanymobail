@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../home/child_soft_ui.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
 
@@ -95,39 +96,76 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ожидание подтверждения')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: 'Ожидание подтверждения',
+      subtitle:
+          'Запрос уже у родителя. Как только он одобрит, вход выполнится автоматически.',
+      children: [
+        ChildSoftCard(
+          padding: const EdgeInsets.all(22),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(
-                width: 52,
-                height: 52,
-                child: CircularProgressIndicator(strokeWidth: 3),
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: kChildBrandBlue.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: kChildBrandBlue,
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 20),
-              Text(_statusText, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton(
+              const SizedBox(height: 18),
+              Text(
+                _statusText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: kChildInk,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ClanPrimaryButton(
+                label: 'Проверить сейчас',
+                icon: Icons.refresh,
+                busy: _busy,
                 onPressed: _busy ? null : _poll,
-                child: const Text('Проверить сейчас'),
               ),
-              const SizedBox(height: 8),
-              TextButton(
+              const SizedBox(height: 10),
+              ClanSecondaryButton(
+                label: 'Отправить новую заявку',
+                icon: Icons.edit,
                 onPressed: () => context.go('/auth/child/request'),
-                child: const Text('Отправить новую заявку'),
               ),
-              TextButton(
-                onPressed: () => context.go('/auth/sign-in-role'),
-                child: const Text('К выбору роли'),
+              const SizedBox(height: 6),
+              Center(
+                child: TextButton(
+                  onPressed: () => context.go('/auth/sign-in/role'),
+                  child: const Text(
+                    'К выбору роли',
+                    style: TextStyle(
+                      color: kChildBrandBlue,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }

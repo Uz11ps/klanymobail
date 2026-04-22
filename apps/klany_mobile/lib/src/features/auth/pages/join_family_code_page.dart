@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
+import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
@@ -78,43 +79,59 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isParent ? 'Присоединиться как родитель' : 'Присоединиться как ребёнок';
+    final title = _isParent
+        ? 'Присоединиться как родитель'
+        : 'Присоединиться как ребёнок';
 
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              'Введите персональный код, который создал создатель семьи в настройках.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _code,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: const InputDecoration(
-                labelText: 'Код доступа (6 цифр)',
-                counterText: '',
-                prefixIcon: Icon(Icons.vpn_key),
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: title,
+      subtitle:
+          'Введите персональный 6-значный код, который создал Глава Клана в настройках семьи.',
+      children: [
+        ChildSoftCard(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _code,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: clanInputDecoration(
+                  label: 'Код доступа (6 цифр)',
+                  icon: Icons.vpn_key,
+                  counterText: '',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _busy ? null : _submit,
-              child: Text(_busy ? 'Вход...' : 'Присоединиться'),
-            ),
-            if (_isParent) ...[
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: _busy ? null : () => context.go('/auth/parent/sign-up'),
-                child: const Text('Я создатель семьи — зарегистрироваться'),
+              const SizedBox(height: 16),
+              ClanPrimaryButton(
+                label: _busy ? 'Вход...' : 'Присоединиться',
+                icon: Icons.login,
+                busy: _busy,
+                onPressed: _busy ? null : _submit,
               ),
+              if (_isParent) ...[
+                const SizedBox(height: 6),
+                Center(
+                  child: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => context.go('/auth/parent/sign-up'),
+                    child: const Text(
+                      'Я Глава Клана — зарегистрироваться',
+                      style: TextStyle(
+                        color: kChildBrandBlue,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

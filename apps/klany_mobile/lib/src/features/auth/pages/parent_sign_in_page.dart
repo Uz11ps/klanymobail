@@ -5,6 +5,7 @@ import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/env.dart';
+import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 
 class ParentSignInPage extends ConsumerStatefulWidget {
@@ -54,8 +55,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     final savedPassword = prefs.getString(_kBiometricPassword);
     if (!mounted) return;
     setState(() {
-      _biometricReady =
-          canUse &&
+      _biometricReady = canUse &&
           (savedLogin ?? '').isNotEmpty &&
           (savedPassword ?? '').isNotEmpty;
       _savedLogin = savedLogin;
@@ -83,9 +83,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
         ),
       );
       if (!ok) return;
-      await ref
-          .read(authActionsProvider)
-          .parentSignIn(
+      await ref.read(authActionsProvider).parentSignIn(
             login: _savedLogin ?? '',
             password: _savedPassword ?? '',
             inviteToken: _inviteToken.text,
@@ -93,9 +91,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка биометрии: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка биометрии: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -115,9 +113,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
 
     setState(() => _busy = true);
     try {
-      await ref
-          .read(authActionsProvider)
-          .parentSignIn(
+      await ref.read(authActionsProvider).parentSignIn(
             login: _login.text,
             password: _password.text,
             inviteToken: _inviteToken.text,
@@ -126,9 +122,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка входа: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка входа: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -156,9 +152,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка входа по коду: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка входа по коду: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -166,131 +162,173 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.isAdmin ? 'Администратор: вход' : 'Пользователь: вход',
-        ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  if (!widget.isAdmin) ...[
-                    TextFormField(
-                      controller: _accessCode,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      decoration: const InputDecoration(
-                        labelText: 'Код доступа семьи (6 цифр)',
-                        counterText: '',
-                        prefixIcon: Icon(Icons.vpn_key),
+    final title =
+        widget.isAdmin ? 'Администратор: вход' : 'Пользователь: вход';
+    final subtitle = widget.isAdmin
+        ? 'Вход по email или телефону в режиме администратора.'
+        : 'Родитель: email/телефон + пароль или код доступа семьи.';
+
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: title,
+      subtitle: subtitle,
+      children: [
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!widget.isAdmin) ...[
+                ChildSoftCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'По коду доступа семьи',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: kChildInk,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _accessCode,
+                        keyboardType: TextInputType.number,
+                        maxLength: 6,
+                        decoration: clanInputDecoration(
+                          label: 'Код доступа (6 цифр)',
+                          icon: Icons.vpn_key,
+                          counterText: '',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ClanPrimaryButton(
+                        label: 'Войти по коду доступа',
+                        icon: Icons.login,
+                        busy: _busy,
                         onPressed: _busy ? null : _submitByCode,
-                        icon: const Icon(Icons.login),
-                        label: const Text('Войти по коду доступа'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              ChildSoftCard(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      widget.isAdmin
+                          ? 'Вход администратора'
+                          : 'По email или телефону',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  TextFormField(
-                    controller: _login,
-                    keyboardType: TextInputType.emailAddress,
-                    autofillHints: const [
-                      AutofillHints.username,
-                      AutofillHints.email,
-                      AutofillHints.telephoneNumber,
-                    ],
-                    decoration: InputDecoration(
-                      labelText: 'Email или телефон',
-                      prefixIcon: Icon(
-                        widget.isAdmin
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _login,
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [
+                        AutofillHints.username,
+                        AutofillHints.email,
+                        AutofillHints.telephoneNumber,
+                      ],
+                      decoration: clanInputDecoration(
+                        label: 'Email или телефон',
+                        icon: widget.isAdmin
                             ? Icons.admin_panel_settings
                             : Icons.alternate_email,
                       ),
+                      validator: (v) {
+                        final value = (v ?? '').trim();
+                        if (value.isEmpty) return 'Введите email или телефон';
+                        return null;
+                      },
                     ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) {
-                        return 'Введите email или телефон';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: true,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: const InputDecoration(
-                      labelText: 'Пароль',
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                    validator: (v) =>
-                        (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  if (!widget.isAdmin)
+                    const SizedBox(height: 12),
                     TextFormField(
-                      controller: _inviteToken,
-                      decoration: const InputDecoration(
-                        labelText: 'Токен приглашения (если есть)',
-                        prefixIcon: Icon(Icons.group_add),
+                      controller: _password,
+                      obscureText: true,
+                      autofillHints: const [AutofillHints.password],
+                      decoration: clanInputDecoration(
+                        label: 'Пароль',
+                        icon: Icons.lock,
                       ),
+                      validator: (v) =>
+                          (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
                     ),
-                  if (!widget.isAdmin) const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
+                    if (!widget.isAdmin) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _inviteToken,
+                        decoration: clanInputDecoration(
+                          label: 'Токен приглашения (если есть)',
+                          icon: Icons.group_add,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    ClanPrimaryButton(
+                      label: _busy ? 'Входим...' : 'Войти',
+                      icon: Icons.login,
+                      busy: _busy,
                       onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Войти'),
                     ),
-                  ),
-                  if (!widget.isAdmin)
-                    CheckboxListTile(
-                      value: _saveForBiometric,
-                      onChanged: _busy
-                          ? null
-                          : (v) =>
-                                setState(() => _saveForBiometric = v == true),
-                      title: const Text('Включить вход по отпечатку/Face ID'),
-                      controlAffinity: ListTileControlAffinity.leading,
-                    ),
-                  if (!widget.isAdmin && _biometricReady)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _signInWithBiometric,
-                        icon: const Icon(Icons.fingerprint),
-                        label: const Text('Войти по биометрии'),
+                    if (!widget.isAdmin) ...[
+                      const SizedBox(height: 8),
+                      CheckboxListTile(
+                        value: _saveForBiometric,
+                        onChanged: _busy
+                            ? null
+                            : (v) => setState(
+                                  () => _saveForBiometric = v == true,
+                                ),
+                        title: const Text(
+                          'Включить вход по отпечатку/Face ID',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: kChildInk,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        activeColor: kChildBrandBlue,
                       ),
-                    ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _busy ? null : () => context.go('/auth/recover'),
-                    child: const Text('Восстановление доступа'),
-                  ),
-                ],
+                      if (_biometricReady)
+                        ClanSecondaryButton(
+                          label: 'Войти по биометрии',
+                          icon: Icons.fingerprint,
+                          onPressed: _busy ? null : _signInWithBiometric,
+                        ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+              Center(
+                child: TextButton(
+                  onPressed:
+                      _busy ? null : () => context.go('/auth/recover'),
+                  child: const Text(
+                    'Восстановление доступа',
+                    style: TextStyle(
+                      color: kChildBrandBlue,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

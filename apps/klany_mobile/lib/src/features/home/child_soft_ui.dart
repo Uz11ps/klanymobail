@@ -213,3 +213,307 @@ class ChildBottomNavItem {
   final IconData icon;
   final String label;
 }
+
+class ClanAuthScaffold extends StatelessWidget {
+  const ClanAuthScaffold({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.children,
+    this.leading,
+    this.showBrandHeader = true,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
+  final Widget? leading;
+  final bool showBrandHeader;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kChildSurfaceSoft,
+      body: SafeArea(
+        child: ListView(
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ?leading,
+                if (showBrandHeader)
+                  const Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        'CLAN CAPITAL',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: kChildBrandBlue,
+                          letterSpacing: 1.4,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: kChildInk,
+                height: 1.15,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 14,
+                color: kChildInkMuted,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ClanActionCard extends StatelessWidget {
+  const ClanActionCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.accentColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accentColor ?? kChildBrandBlue;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: ChildSoftCard(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: color, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: kChildInkMuted,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ClanPrimaryButton extends StatelessWidget {
+  const ClanPrimaryButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.busy = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: busy ? null : onPressed,
+        icon: busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : (icon != null ? Icon(icon) : const SizedBox.shrink()),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: kChildBrandBlue,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(26),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ClanSecondaryButton extends StatelessWidget {
+  const ClanSecondaryButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: icon != null ? Icon(icon) : const SizedBox.shrink(),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: kChildBrandBlue,
+          minimumSize: const Size.fromHeight(50),
+          side: const BorderSide(color: kChildBrandBlue, width: 1.4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(26),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration clanInputDecoration({
+  required String label,
+  IconData? icon,
+  String? hint,
+  String? counterText,
+}) {
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    counterText: counterText,
+    prefixIcon: icon != null ? Icon(icon, color: kChildBrandBlue) : null,
+    filled: true,
+    fillColor: kChildSurfaceWhite,
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(18),
+      borderSide: const BorderSide(color: kChildOutline),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(18),
+      borderSide: const BorderSide(color: kChildOutline),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(18),
+      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.6),
+    ),
+  );
+}
+
+class ClanBackButton extends StatelessWidget {
+  const ClanBackButton({super.key, this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: kChildSurfaceWhite,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap ?? () => Navigator.of(context).maybePop(),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              border: Border.all(color: kChildOutline),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.arrow_back,
+              color: kChildBrandBlue,
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
