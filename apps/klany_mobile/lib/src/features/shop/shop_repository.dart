@@ -49,6 +49,17 @@ class ShopPurchaseItem {
   final String status;
 }
 
+bool _parseBool(dynamic raw, {bool defaultIfMissing = false}) {
+  if (raw == null) return defaultIfMissing;
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  final s = raw.toString().toLowerCase().trim();
+  if (s.isEmpty) return defaultIfMissing;
+  if (s == 'true' || s == '1' || s == 'yes' || s == 'y') return true;
+  if (s == 'false' || s == '0' || s == 'no' || s == 'n') return false;
+  return defaultIfMissing;
+}
+
 class ShopRepository {
   static const _uuid = Uuid();
 
@@ -109,7 +120,9 @@ class ShopRepository {
           price: (row['price'] as num?)?.toInt() ?? 0,
           imagePath: imagePath,
           imageUrl: imageUrl,
-          isActive: row['isActive'] == true,
+          // Default to true so newly created items always show up on the kid
+          // side; the backend filters by family/availability anyway.
+          isActive: _parseBool(row['isActive'], defaultIfMissing: true),
         );
       }),
     );

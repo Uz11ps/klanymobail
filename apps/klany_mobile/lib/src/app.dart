@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/home/child_soft_ui.dart';
 
 // Remove iOS bouncing scroll — use Android-style clamping everywhere.
 class _AppScrollBehavior extends MaterialScrollBehavior {
@@ -39,7 +40,23 @@ class App extends ConsumerWidget {
         // Prevent iOS from scaling text with system font size setting.
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
-          child: child!,
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: kBgCloud,
+                    image: DecorationImage(
+                      image: AssetImage('assets/figma/cloud_bg.png'),
+                      fit: BoxFit.cover,
+                      opacity: 0.45,
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          ),
         );
       },
     );

@@ -222,11 +222,30 @@ class ParentAccessRepository {
   }
 
   Future<String> createParentInvite(String email) async {
-    throw UnimplementedError('Инвайты будут добавлены следующим шагом');
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('Не авторизован');
+    final data = await api.postJson(
+      '/parent/invite',
+      accessToken: token,
+      body: <String, dynamic>{'email': email},
+    );
+    final inviteToken = data['token']?.toString() ?? data['inviteToken']?.toString();
+    if (inviteToken == null || inviteToken.isEmpty) {
+      throw Exception('Сервер не вернул токен приглашения');
+    }
+    return inviteToken;
   }
 
   Future<void> acceptParentInvite(String token) async {
-    throw UnimplementedError('Инвайты будут добавлены следующим шагом');
+    final api = Sdk.apiOrNull;
+    final accessToken = _token;
+    if (api == null || accessToken == null) throw Exception('Не авторизован');
+    await api.postJson(
+      '/parent/invite/accept',
+      accessToken: accessToken,
+      body: <String, dynamic>{'token': token},
+    );
   }
 
   Future<void> grantAdmin(String targetUserId) async {

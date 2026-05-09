@@ -1,16 +1,203 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Brand palette reverse-engineered from the shipped APK snapshot.
-const Color kChildBrandBlue = Color(0xFF2E63D8);
+import 'clan_capital_ui.dart';
+
+// Brand palette — canonical source is clan_capital_ui.dart for the two primaries.
+// Re-exported here so callers that already import child_soft_ui.dart keep working.
+export 'clan_capital_ui.dart' show kChildBrandBlue, kChildInk, ClanCapitalUi;
+
 const Color kChildBrandBlueDark = Color(0xFF1A4BBF);
 const Color kChildSurfaceSoft = Color(0xFFEFF4FA);
 const Color kChildSurfaceWhite = Color(0xFFFFFFFF);
 const Color kChildOutline = Color(0xFFD7E1F2);
-const Color kChildInk = Color(0xFF1E2D52);
 const Color kChildInkMuted = Color(0xFF5B6B85);
 const Color kChildAccentOrange = Color(0xFFF5A524);
 const Color kChildAccentGreen = Color(0xFF18B26B);
+
+// New design palette (Figma)
+const Color kBrandMint = Color(0xFFC5F2C0);
+const Color kBrandMintDark = Color(0xFF7BC976);
+const Color kBrandSky = Color(0xFFD8E9F8);
+const Color kBrandSkyDark = Color(0xFF7AA5D6);
+const Color kBrandLavender = Color(0xFFE6DDF5);
+const Color kBrandLavenderDark = Color(0xFF7B6FD0);
+const Color kBrandSunny = Color(0xFFFFE9A8);
+const Color kBrandPeach = Color(0xFFFFD1B8);
+const Color kBrandRose = Color(0xFFF8D2D8);
+const Color kBgCloud = Color(0xFFEFF6FB);
+
+/// Тень-«объём» под кнопками (как в Figma) — жёсткая нижняя полоса.
+Color _darkenColor(Color c, [double amount = 0.18]) {
+  final hsl = HSLColor.fromColor(c);
+  return hsl
+      .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+      .withSaturation((hsl.saturation * 0.95).clamp(0.0, 1.0))
+      .toColor();
+}
+
+List<BoxShadow> kSoftButtonShadow(Color tint) => [
+      BoxShadow(
+        color: _darkenColor(tint, 0.18),
+        offset: const Offset(0, 5),
+        blurRadius: 0,
+        spreadRadius: 0,
+      ),
+    ];
+
+/// Кнопка с цветной тенью снизу (универсальный wrapper).
+class SoftButton extends StatelessWidget {
+  const SoftButton({
+    super.key,
+    required this.onTap,
+    required this.label,
+    this.bg = kBrandMint,
+    this.fg = const Color(0xFF1F4F1B),
+    this.height = 54,
+    this.fontSize = 16,
+    this.icon,
+  });
+
+  final VoidCallback? onTap;
+  final String label;
+  final Color bg;
+  final Color fg;
+  final double height;
+  final double fontSize;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: kSoftButtonShadow(bg),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(height / 2),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: fg, size: fontSize + 4),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Иконка стопки монет (3 эллипса с боковыми стенками).
+class CoinStackIcon extends StatelessWidget {
+  const CoinStackIcon({super.key, this.size = 24, this.color = kChildBrandBlue});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(painter: _CoinStackPainter(color)),
+    );
+  }
+}
+
+class _CoinStackPainter extends CustomPainter {
+  _CoinStackPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.075
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    final w = size.width;
+    final h = size.height;
+    final coinW = w * 0.95;
+    final coinH = h * 0.32;
+    final cx = w / 2;
+    for (int i = 0; i < 3; i++) {
+      final cy = h - coinH / 2 - i * (coinH * 0.85);
+      final rect = Rect.fromCenter(
+        center: Offset(cx, cy),
+        width: coinW,
+        height: coinH,
+      );
+      canvas.drawOval(rect, stroke);
+      final leftX = cx - coinW / 2;
+      final rightX = cx + coinW / 2;
+      canvas.drawLine(
+        Offset(leftX, cy),
+        Offset(leftX, cy + coinH * 0.45),
+        stroke,
+      );
+      canvas.drawLine(
+        Offset(rightX, cy),
+        Offset(rightX, cy + coinH * 0.45),
+        stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CoinStackPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Облачный фон-картинка для основных экранов приложения.
+class CloudBackground extends StatelessWidget {
+  const CloudBackground({super.key, required this.child, this.opacity = 0.55});
+  final Widget child;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: kBgCloud,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Opacity(
+              opacity: opacity,
+              child: Image.asset(
+                'assets/figma/cloud_bg.png',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox(),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
 
 class ChildSoftCard extends StatelessWidget {
   const ChildSoftCard({
@@ -19,35 +206,29 @@ class ChildSoftCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.color,
     this.borderColor,
-    this.radius = 24,
+    this.radius = 26,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
-  final Color? borderColor;
+  final Color? borderColor; // kept for API compat, not used (neuCard has no border)
   final double radius;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color ?? kChildSurfaceWhite,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: borderColor ?? kChildOutline,
-          width: 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14123A7A),
-            blurRadius: 24,
-            offset: Offset(0, 8),
-          ),
-        ],
+    return DecoratedBox(
+      decoration: ClanCapitalUi.neuCard(
+        color: color ?? kChildSurfaceSoft,
+        radius: radius,
       ),
-      padding: padding,
-      child: child,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Padding(
+          padding: padding,
+          child: child,
+        ),
+      ),
     );
   }
 }
@@ -75,33 +256,7 @@ class ChildSectionScaffold extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: kChildBrandBlue,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: kChildInk,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              Expanded(child: ClanCapitalUi.logoHeader(title)),
               ...actions,
             ],
           ),
@@ -177,9 +332,9 @@ class ChildBottomClanBar extends StatelessWidget {
     required this.currentIndex,
     required this.onSelected,
     this.items = const [
-      ChildBottomNavItem(icon: Icons.home_filled, label: 'Дом'),
-      ChildBottomNavItem(icon: Icons.task_alt, label: 'Биржа'),
-      ChildBottomNavItem(icon: Icons.storefront, label: 'Магазин'),
+      ChildBottomNavItem(icon: Icons.home_outlined, label: 'Дом'),
+      ChildBottomNavItem(icon: Icons.assignment_outlined, label: 'Биржа'),
+      ChildBottomNavItem(icon: Icons.shopping_bag_outlined, label: 'Магазин'),
     ],
   });
 
@@ -192,17 +347,145 @@ class ChildBottomClanBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-        child: Row(
-          children: [
-            for (int i = 0; i < items.length; i++)
-              _ChildBottomNavPill(
-                icon: items[i].icon,
-                label: items[i].label,
-                selected: currentIndex == i,
-                onTap: () => onSelected(i),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(40),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-          ],
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              for (int i = 0; i < items.length; i++)
+                _ChildNavLabeledBtn(
+                  icon: items[i].icon,
+                  label: items[i].label,
+                  selected: currentIndex == i,
+                  onTap: () => onSelected(i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChildNavLabeledBtn extends StatelessWidget {
+  const _ChildNavLabeledBtn({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : kChildInkMuted;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: selected ? kChildBrandBlue : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: selected
+                      ? null
+                      : Border.all(
+                          color: kChildOutline,
+                          width: 1.4,
+                        ),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: fg, size: 22),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? kChildInk : kChildInkMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChildNavRoundBtn extends StatelessWidget {
+  const _ChildNavRoundBtn({
+    required this.icon,
+    required this.selected,
+    required this.big,
+    required this.onTap,
+  });
+  final IconData icon;
+  final bool selected;
+  final bool big;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (big) {
+      return Material(
+        color: kChildBrandBlue,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        elevation: 6,
+        shadowColor: kChildBrandBlue.withValues(alpha: 0.4),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: Icon(icon, size: 30, color: Colors.white),
+          ),
+        ),
+      );
+    }
+    return Material(
+      color: selected
+          ? kChildBrandBlue.withValues(alpha: 0.12)
+          : Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: Icon(
+            icon,
+            size: 24,
+            color: selected ? kChildBrandBlue : kChildInkMuted,
+          ),
         ),
       ),
     );
@@ -466,20 +749,20 @@ InputDecoration clanInputDecoration({
     counterText: counterText,
     prefixIcon: icon != null ? Icon(icon, color: kChildBrandBlue) : null,
     filled: true,
-    fillColor: kChildSurfaceWhite,
+    fillColor: Colors.white,
     contentPadding:
-        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: kChildOutline),
+      borderRadius: BorderRadius.circular(22),
+      borderSide: BorderSide.none,
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: kChildOutline),
+      borderRadius: BorderRadius.circular(22),
+      borderSide: BorderSide.none,
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(18),
-      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.6),
+      borderRadius: BorderRadius.circular(22),
+      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
     ),
   );
 }
@@ -509,7 +792,7 @@ class ClanSectionPage extends StatelessWidget {
           pinned: true,
           backgroundColor: kChildInk,
           foregroundColor: Colors.white,
-          elevation: 0,
+          elevation: 4,
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
           systemOverlayStyle: const SystemUiOverlayStyle(

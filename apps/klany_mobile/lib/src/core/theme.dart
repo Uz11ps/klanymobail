@@ -19,8 +19,43 @@ ThemeData _build(ColorScheme colorScheme) {
   );
 
   return base.copyWith(
-    textTheme: GoogleFonts.interTextTheme(base.textTheme),
+    textTheme: GoogleFonts.manropeTextTheme(base.textTheme),
+    primaryTextTheme: GoogleFonts.manropeTextTheme(base.primaryTextTheme),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    // Make Scaffold transparent so the global cloud background shows through.
+    scaffoldBackgroundColor: Colors.transparent,
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: GoogleFonts.manrope(
+        fontSize: 22,
+        fontWeight: FontWeight.w900,
+        color: const Color(0xFF1E2D52),
+      ),
+    ),
+    // Soft 3D-style shadow under all FilledButtons.
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        elevation: const WidgetStatePropertyAll(6),
+        shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.18)),
+        textStyle: WidgetStatePropertyAll(GoogleFonts.manrope(
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        )),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        elevation: const WidgetStatePropertyAll(2),
+        shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.10)),
+        textStyle: WidgetStatePropertyAll(GoogleFonts.manrope(
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+        )),
+      ),
+    ),
     // Consistent text field border on both platforms.
     inputDecorationTheme: InputDecorationTheme(
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

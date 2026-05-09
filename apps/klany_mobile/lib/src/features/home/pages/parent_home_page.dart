@@ -10,7 +10,6 @@ import '../../auth/auth_actions.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../auth/parent_session.dart';
 import 'parent_family_settings_page.dart';
-import 'parent_access_requests_page.dart';
 import '../../quests/pages/parent_quests_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../shop/pages/parent_shop_page.dart';
@@ -22,6 +21,7 @@ import '../../quests/quests_repository.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
+import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 
 class ParentHomePage extends ConsumerStatefulWidget {
@@ -127,93 +127,9 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
   }
 
   void _openSettingsSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: kChildSurfaceWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      showDragHandle: true,
-      builder: (ctx) => SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.storefront, color: kChildBrandBlue),
-              title: const Text('Магазин'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ParentShopPage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.account_balance_wallet,
-                color: kChildBrandBlue,
-              ),
-              title: const Text('Кошелёк'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ParentWalletsPage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.shield, color: kChildBrandBlue),
-              title: const Text('Штаб / Семья'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ParentFamilySettingsPage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.notifications, color: kChildBrandBlue),
-              title: const Text('Уведомления'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const NotificationsPage(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.school, color: kChildBrandBlue),
-              title: const Text('Показать обучение'),
-              onTap: () async {
-                Navigator.of(ctx).pop();
-                await showOnboardingTourDialog(
-                  context: context,
-                  title: parentTourTitle,
-                  steps: parentTourSteps,
-                );
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Color(0xFFD83A3A)),
-              title: const Text('Выйти'),
-              onTap: () async {
-                Navigator.of(ctx).pop();
-                await ref.read(authActionsProvider).signOut();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const ParentFamilySettingsPage(),
       ),
     );
   }
@@ -242,7 +158,6 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
         },
       ),
       const ParentQuestsPage(),
-      const ParentAccessRequestsPage(),
     ];
 
     return PopScope(
@@ -269,6 +184,9 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
   }
 }
 
+// APK-exact pill: BoxDecoration with bg/border/shadow + Badge icon + label in Row.
+
+// APK-exact bottom bar: neuCard(r=30) wrapping 2 pills + Material(CircleBorder) settings.
 class _BottomClanBar extends StatelessWidget {
   const _BottomClanBar({
     required this.currentIndex,
@@ -282,130 +200,578 @@ class _BottomClanBar extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final int pendingRequests;
 
-  Widget _buildPill({
-    required bool selected,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Widget? badge,
-  }) {
-    final bg = selected ? kChildBrandBlue : kChildSurfaceWhite;
-    final fg = selected ? Colors.white : kChildBrandBlue;
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Material(
-          color: bg,
-          borderRadius: BorderRadius.circular(28),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(28),
-            onTap: onTap,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: kChildBrandBlue, width: 1.4),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, color: fg, size: 22),
-                      const SizedBox(height: 4),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: fg,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (badge != null) Positioned(top: 0, right: 8, child: badge),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-        child: Row(
-          children: [
-            _buildPill(
-              selected: currentIndex == 0,
-              icon: Icons.home_filled,
-              label: 'Клан',
-              onTap: () => onSelected(0),
-            ),
-            _buildPill(
-              selected: currentIndex == 1,
-              icon: Icons.task_alt,
-              label: 'Биржа',
-              onTap: () => onSelected(1),
-            ),
-            _buildPill(
-              selected: currentIndex == 2,
-              icon: Icons.mark_email_unread_outlined,
-              label: 'Заявки',
-              onTap: () => onSelected(2),
-              badge: pendingRequests > 0
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: SizedBox(
+          height: 72,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // White rounded bar background
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(36),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD83A3A),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$pendingRequests',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: Material(
-                color: kChildSurfaceWhite,
-                borderRadius: BorderRadius.circular(28),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(28),
-                  onTap: onOpenSettings,
-                  child: Container(
-                    width: 52,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: kChildOutline, width: 1.2),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.settings_outlined,
-                      color: kChildInkMuted,
-                    ),
+                    ],
                   ),
                 ),
               ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Left: Биржа
+                  _BottomNavRoundBtn(
+                    icon: Icons.work_outline,
+                    selected: currentIndex == 1,
+                    onTap: () => onSelected(1),
+                  ),
+                  // Center: Главная (big blue circle)
+                  _BottomNavCenterBtn(
+                    selected: currentIndex == 0,
+                    onTap: () => onSelected(0),
+                    badgeCount: pendingRequests,
+                  ),
+                  // Right: Настройки
+                  _BottomNavRoundBtn(
+                    icon: Icons.settings_outlined,
+                    selected: false,
+                    onTap: onOpenSettings,
+                    badgeDot: pendingRequests > 0,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavRoundBtn extends StatelessWidget {
+  const _BottomNavRoundBtn({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+    this.badgeDot = false,
+  });
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool badgeDot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? kChildBrandBlue.withValues(alpha: 0.12) : Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: selected ? kChildBrandBlue : kChildInkMuted,
+              ),
+              if (badgeDot)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFD83A3A),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavCenterBtn extends StatelessWidget {
+  const _BottomNavCenterBtn({
+    required this.selected,
+    required this.onTap,
+    required this.badgeCount,
+  });
+  final bool selected;
+  final VoidCallback onTap;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: kChildBrandBlue,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      elevation: selected ? 6 : 2,
+      shadowColor: kChildBrandBlue.withValues(alpha: 0.4),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(
+                Icons.home_filled,
+                size: 30,
+                color: Colors.white,
+              ),
+              if (badgeCount > 0)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD83A3A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Text(
+                      badgeCount > 9 ? '9+' : '$badgeCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── APK-exact dashboard widgets ──────────────────────────────────────────────
+
+class _SoftCard extends StatelessWidget {
+  const _SoftCard({required this.child, this.color});
+  final Widget child;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: ClanCapitalUi.neuCard(radius: 26, color: color),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        clipBehavior: Clip.antiAliasWithSaveLayer,
+        child: Material(
+          type: MaterialType.transparency,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPanelCard extends StatelessWidget {
+  const _InfoPanelCard({
+    required this.title,
+    required this.value,
+    required this.emoji,
+    this.unit,
+    this.footer,
+    this.progress,
+    this.progressCaption,
+    this.onTap,
+    this.bg,
+  });
+  final String title;
+  final String value;
+  final String emoji;
+  final String? unit;
+  final String? footer;
+  final double? progress;
+  final String? progressCaption;
+  final VoidCallback? onTap;
+  final Color? bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SoftCard(
+      color: bg,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(26),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: kChildInkMuted,
+                  letterSpacing: 0.4,
+                  height: 1.15,
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 18),
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: kChildBrandBlue,
+                    height: 1.05,
+                  ),
+                  children: [
+                    TextSpan(text: value),
+                    if (unit != null)
+                      TextSpan(
+                        text: ' $unit',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: kChildBrandBlue,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (footer != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  footer!,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: kChildInk,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+              if (progress != null) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress!.clamp(0.0, 1.0),
+                    minHeight: 4,
+                    backgroundColor: kChildOutline,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      kChildBrandBlue,
+                    ),
+                  ),
+                ),
+                if (progressCaption != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    progressCaption!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: kChildInkMuted.withValues(alpha: 0.8),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardInfoPanelGrid extends StatelessWidget {
+  const _DashboardInfoPanelGrid({
+    required this.inProgress,
+    required this.onReview,
+    required this.goalCurrent,
+    required this.goalTarget,
+    this.onQuestsTap,
+    this.onGoalTap,
+  });
+  final int inProgress;
+  final int onReview;
+  final int goalCurrent;
+  final int goalTarget;
+  final VoidCallback? onQuestsTap;
+  final VoidCallback? onGoalTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = goalTarget <= 0 ? 0.0 : goalCurrent / goalTarget;
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 3,
+            child: _InfoPanelCard(
+              title: 'В РАБОТЕ',
+              emoji: '🧰',
+              value: '$inProgress',
+              unit: inProgress == 1 ? 'задача' : 'задач',
+              footer: 'КЛАН / ВСЕ',
+              onTap: onQuestsTap,
+              bg: kBrandMint,
             ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 3,
+            child: _InfoPanelCard(
+              title: 'НА\nПРОВЕРКЕ',
+              emoji: '🔎',
+              value: '$onReview',
+              bg: kBrandSunny,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 4,
+            child: _InfoPanelCard(
+              title: 'ОБЩАЯ\nЦЕЛЬ',
+              emoji: '🔐',
+              value: '$goalCurrent',
+              unit: '₽',
+              footer: 'ОБЩАЯ ЦЕЛЬ',
+              progress: progress,
+              progressCaption: goalTarget > 0
+                  ? 'к цели: $goalTarget'
+                  : 'цель не задана',
+              onTap: onGoalTap,
+              bg: kBrandPeach,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardSelectorStrip extends StatefulWidget {
+  const _DashboardSelectorStrip({
+    required this.wallets,
+    required this.parents,
+    required this.onWalletTap,
+  });
+  final List<ParentChildWalletItem> wallets;
+  final List<ParentMemberItem> parents;
+  final ValueChanged<ParentChildWalletItem> onWalletTap;
+
+  @override
+  State<_DashboardSelectorStrip> createState() =>
+      _DashboardSelectorStripState();
+}
+
+class _DashboardSelectorStripState extends State<_DashboardSelectorStrip> {
+  int _selected = -1;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RoundMemberChip(
+              label: 'Все',
+              icon: Icons.groups_rounded,
+              selected: _selected == -1,
+              onTap: () => setState(() => _selected = -1),
+            ),
+            // Родители
+            ...widget.parents.map((p) {
+              final name = p.displayName.trim().isEmpty
+                  ? 'Родитель'
+                  : p.displayName.trim();
+              final initial = name.characters.first.toUpperCase();
+              return Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: _RoundMemberChip(
+                  label: name,
+                  initial: initial,
+                  selected: false,
+                  isParent: true,
+                  onTap: () {},
+                ),
+              );
+            }),
+            // Дети
+            ...widget.wallets.asMap().entries.map((e) {
+              final name = e.value.displayName.trim().isEmpty
+                  ? '—'
+                  : e.value.displayName.trim();
+              final initial = name.characters.first.toUpperCase();
+              return Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: _RoundMemberChip(
+                  label: name,
+                  initial: initial,
+                  selected: _selected == e.key,
+                  userKey: 'child:${e.value.childId}',
+                  onTap: () {
+                    setState(() => _selected = e.key);
+                    widget.onWalletTap(e.value);
+                  },
+                ),
+              );
+            }),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _RoundMemberChip extends StatelessWidget {
+  const _RoundMemberChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.initial,
+    this.isParent = false,
+    this.userKey,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final IconData? icon;
+  final String? initial;
+  final bool isParent;
+  final String? userKey;
+
+  static const _palette = <(Color, Color)>[
+    (kBrandMint, Color(0xFF2D6B28)),
+    (kBrandSky, Color(0xFF1E4F8E)),
+    (kBrandLavender, Color(0xFF4F3FAA)),
+    (kBrandSunny, Color(0xFF96701A)),
+    (kBrandPeach, Color(0xFF8E4424)),
+    (kBrandRose, Color(0xFF9E2A4A)),
+  ];
+
+  static String _avatarAssetForName(String name) {
+    final idx = (name.hashCode.abs() % 9) + 1;
+    return 'assets/figma/avatar_$idx.png';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg;
+    final Color fg;
+    if (selected) {
+      bg = kChildBrandBlue;
+      fg = Colors.white;
+    } else if (isParent) {
+      bg = const Color(0xFFFFF1D6);
+      fg = const Color(0xFFB57A00);
+    } else if (icon != null) {
+      // "All" pill — keep it sky-blue
+      bg = const Color(0xFFE3ECF8);
+      fg = kChildBrandBlue;
+    } else {
+      // Pick a stable color from palette based on the label
+      final pair = _palette[label.hashCode.abs() % _palette.length];
+      bg = pair.$1;
+      fg = pair.$2;
+    }
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: bg,
+              shape: BoxShape.circle,
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: kChildBrandBlue.withValues(alpha: 0.35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : const [],
+              border: selected
+                  ? Border.all(color: Colors.white, width: 3)
+                  : null,
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: icon != null
+                ? Icon(icon, color: fg, size: 26)
+                : (userKey != null)
+                    ? UserAvatar(
+                        userKey: userKey!,
+                        size: 56,
+                        fallbackText: initial,
+                      )
+                    : Text(
+                        initial ?? '?',
+                        style: TextStyle(
+                          color: fg,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                        ),
+                      ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: 62,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: kChildInkMuted.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -462,6 +828,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
   List<ParentReviewItem> _reviews = const <ParentReviewItem>[];
   List<ParentQuestItem> _quests = const <ParentQuestItem>[];
   List<InAppNotificationItem> _notifications = const <InAppNotificationItem>[];
+  List<ParentMemberItem> _parents = const <ParentMemberItem>[];
   Timer? _refreshTimer;
 
   @override
@@ -480,6 +847,219 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
     super.dispose();
   }
 
+  Future<void> _showChildDetails(ParentChildWalletItem wallet) async {
+    final activeForChild = _quests
+        .where(
+          (q) =>
+              q.status == 'active' &&
+              (q.distributionType == 'exchange' ||
+                  q.childIds.contains(wallet.childId)),
+        )
+        .length;
+    final reviewsForChild =
+        _reviews.where((r) => r.childId == wallet.childId).toList();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: kChildSurfaceWhite,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: kChildOutline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  StatefulBuilder(
+                    builder: (ctx, setLocal) => GestureDetector(
+                      onTap: () async {
+                        final ok = await showAvatarPicker(
+                          context: ctx,
+                          userKey: 'child:${wallet.childId}',
+                          title: 'Аватар: ${wallet.displayName}',
+                        );
+                        if (ok) setLocal(() {});
+                      },
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          UserAvatar(
+                            userKey: 'child:${wallet.childId}',
+                            size: 56,
+                            fallbackText: wallet.displayName.trim().isEmpty
+                                ? '?'
+                                : wallet.displayName.characters.first
+                                    .toUpperCase(),
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: kChildBrandBlue,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.edit,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          wallet.displayName.trim().isEmpty
+                              ? 'Без имени'
+                              : wallet.displayName,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: kChildInk,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Карточка участника',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: kChildInkMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _ChildDetailRow(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Баланс',
+                value: '${wallet.balance} монет',
+              ),
+              const SizedBox(height: 10),
+              _ChildDetailRow(
+                icon: Icons.assignment_outlined,
+                title: 'Активные задачи',
+                value: '$activeForChild',
+              ),
+              const SizedBox(height: 10),
+              _ChildDetailRow(
+                icon: Icons.fact_check_outlined,
+                title: 'На проверке',
+                value: '${reviewsForChild.length}',
+              ),
+              const SizedBox(height: 18),
+              if (reviewsForChild.isNotEmpty) ...[
+                const Text(
+                  'Ожидают проверки',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: kChildInk,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...reviewsForChild.take(5).map(
+                      (r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.fiber_manual_record,
+                              size: 8,
+                              color: kChildAccentOrange,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                r.title,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: kChildInk,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                const SizedBox(height: 18),
+              ],
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  widget.onOpenWallet();
+                },
+                icon: const Icon(Icons.account_balance_wallet),
+                label: const Text('Открыть кошелёк'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: kChildBrandBlue,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  widget.onOpenQuests();
+                },
+                icon: const Icon(Icons.work_outline),
+                label: const Text('Открыть биржу задач'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kChildBrandBlue,
+                  side: const BorderSide(color: kChildBrandBlue, width: 1.4),
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final clanName = (_family?.clanName ?? '').trim().isEmpty
@@ -489,15 +1069,15 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
 
     if (_initialLoading && _family == null) {
       return _buildScaffold(
-        title: 'Семья',
+        title: 'Главное: клан',
         parentName: parentName,
-        child: Column(
-          children: const [
-            _SkeletonCard(height: 96),
-            SizedBox(height: 8),
+        child: const Column(
+          children: [
+            _SkeletonCard(height: 80),
+            SizedBox(height: 10),
+            _SkeletonCard(height: 80),
+            SizedBox(height: 10),
             _SkeletonCard(height: 120),
-            SizedBox(height: 8),
-            _SkeletonCard(height: 76),
           ],
         ),
       );
@@ -519,7 +1099,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
         );
       }
       return _buildScaffold(
-        title: 'Семья',
+        title: 'Главное: клан',
         parentName: parentName,
         child: _ErrorCard(
           title: 'Не удалось загрузить данные',
@@ -530,15 +1110,15 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
     }
 
     final family = _family!;
-    final market = _quests
-        .where((q) => q.status == 'active' && q.questType == 'free')
+    final activeQuests = _quests
+        .where((q) => q.status == 'active')
         .toList();
     final total = _wallets.fold<int>(0, (sum, w) => sum + w.balance);
-    final unreadNotifs =
-        _notifications.where((n) => n.status != 'read').length;
+    final title =
+        clanName.isEmpty ? 'Главное: клан' : 'Главное: $clanName';
 
     return _buildScaffold(
-      title: clanName,
+      title: title,
       parentName: parentName,
       totalBalance: total,
       childrenCount: _wallets.length,
@@ -553,51 +1133,70 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
             ),
             const SizedBox(height: 8),
           ],
-          _ClanKidsBlock(wallets: _wallets),
-          if (_reviews.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _PendingReviewFeed(
-              items: _reviews,
-              onItemRemoved: (item) {
-                setState(() {
-                  _reviews = _reviews
-                      .where(
-                        (r) =>
-                            !(r.questId == item.questId &&
-                                r.childId == item.childId),
-                      )
-                      .toList();
-                });
-              },
+          // APK: selector first.
+          _DashboardSelectorStrip(
+            wallets: _wallets,
+            parents: _parents,
+            onWalletTap: _showChildDetails,
+          ),
+          const SizedBox(height: 18),
+          // APK: "Инфо-панель" section title.
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10),
+            child: Text(
+              'Инфо-панель',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: kChildInk,
+              ),
             ),
+          ),
+          _DashboardInfoPanelGrid(
+            inProgress: activeQuests.length,
+            onReview: _reviews.length,
+            goalCurrent: total,
+            goalTarget: family.goalAmount,
+            onQuestsTap: widget.onOpenQuests,
+            onGoalTap: widget.onOpenWallet,
+          ),
+          const SizedBox(height: 14),
+          // APK: feed — pending reviews + recent notifications.
+          if (_reviews.isEmpty && _notifications.isEmpty)
+            _SoftCard(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+                child: Text(
+                  'Лента пуста: пока нет проверок и событий',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: kChildInkMuted.withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            if (_reviews.isNotEmpty)
+              _PendingReviewFeed(
+                items: _reviews,
+                onItemRemoved: (item) {
+                  setState(() {
+                    _reviews = _reviews
+                        .where(
+                          (r) =>
+                              !(r.questId == item.questId &&
+                                  r.childId == item.childId),
+                        )
+                        .toList();
+                  });
+                },
+              ),
+            if (_reviews.isNotEmpty && _notifications.isNotEmpty)
+              const SizedBox(height: 12),
+            if (_notifications.isNotEmpty)
+              _NotificationsFeedCard(items: _notifications),
           ],
-          const SizedBox(height: 14),
-          _BrandMetricRow(
-            items: [
-              _BrandMetric(
-                icon: Icons.notifications_outlined,
-                label: 'Уведомления',
-                value: unreadNotifs.toString(),
-                color: kChildAccentOrange,
-                onTap: widget.onOpenNotifications,
-              ),
-              _BrandMetric(
-                icon: Icons.task_alt,
-                label: 'Биржа',
-                value: market.length.toString(),
-                color: kChildBrandBlue,
-                onTap: widget.onOpenQuests,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _GradientGoalBar(
-            current: total,
-            target: family.goalAmount,
-            onTap: widget.onOpenWallet,
-          ),
-          const SizedBox(height: 14),
-          _QuestMarketBlock(quests: _quests, onTap: widget.onOpenQuests),
           const SizedBox(height: 24),
         ],
       ),
@@ -619,48 +1218,112 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
       slivers: [
         SliverAppBar(
           pinned: true,
-          backgroundColor: kChildInk,
-          foregroundColor: Colors.white,
-          elevation: 0,
+          expandedHeight: 80,
+          backgroundColor: const Color(0xFFCEE0F5),
+          foregroundColor: kChildInk,
+          elevation: 4,
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
           systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: kChildInk,
-            statusBarIconBrightness: Brightness.light,
-            statusBarBrightness: Brightness.dark,
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
           ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
+          flexibleSpace: FlexibleSpaceBar(
+            expandedTitleScale: 1,
+            titlePadding: EdgeInsets.zero,
+            background: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFCEE0F5), kChildSurfaceSoft],
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Stack(
+                  children: [
+                    // APK: visible decorative circles.
+                    Positioned(
+                      top: -80,
+                      right: -60,
+                      child: Container(
+                        width: 200,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFB74D).withValues(alpha: 0.14),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 40,
+                      right: 140,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: kChildBrandBlue.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: ClanCapitalUi.logoHeader(
+                              title.isEmpty ? null : title,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: widget.onOpenNotifications,
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const Icon(
+                                  Icons.notifications_none_rounded,
+                                  color: kChildInk,
+                                  size: 26,
+                                ),
+                                if (_notifications.any(
+                                  (n) => n.status != 'read',
+                                ))
+                                  Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFD83A3A),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => _reload(),
+                            icon: const Icon(Icons.refresh, color: kChildInk),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          actions: [
-            IconButton(
-              onPressed: () => _reload(),
-              icon: const Icon(Icons.refresh, color: Colors.white),
-            ),
-          ],
         ),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _ParentHeroCard(
-                  name: parentName,
-                  clanTitle: title,
-                  totalBalance: totalBalance,
-                  childrenCount: childrenCount,
-                  pendingReviews: pendingReviews,
-                ),
-                const SizedBox(height: 20),
-                child,
-              ],
-            ),
+            child: child,
           ),
         ),
       ],
@@ -693,6 +1356,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
           !_sameReviews(_reviews, data.reviews) ||
           !_sameQuests(_quests, data.quests) ||
           !_sameNotifications(_notifications, data.notifications) ||
+          !_sameParents(_parents, data.parents) ||
           _loadError != null;
       setState(() {
         if (hasChanged) {
@@ -701,6 +1365,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
           _reviews = data.reviews;
           _quests = data.quests;
           _notifications = data.notifications;
+          _parents = data.parents;
         }
         _loadError = null;
       });
@@ -728,6 +1393,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
         reviews: <ParentReviewItem>[],
         quests: <ParentQuestItem>[],
         notifications: <InAppNotificationItem>[],
+        parents: <ParentMemberItem>[],
       );
     }
 
@@ -738,6 +1404,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
       ref
           .read(notificationsRepositoryProvider)
           .listFamilyNotifications(family.familyId),
+      ref.read(parentAccessRepositoryProvider).getParentMembers(family.familyId),
     ]);
 
     return _ParentDashboardSnapshot(
@@ -746,6 +1413,7 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
       quests: results[1] as List<ParentQuestItem>,
       wallets: results[2] as List<ParentChildWalletItem>,
       notifications: results[3] as List<InAppNotificationItem>,
+      parents: results[4] as List<ParentMemberItem>,
     );
   }
 
@@ -824,367 +1492,24 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
     return true;
   }
 
+  bool _sameParents(List<ParentMemberItem> a, List<ParentMemberItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i];
+      final y = b[i];
+      if (x.userId != y.userId ||
+          x.displayName != y.displayName ||
+          x.role != y.role) { return false; }
+    }
+    return true;
+  }
+
   bool _sameStrings(List<String> a, List<String> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
     }
     return true;
-  }
-}
-
-// ─── Hero card ────────────────────────────────────────────────────────────────
-
-class _ParentHeroCard extends StatelessWidget {
-  const _ParentHeroCard({
-    required this.name,
-    required this.clanTitle,
-    this.totalBalance = 0,
-    this.childrenCount = 0,
-    this.pendingReviews = 0,
-  });
-
-  final String name;
-  final String clanTitle;
-  final int totalBalance;
-  final int childrenCount;
-  final int pendingReviews;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        decoration: const BoxDecoration(
-          borderRadius: BorderRadius.all(Radius.circular(30)),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [kChildBrandBlue, Color(0xFF5A8EFF)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x471E2D52),
-              blurRadius: 18,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -32,
-              right: -32,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    width: 14,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 20,
-              right: 10,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.45),
-                            width: 2,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.shield,
-                          color: Colors.white,
-                          size: 34,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                height: 1.05,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Глава семьи • $clanTitle',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.white.withValues(alpha: 0.88),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _HeroMetric(
-                          title: 'БАЛАНС',
-                          value: '$totalBalance',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _HeroMetric(
-                          title: 'ДЕТИ',
-                          value: childrenCount.toString(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _HeroMetric(
-                          title: 'НА ПРОВЕР.',
-                          value: pendingReviews.toString(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({required this.title, required this.value});
-
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.white.withValues(alpha: 0.85),
-              letterSpacing: 0.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 5),
-          FittedBox(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Kids block ───────────────────────────────────────────────────────────────
-
-class _ClanKidsBlock extends ConsumerWidget {
-  const _ClanKidsBlock({required this.wallets});
-  final List<ParentChildWalletItem> wallets;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: kChildBrandBlue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.people,
-                  color: kChildBrandBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'МОЙ КЛАН',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: kChildInk,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (wallets.isEmpty)
-            const Text(
-              'Пока нет детей. Пригласите ребёнка по ключу клана.',
-              style: TextStyle(fontSize: 13, color: kChildInkMuted),
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: wallets.map((w) {
-                  final initial = w.displayName.isEmpty
-                      ? '?'
-                      : w.displayName.characters.first.toUpperCase();
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () async {
-                      final profile = await ref
-                          .read(parentAccessRepositoryProvider)
-                          .getChildProfile(w.childId);
-                      if (!context.mounted) return;
-                      await showDialog<void>(
-                        context: context,
-                        builder: (ctx) {
-                          final stats =
-                              (profile['stats'] as Map<String, dynamic>? ??
-                                  <String, dynamic>{});
-                          return AlertDialog(
-                            title: Text(
-                              (profile['displayName'] ?? '').toString(),
-                            ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Баланс: ${profile['balance'] ?? 0} монет'),
-                                const SizedBox(height: 8),
-                                Text('Назначено: ${stats['assigned'] ?? 0}'),
-                                Text('В работе: ${stats['inProgress'] ?? 0}'),
-                                Text(
-                                  'На проверке: ${stats['onReview'] ?? 0}',
-                                ),
-                                Text('Выполнено: ${stats['approved'] ?? 0}'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(ctx).pop(),
-                                child: const Text('Закрыть'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                    child: Container(
-                      width: 100,
-                      margin: const EdgeInsets.only(right: 12),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: kChildBrandBlue.withValues(alpha: 0.12),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: kChildBrandBlue.withValues(alpha: 0.3),
-                                width: 1.5,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              initial,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: kChildBrandBlue,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            w.displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: kChildInk,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${w.balance} монет',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: kChildInkMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1376,318 +1701,274 @@ class _PendingReviewFeed extends ConsumerWidget {
   }
 }
 
-// ─── Brand metric row ─────────────────────────────────────────────────────────
+// ─── Child details bottom sheet helpers ──────────────────────────────────────
 
-class _BrandMetric {
-  const _BrandMetric({
+class _ChildDetailRow extends StatelessWidget {
+  const _ChildDetailRow({
     required this.icon,
-    required this.label,
+    required this.title,
     required this.value,
-    required this.color,
-    this.onTap,
   });
   final IconData icon;
-  final String label;
+  final String title;
   final String value;
-  final Color color;
-  final VoidCallback? onTap;
-}
-
-class _BrandMetricRow extends StatelessWidget {
-  const _BrandMetricRow({required this.items});
-  final List<_BrandMetric> items;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (int i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 14),
-          Expanded(child: _BrandMetricCard(metric: items[i])),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: kChildSurfaceSoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kChildOutline, width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: kChildBrandBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 18, color: kChildBrandBlue),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                color: kChildInk,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: kChildBrandBlue,
+            ),
+          ),
         ],
-      ],
+      ),
     );
   }
 }
 
-class _BrandMetricCard extends StatelessWidget {
-  const _BrandMetricCard({required this.metric});
-  final _BrandMetric metric;
+// ─── Notifications feed ──────────────────────────────────────────────────────
+
+class _NotificationsFeedCard extends StatelessWidget {
+  const _NotificationsFeedCard({required this.items});
+  final List<InAppNotificationItem> items;
+
+  String _titleFor(InAppNotificationItem n) {
+    final t = n.payload['title']?.toString();
+    if (t != null && t.isNotEmpty) return t;
+    final norm = n.type.replaceAll('_', '.');
+    switch (norm) {
+      case 'quest.submitted':
+        return 'Задание отправлено на проверку';
+      case 'quest.approved':
+      case 'quest.completed':
+        return 'Задание подтверждено';
+      case 'quest.rejected':
+        return 'Задание отклонено';
+      case 'quest.taken':
+        return 'Задание взято с биржи';
+      case 'quest.created':
+        return 'Создано новое задание';
+      case 'shop.purchase.requested':
+        return 'Заявка на покупку';
+      case 'shop.purchase.approved':
+        return 'Покупка одобрена';
+      case 'shop.purchase.rejected':
+        return 'Покупка отклонена';
+      case 'shop.product.created':
+        return 'Добавлен новый товар';
+      case 'wallet.adjusted':
+      case 'wallet.adjustment':
+        return 'Корректировка баланса';
+      case 'access.requested':
+      case 'access.request':
+        return 'Запрос на доступ';
+      case 'access.approved':
+        return 'Доступ одобрен';
+      case 'access.rejected':
+        return 'Доступ отклонён';
+      case 'family.member.added':
+        return 'Новый участник в клане';
+      case 'family.goal.updated':
+        return 'Обновлена цель семьи';
+      default:
+        return n.type.isEmpty ? 'Событие' : 'Событие';
+    }
+  }
+
+  String _subtitleFor(InAppNotificationItem n) {
+    final s = n.payload['message']?.toString() ??
+        n.payload['subtitle']?.toString() ??
+        n.payload['body']?.toString();
+    if (s != null && s.isNotEmpty) return s;
+    final who = n.payload['childName']?.toString() ??
+        n.payload['actorName']?.toString();
+    return who ?? '';
+  }
+
+  IconData _iconFor(InAppNotificationItem n) {
+    final norm = n.type.replaceAll('_', '.');
+    if (norm.startsWith('quest.')) {
+      return Icons.assignment_turned_in_outlined;
+    }
+    if (norm.startsWith('shop.')) {
+      return Icons.shopping_bag_outlined;
+    }
+    if (norm.startsWith('wallet.')) {
+      return Icons.account_balance_wallet_outlined;
+    }
+    if (norm.startsWith('access.')) {
+      return Icons.person_add_alt_1_outlined;
+    }
+    if (norm.startsWith('family.')) {
+      return Icons.groups_outlined;
+    }
+    return Icons.notifications_outlined;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: metric.onTap,
-        child: ChildSoftCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    if (items.isEmpty) return const SizedBox.shrink();
+    final list = items.take(6).toList();
+    return ChildSoftCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: metric.color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(14),
+                  color: kChildBrandBlue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
-                child: Icon(metric.icon, color: metric.color, size: 22),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                metric.label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: kChildInkMuted,
-                  letterSpacing: 0.4,
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: kChildBrandBlue,
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                metric.value,
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  color: metric.color,
-                  height: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Goal bar ─────────────────────────────────────────────────────────────────
-
-class _GradientGoalBar extends StatelessWidget {
-  const _GradientGoalBar({
-    required this.current,
-    required this.target,
-    this.onTap,
-  });
-  final int current;
-  final int target;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = target <= 0 ? 0.0 : (current / target).clamp(0.0, 1.0);
-    final percent = (progress * 100).toInt();
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF8BC34A), kChildBrandBlue],
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x281E63D8),
-                blurRadius: 16,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.flag_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'ОБЩАЯ ЦЕЛЬ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '$percent%',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white.withValues(alpha: 0.92),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 10,
-                  backgroundColor: Colors.white.withValues(alpha: 0.28),
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                target > 0
-                    ? '$current / $target монет'
-                    : 'Общая цель не задана',
+              const SizedBox(width: 10),
+              const Text(
+                'СОБЫТИЯ',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.88),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: kChildBrandBlue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${items.length}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: kChildBrandBlue,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Quest market ─────────────────────────────────────────────────────────────
-
-class _QuestMarketBlock extends StatelessWidget {
-  const _QuestMarketBlock({required this.quests, this.onTap});
-  final List<ParentQuestItem> quests;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final market = quests
-        .where((q) => q.status == 'active' && q.questType == 'free')
-        .take(5)
-        .toList();
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: ChildSoftCard(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          const SizedBox(height: 14),
+          ...list.map((n) {
+            final subtitle = _subtitleFor(n);
+            final unread = n.status != 'read';
+            final childId =
+                n.payload['childId']?.toString() ?? n.payload['actorId']?.toString();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: kChildBrandBlue.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.bolt,
-                      color: kChildBrandBlue,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'БИРЖА ЗАДАЧ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: kChildInk,
-                        letterSpacing: 0.6,
+                  if (childId != null && childId.isNotEmpty)
+                    UserAvatar(userKey: 'child:$childId', size: 36)
+                  else
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: (unread ? kChildBrandBlue : kChildInkMuted)
+                            .withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        _iconFor(n),
+                        size: 18,
+                        color: unread ? kChildBrandBlue : kChildInkMuted,
                       ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: kChildBrandBlue,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (market.isEmpty)
-                const Text(
-                  'Свободных задач нет',
-                  style: TextStyle(fontSize: 13, color: kChildInkMuted),
-                )
-              else
-                ...market.map(
-                  (q) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: kChildBrandBlue,
-                            shape: BoxShape.circle,
+                        Text(
+                          _titleFor(n),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: kChildInk,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            q.title,
-                            maxLines: 1,
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: kChildInkMuted.withValues(alpha: 0.85),
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: kChildInk,
-                              fontWeight: FontWeight.w600,
-                            ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: kChildAccentGreen.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '+${q.rewardAmount}',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: kChildAccentGreen,
-                            ),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
-                ),
-            ],
-          ),
-        ),
+                  if (unread)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(left: 8, top: 4),
+                      decoration: const BoxDecoration(
+                        color: kChildBrandBlue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -1738,6 +2019,7 @@ class _ParentDashboardSnapshot {
     required this.reviews,
     required this.quests,
     required this.notifications,
+    required this.parents,
   });
 
   final ParentFamilyContext? family;
@@ -1745,6 +2027,7 @@ class _ParentDashboardSnapshot {
   final List<ParentReviewItem> reviews;
   final List<ParentQuestItem> quests;
   final List<InAppNotificationItem> notifications;
+  final List<ParentMemberItem> parents;
 }
 
 class _ErrorCard extends StatelessWidget {

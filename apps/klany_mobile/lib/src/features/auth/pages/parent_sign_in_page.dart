@@ -8,6 +8,130 @@ import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 
+// ─── APK-matching "СМЫСЛ" feature card ──────────────────────────────────────
+
+class _SmyshlCard extends StatelessWidget {
+  const _SmyshlCard({
+    required this.number,
+    required this.emoji1,
+    required this.emoji2,
+    required this.title,
+    required this.description,
+  });
+
+  final int number;
+  final String emoji1;
+  final String emoji2;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChildSoftCard(
+      color: kChildSurfaceWhite,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: kChildAccentOrange,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.play_arrow, color: Colors.white, size: 14),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                'СМЫСЛ $number',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: kChildInk,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 82,
+                height: 82,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3ECF8),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text('$emoji1$emoji2', style: const TextStyle(fontSize: 28)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: kChildBrandBlue,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: kChildInkMuted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── APK-style text field decoration ────────────────────────────────────────
+
+InputDecoration _authInput(String hint, {Widget? suffixIcon}) {
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: kChildInkMuted, fontSize: 15),
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
+    ),
+    suffixIcon: suffixIcon,
+  );
+}
+
+// ─── Parent sign-in page ─────────────────────────────────────────────────────
+
 class ParentSignInPage extends ConsumerStatefulWidget {
   const ParentSignInPage({super.key, this.isAdmin = false});
 
@@ -20,17 +144,26 @@ class ParentSignInPage extends ConsumerStatefulWidget {
 class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   static const _kBiometricLogin = 'biometric_login';
   static const _kBiometricPassword = 'biometric_password';
-  final _formKey = GlobalKey<FormState>();
-  final _login = TextEditingController();
+
+  int _step = 0; // 0 = email, 1 = password
+  final _email = TextEditingController();
   final _password = TextEditingController();
-  final _accessCode = TextEditingController();
-  final _inviteToken = TextEditingController();
   final _auth = LocalAuthentication();
   bool _busy = false;
-  bool _saveForBiometric = false;
+  bool _obscure = true;
   bool _biometricReady = false;
   String? _savedLogin;
   String? _savedPassword;
+
+  Future<void> _proceed() async {
+    if (_email.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите email или телефон')),
+      );
+      return;
+    }
+    setState(() => _step = 1);
+  }
 
   @override
   void initState() {
@@ -40,10 +173,8 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
 
   @override
   void dispose() {
-    _login.dispose();
+    _email.dispose();
     _password.dispose();
-    _accessCode.dispose();
-    _inviteToken.dispose();
     super.dispose();
   }
 
@@ -63,11 +194,50 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     });
   }
 
-  Future<void> _saveBiometricCreds() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_saveForBiometric) {
-      await prefs.setString(_kBiometricLogin, _login.text.trim());
+  Future<void> _submit() async {
+    if (_password.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите пароль')),
+      );
+      return;
+    }
+    if (!Env.hasApiConfig) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы войти')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await ref.read(authActionsProvider).parentSignIn(
+            login: _email.text.trim(),
+            password: _password.text,
+            inviteToken: '',
+          );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kBiometricLogin, _email.text.trim());
       await prefs.setString(_kBiometricPassword, _password.text);
+      if (mounted) context.go('/parent');
+    } catch (_) {
+      // Sign-in failed → automatically register
+      try {
+        await ref.read(authActionsProvider).parentSignUp(
+              phone: _email.text.trim(),
+              password: _password.text,
+              recoveryEmail: _email.text.trim(),
+            );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kBiometricLogin, _email.text.trim());
+        await prefs.setString(_kBiometricPassword, _password.text);
+        if (mounted) context.go('/parent');
+      } catch (signUpError) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $signUpError')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -77,16 +247,13 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     try {
       final ok = await _auth.authenticate(
         localizedReason: 'Подтвердите вход в приложение',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
+        options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
       );
       if (!ok) return;
       await ref.read(authActionsProvider).parentSignIn(
             login: _savedLogin ?? '',
             password: _savedPassword ?? '',
-            inviteToken: _inviteToken.text,
+            inviteToken: '',
           );
       if (mounted) context.go('/parent');
     } catch (e) {
@@ -99,236 +266,453 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     }
   }
 
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните .env (API_BASE_URL) чтобы войти'),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      await ref.read(authActionsProvider).parentSignIn(
-            login: _login.text,
-            password: _password.text,
-            inviteToken: _inviteToken.text,
-          );
-      await _saveBiometricCreds();
-      if (mounted) context.go('/parent');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка входа: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _submitByCode() async {
-    final code = _accessCode.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите 6-значный код доступа')),
-      );
-      return;
-    }
-    if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните .env (API_BASE_URL) чтобы войти'),
-        ),
-      );
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await ref.read(authActionsProvider).parentSignInByCode(code: code);
-      if (mounted) context.go('/parent');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка входа по коду: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final title =
-        widget.isAdmin ? 'Администратор: вход' : 'Пользователь: вход';
-    final subtitle = widget.isAdmin
-        ? 'Вход по email или телефону в режиме администратора.'
-        : 'Родитель: email/телефон + пароль или код доступа семьи.';
-
-    return ClanAuthScaffold(
-      leading: const ClanBackButton(),
-      title: title,
-      subtitle: subtitle,
-      children: [
-        Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!widget.isAdmin) ...[
-                ChildSoftCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'По коду доступа семьи',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _accessCode,
-                        keyboardType: TextInputType.number,
-                        maxLength: 6,
-                        decoration: clanInputDecoration(
-                          label: 'Код доступа (6 цифр)',
-                          icon: Icons.vpn_key,
-                          counterText: '',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ClanPrimaryButton(
-                        label: 'Войти по коду доступа',
-                        icon: Icons.login,
-                        busy: _busy,
-                        onPressed: _busy ? null : _submitByCode,
-                      ),
-                    ],
+    final isEmailStep = _step == 0;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: kChildInk),
+          onPressed: () {
+            if (_step == 1) {
+              setState(() => _step = 0);
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          },
+        ),
+        centerTitle: true,
+        title: const Text(
+          'Регистрация',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: kChildInk,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
+          children: [
+            // Hero illustration card
+            _AuthHeroCard(
+              asset: isEmailStep
+                  ? 'assets/figma/slide_team.png'
+                  : 'assets/figma/slide_capital.png',
+              bg: isEmailStep ? kBrandLavender : kBrandSunny,
+              title: isEmailStep ? 'Биржа задач' : 'Лимиты и Капитал',
+              subtitle: isEmailStep
+                  ? 'Создавай задания и назначай оплату участникам'
+                  : 'Устанавливай лимиты и управляй капиталом',
+            ),
+            const SizedBox(height: 28),
+            // Step-specific content
+            if (isEmailStep) ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 6, bottom: 10),
+                child: Text(
+                  'Email',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: kChildInk,
                   ),
                 ),
+              ),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                decoration: _authInput('email@gmail.com'),
+                style: const TextStyle(fontSize: 15, color: kChildInk),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : _proceed,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: kBrandMint,
+                    foregroundColor: const Color(0xFF1F4F1B),
+                    minimumSize: const Size.fromHeight(56),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                  child: const Text(
+                    'Продолжить',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              if (_biometricReady) ...[
                 const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _signInWithBiometric,
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Войти по биометрии'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kChildBrandBlue,
+                      minimumSize: const Size.fromHeight(50),
+                      side: const BorderSide(
+                        color: kChildBrandBlue,
+                        width: 1.4,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                    ),
+                  ),
+                ),
               ],
-              ChildSoftCard(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      widget.isAdmin
-                          ? 'Вход администратора'
-                          : 'По email или телефону',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: kChildInk,
+            ] else ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 6, bottom: 10),
+                child: Text(
+                  'Пароль',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: kChildInk,
+                  ),
+                ),
+              ),
+              StatefulBuilder(
+                builder: (context, setLocal) => TextField(
+                  controller: _password,
+                  obscureText: _obscure,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: _authInput(
+                    '••••••••',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscure
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: kChildInkMuted,
                       ),
+                      onPressed: () => setState(() => _obscure = !_obscure),
                     ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _login,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [
-                        AutofillHints.username,
-                        AutofillHints.email,
-                        AutofillHints.telephoneNumber,
-                      ],
-                      decoration: clanInputDecoration(
-                        label: 'Email или телефон',
-                        icon: widget.isAdmin
-                            ? Icons.admin_panel_settings
-                            : Icons.alternate_email,
-                      ),
-                      validator: (v) {
-                        final value = (v ?? '').trim();
-                        if (value.isEmpty) return 'Введите email или телефон';
-                        return null;
-                      },
+                  ),
+                  style: const TextStyle(fontSize: 15, color: kChildInk),
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _busy ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: kBrandMint,
+                    foregroundColor: const Color(0xFF1F4F1B),
+                    minimumSize: const Size.fromHeight(56),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: true,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: clanInputDecoration(
-                        label: 'Пароль',
-                        icon: Icons.lock,
-                      ),
-                      validator: (v) =>
-                          (v ?? '').length < 6 ? 'Минимум 6 символов' : null,
-                    ),
-                    if (!widget.isAdmin) ...[
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _inviteToken,
-                        decoration: clanInputDecoration(
-                          label: 'Токен приглашения (если есть)',
-                          icon: Icons.group_add,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    ClanPrimaryButton(
-                      label: _busy ? 'Входим...' : 'Войти',
-                      icon: Icons.login,
-                      busy: _busy,
-                      onPressed: _busy ? null : _submit,
-                    ),
-                    if (!widget.isAdmin) ...[
-                      const SizedBox(height: 8),
-                      CheckboxListTile(
-                        value: _saveForBiometric,
-                        onChanged: _busy
-                            ? null
-                            : (v) => setState(
-                                  () => _saveForBiometric = v == true,
-                                ),
-                        title: const Text(
-                          'Включить вход по отпечатку/Face ID',
+                  ),
+                  child: _busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Color(0xFF1F4F1B),
+                          ),
+                        )
+                      : const Text(
+                          'Войти в управление',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: kChildInk,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: kChildBrandBlue,
-                      ),
-                      if (_biometricReady)
-                        ClanSecondaryButton(
-                          label: 'Войти по биометрии',
-                          icon: Icons.fingerprint,
-                          onPressed: _busy ? null : _signInWithBiometric,
-                        ),
-                    ],
-                  ],
                 ),
               ),
               const SizedBox(height: 14),
               Center(
                 child: TextButton(
-                  onPressed:
-                      _busy ? null : () => context.go('/auth/recover'),
+                  onPressed: _busy ? null : () => context.go('/auth/recover'),
+                  style: TextButton.styleFrom(foregroundColor: kChildInkMuted),
                   child: const Text(
-                    'Восстановление доступа',
+                    'Забыли пароль?',
                     style: TextStyle(
-                      color: kChildBrandBlue,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      decoration: TextDecoration.underline,
                     ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthHeroCard extends StatelessWidget {
+  const _AuthHeroCard({
+    required this.asset,
+    required this.bg,
+    required this.title,
+    required this.subtitle,
+  });
+  final String asset;
+  final Color bg;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 0.95,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                asset,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (_, __, ___) => Container(color: bg),
+              ),
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        bg.withValues(alpha: 0.0),
+                        bg.withValues(alpha: 0.85),
+                        bg,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: kChildInk,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: kChildInk,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+}
+
+// ─── Activation key display (post-registration) ──────────────────────────────
+
+class ParentActivationKeyPage extends StatelessWidget {
+  const ParentActivationKeyPage({super.key, required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kChildSurfaceSoft,
+      body: SafeArea(
+        child: ListView(
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'CLAN CAPITAL',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: kChildBrandBlue,
+                          letterSpacing: 1.6,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Глава Клана',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: kChildInk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            ChildSoftCard(
+              color: kChildSurfaceWhite,
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 82,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3ECF8),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text('🔑📱', style: TextStyle(fontSize: 28)),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _PlayBadge(),
+                            SizedBox(width: 7),
+                            Text(
+                              'СМЫСЛ',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: kChildInk,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Чтобы ребёнок увидел свою Биржу, поделитесь этим Ключом активации',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: kChildInkMuted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            ChildSoftCard(
+              color: kChildSurfaceWhite,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              child: Center(
+                child: Text(
+                  code,
+                  style: const TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w900,
+                    color: kChildBrandBlue,
+                    letterSpacing: 8,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => context.go('/parent'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: kChildBrandBlue,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                child: const Text(
+                  'ПЕРЕЙТИ НА ГЛАВНЫЙ ЭКРАН',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton(
+                onPressed: () => context.go('/parent'),
+                style: TextButton.styleFrom(foregroundColor: kChildBrandBlue),
+                child: const Text(
+                  'Показать позже',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayBadge extends StatelessWidget {
+  const _PlayBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: kChildAccentOrange,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.play_arrow, color: Colors.white, size: 14),
     );
   }
 }

@@ -50,6 +50,7 @@ dependencies:
   firebase_core: ^4.4.0
   firebase_messaging: ^16.1.1
   local_auth: ^2.3.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +78,8 @@ flutter:
   assets:
     # Runtime config (do not commit real secrets; use .env.example as template)
     - .env
+    # Figma design assets
+    - assets/figma/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

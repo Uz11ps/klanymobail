@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/child_session.dart';
+import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../wallet/pages/child_wallet_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../shop_repository.dart';
 
@@ -40,14 +42,20 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
       wallet = await ref.read(walletRepositoryProvider).getChildWallet(_childId!);
     }
     return _ChildShopData(
-      products: products.where((p) => p.isActive).toList(),
+      // Don't hide items by isActive on the client side — the backend already
+      // returns the products that should be visible to this child. The extra
+      // filter caused parents' new items not to appear when isActive was
+      // missing/falsy in the response.
+      products: products,
       balance: wallet?.balance ?? 0,
     );
   }
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 
@@ -84,7 +92,6 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
         final data = snapshot.data;
         final products = data?.products ?? const <ShopProductItem>[];
         final balance = data?.balance ?? 0;
-        final rubles = balance * 10;
 
         return ClanSectionPage(
           title: 'Магазин',
@@ -95,9 +102,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
-                  const _ShopIntroCard(),
-                  const SizedBox(height: 14),
-                  _ShopBalanceCard(balance: balance, rubles: rubles),
+                  _ShopIntroCard(balance: balance),
                   const SizedBox(height: 18),
                   if (snapshot.connectionState == ConnectionState.waiting)
                     const Padding(
@@ -143,54 +148,127 @@ class _ChildShopData {
   final int balance;
 }
 
-class _ShopIntroCard extends StatelessWidget {
-  const _ShopIntroCard();
+class _ShopIntroCard extends ConsumerWidget {
+  const _ShopIntroCard({required this.balance});
+  final int balance;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(childSessionProvider).asData?.value;
+    final name = session?.childDisplayName.trim().isNotEmpty == true
+        ? session!.childDisplayName
+        : 'Участник';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final userKey = session != null ? 'child:${session.childId}' : 'child:guest';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const ChildWalletPage(),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(26),
+        child: ChildSoftCard(
+          color: kChildSurfaceWhite,
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              UserAvatar(
+                userKey: userKey,
+                size: 60,
+                fallbackText: initial,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: kChildInk,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Копи монеты на награды',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: kChildInkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF2F8),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CoinStackIcon(size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            balance.toString(),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: kChildBrandBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: kChildInkMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShopBalanceCard extends StatelessWidget {
+  const _ShopBalanceCard({required this.balance});
+
+  final int balance;
 
   @override
   Widget build(BuildContext context) {
     return ChildSoftCard(
-      padding: const EdgeInsets.all(18),
+      color: kChildSurfaceWhite,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: kChildBrandBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.storefront,
+          const Icon(Icons.savings_rounded, color: kChildBrandBlue, size: 26),
+          const SizedBox(width: 10),
+          Text(
+            '$balance',
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
               color: kChildBrandBlue,
-              size: 28,
             ),
           ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Магазин наград',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: kChildInk,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Смотри курс обмена и открывай вывод в рубли прямо из магазина.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: kChildInkMuted,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(width: 6),
+          const Text(
+            '🪙',
+            style: TextStyle(fontSize: 22),
           ),
         ],
       ),
@@ -198,68 +276,21 @@ class _ShopIntroCard extends StatelessWidget {
   }
 }
 
-class _ShopBalanceCard extends StatelessWidget {
-  const _ShopBalanceCard({required this.balance, required this.rubles});
-
-  final int balance;
-  final int rubles;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8E4FF),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD4CDF7), width: 1),
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Баланс: $rubles ₽',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF2C2575),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$balance монет доступно • 10 монет = 100 ₽ • 1 монета = 10 ₽',
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF2C2575),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Вывод в рубли станет доступен после обновления сервера.'),
-                ),
-              );
-            },
-            icon: const Icon(Icons.swap_horiz),
-            label: const Text('Конвертация в рубли'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFCFC6F2),
-              foregroundColor: const Color(0xFF2C2575),
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              textStyle:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
+String _emojiForProduct(ShopProductItem p) {
+  if ((p.imageUrl ?? '').isNotEmpty) return '🛍';
+  final desc = '${p.title} ${p.description ?? ''}'.toLowerCase();
+  if (desc.contains('игр') || desc.contains('psp') || desc.contains('xbox')) {
+    return '🎮';
   }
+  if (desc.contains('кино') || desc.contains('фильм')) return '🎬';
+  if (desc.contains('книг') || desc.contains('читать')) return '📚';
+  if (desc.contains('шокол') || desc.contains('сладк')) return '🍫';
+  if (desc.contains('пицц')) return '🍕';
+  if (desc.contains('игрушк')) return '🐻';
+  if (desc.contains('наушник') || desc.contains('музык')) return '🎧';
+  if (desc.contains('мяч') || desc.contains('спорт')) return '🏈';
+  if (desc.contains('прогул')) return '🐻';
+  return '🎁';
 }
 
 class _ChildProductVisual extends StatelessWidget {
@@ -270,91 +301,78 @@ class _ChildProductVisual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rubles = product.price * 10;
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: kChildSurfaceSoft,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: (product.imageUrl ?? '').isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      product.imageUrl!,
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.image_not_supported,
-                        color: kChildInkMuted,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onBuy,
+        borderRadius: BorderRadius.circular(26),
+        child: ChildSoftCard(
+          color: kBrandLavender,
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: (product.imageUrl ?? '').isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          product.imageUrl!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Text(
+                            _emojiForProduct(product),
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        _emojiForProduct(product),
+                        style: const TextStyle(fontSize: 28),
+                      ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
                       ),
                     ),
-                  )
-                : const Icon(Icons.card_giftcard, color: kChildBrandBlue),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: kChildInk,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if ((product.description ?? '').isNotEmpty)
-                  Text(
-                    product.description!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: kChildInkMuted,
-                      height: 1.3,
+                    const SizedBox(height: 4),
+                    Text(
+                      '${product.price} монет',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: kChildInkMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                const SizedBox(height: 8),
-                Text(
-                  '${product.price} монет • $rubles ₽',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: kChildBrandBlue,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton(
-            onPressed: onBuy,
-            style: FilledButton.styleFrom(
-              backgroundColor: kChildBrandBlue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 14,
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: kChildInkMuted,
+                size: 28,
               ),
-            ),
-            child: const Text(
-              'Купить',
-              style:
-                  TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

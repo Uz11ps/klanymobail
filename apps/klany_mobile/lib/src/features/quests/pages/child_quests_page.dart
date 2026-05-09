@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../auth/child_session.dart';
 import '../../home/child_soft_ui.dart';
+import '../../wallet/wallet_repository.dart';
 import '../quests_repository.dart';
 
 class ChildQuestsPage extends ConsumerStatefulWidget {
@@ -24,7 +25,9 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
     final f = ref.read(questsRepositoryProvider).getChildAssignments(session.childId);
-    setState(() => _future = f);
+    setState(() {
+      _future = f;
+    });
     await f;
   }
 
@@ -52,11 +55,12 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final exchange = all
             .where((a) => a.distributionType == 'exchange')
             .toList();
+        final completed = all.where((a) => a.status == 'completed').length;
 
         final current = _tab == 0 ? personal : exchange;
 
         return ClanSectionPage(
-          title: 'Мои задачи',
+          title: 'Биржа задач',
           onRefresh: _reload,
           onRefreshAsync: _reload,
           slivers: [
@@ -64,7 +68,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
-                  const _ChildQuestsHeroCard(),
+                  _ChildQuestsHeroCard(completedCount: completed),
                   const SizedBox(height: 14),
                   _ChildQuestTabs(
                     personalCount: personal.length,
@@ -115,58 +119,100 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
   }
 }
 
-class _ChildQuestsHeroCard extends StatelessWidget {
-  const _ChildQuestsHeroCard();
+class _ChildQuestsHeroCard extends ConsumerWidget {
+  const _ChildQuestsHeroCard({required this.completedCount});
+  final int completedCount;
 
   @override
-  Widget build(BuildContext context) {
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: kChildBrandBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.check_circle_outline,
-              color: kChildBrandBlue,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Мои задачи',
-                  style: TextStyle(
-                    fontSize: 22,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(childSessionProvider).asData?.value;
+    final name = session?.childDisplayName.trim().isNotEmpty == true
+        ? session!.childDisplayName.trim()
+        : 'Участник';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    return FutureBuilder<WalletSummary?>(
+      future: session == null
+          ? Future.value(null)
+          : ref.read(walletRepositoryProvider).getChildWallet(session.childId),
+      builder: (context, walletSnap) {
+        final balance = walletSnap.data?.balance ?? 0;
+        return ChildSoftCard(
+          color: Colors.white,
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: kBrandMint,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: kChildInk,
+                    color: Color(0xFF1F4F1B),
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Здесь собраны личные поручения, которые назначили именно тебе.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: kChildInkMuted,
-                    height: 1.3,
-                  ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$completedCount ${_taskWord(completedCount)} выполнено',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: kChildInkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text('🪙', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$balance',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: kChildBrandBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  String _taskWord(int n) {
+    final mod10 = n % 10;
+    final mod100 = n % 100;
+    if (mod10 == 1 && mod100 != 11) return 'задача';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    return 'задач';
   }
 }
 
@@ -224,36 +270,52 @@ class _ChildQuestTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? kChildBrandBlue : const Color(0xFFE6EBF5);
-    final fg = selected ? Colors.white : kChildInk;
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
+    // Active: mint background, dark green text
+    // Inactive: white background, dark text, light shadow
+    final bg = selected ? kBrandMint : Colors.white;
+    final fg = selected ? const Color(0xFF1F4F1B) : kChildInk;
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            children: [
-              Text(
-                count.toString(),
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: fg,
+        boxShadow: selected
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: fg,
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: fg,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  count.toString(),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: fg,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

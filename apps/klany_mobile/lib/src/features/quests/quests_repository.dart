@@ -312,6 +312,37 @@ class QuestsRepository {
     );
   }
 
+  Future<String> createReverseQuest({
+    required String title,
+    required int rewardAmount,
+    String? description,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) {
+      throw Exception('Не авторизован');
+    }
+    final data = await api.postJson(
+      '/quests/child/reverse',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'rewardAmount': rewardAmount,
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+      },
+    );
+    return (data['questId'] ?? '').toString();
+  }
+
+  Future<Map<String, dynamic>?> getChildReverseQuest() async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return null;
+    final data = await api.getJson('/quests/child/reverse', accessToken: token);
+    return data['item'] as Map<String, dynamic>?;
+  }
+
   Future<void> submitQuestWithEvidence({
     required String questId,
     required XFile? evidenceFile,

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/child_session.dart';
 import '../../auth/child_pin_store.dart';
+import '../avatar_store.dart';
 import '../../auth/device_identity.dart';
 import '../../quests/pages/child_quests_page.dart';
 import '../../quests/quests_repository.dart';
@@ -135,19 +136,150 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
     final wallet = await ref.read(walletRepositoryProvider).getChildWallet(childId);
     final assignments = await ref.read(questsRepositoryProvider).getChildAssignments(childId);
     final active = assignments
-        .where((a) => a.status != 'done' && a.status != 'completed')
+        .where((a) => a.distributionType != 'exchange' &&
+            a.status != 'done' &&
+            a.status != 'completed')
         .length;
+    final exchange = assignments
+        .where((a) => a.distributionType == 'exchange')
+        .length;
+    final completed = assignments
+        .where((a) => a.status == 'completed' || a.status == 'done')
+        .length;
+    final balance = wallet?.balance ?? 0;
+    const goal = 10000;
     return _ChildOverviewData(
-      walletBalance: wallet?.balance ?? 0,
+      walletBalance: balance,
       activeAssignments: active,
+      exchangeCount: exchange,
+      completedCount: completed,
+      goalCurrent: balance,
+      goalTarget: goal,
+      goalProgress: balance / goal,
     );
+  }
+
+  String _taskWord(int n) {
+    final mod10 = n % 10;
+    final mod100 = n % 100;
+    if (mod10 == 1 && mod100 != 11) return 'задача';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    return 'задач';
+  }
+
+  Future<void> _showReverseTaskDialog(BuildContext context) async {
+    final titleCtl = TextEditingController();
+    final amountCtl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        title: const Text(
+          'Обратная задача',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: kChildInk,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Поставь спец-цель с родителем. Когда соберёшь нужную сумму — родитель её исполнит.',
+              style: TextStyle(fontSize: 13, color: kChildInkMuted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: titleCtl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Название цели',
+                hintText: 'Например: Подарок маме',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: amountCtl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Сколько монет нужно',
+                hintText: '500',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: kBrandMint,
+              foregroundColor: const Color(0xFF1F4F1B),
+              elevation: 4,
+            ),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final title = titleCtl.text.trim();
+    final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
+    if (title.isEmpty || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Введите название и сумму'),
+        ),
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(questsRepositoryProvider).createReverseQuest(
+            title: title,
+            rewardAmount: amount,
+          );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Цель «$title» на $amount монет отправлена родителю'),
+        ),
+      );
+      _reload();
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
+  }
+
+  String _formatNumber(int n) {
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
   }
 
   Future<void> _reload() async {
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
-    setState(() => _future = _load(session.childId));
-    await _future;
+    final f = _load(session.childId);
+    setState(() {
+      _future = f;
+    });
+    await f;
   }
 
   @override
@@ -232,113 +364,235 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Profile card
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _ChildHeroCard(
-                      initial: displayName.isEmpty ? '?' : displayName.characters.first.toUpperCase(),
-                      level: 1,
-                      name: displayName,
-                      subtitle: 'Твоя детская панель в стиле клана',
-                      balance: balance,
-                      personal: 0,
-                      exchange: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Инфо-панель',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
-                        ),
+                    child: ChildSoftCard(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () async {
+                              final changed = await showAvatarPicker(
+                                context: context,
+                                userKey: 'child:${session.childId}',
+                                title: 'Выбрать аватар',
+                              );
+                              if (changed && mounted) setState(() {});
+                            },
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                UserAvatar(
+                                  userKey: 'child:${session.childId}',
+                                  size: 64,
+                                  fallbackText: displayName.isEmpty
+                                      ? '?'
+                                      : displayName.characters.first
+                                          .toUpperCase(),
+                                ),
+                                Positioned(
+                                  right: -2,
+                                  bottom: -2,
+                                  child: Container(
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: kChildBrandBlue,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.edit,
+                                      size: 12,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: kChildInk,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${data?.completedCount ?? 0} ${_taskWord(data?.completedCount ?? 0)} выполнено',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: kChildInkMuted,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF2F8),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const CoinStackIcon(size: 18),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _formatNumber(balance),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w900,
+                                          color: kChildBrandBlue,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 18),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Divider(height: 1, color: kChildOutline),
+                  ),
+                  const SizedBox(height: 18),
+                  // Two square buttons
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
                         Expanded(
-                          child: _ChildStatCard(
-                            icon: Icons.assignment_turned_in,
-                            accentColor: kChildAccentGreen,
-                            title: 'МОИ ЗАДАЧИ',
+                          child: _ChildSquareTile(
+                            label: 'Мои задачи',
                             value: active.toString(),
-                            caption: 'личных задач в работе',
+                            color: kBrandMint,
                           ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
-                          child: _ChildStatCard(
-                            icon: Icons.check_circle,
-                            accentColor: kChildAccentGreen,
-                            title: 'БИРЖА',
-                            value: '0',
-                            caption: 'можно взять с биржи',
+                          child: _ChildSquareTile(
+                            label: 'Биржа',
+                            value: (data?.exchangeCount ?? 0).toString(),
+                            color: kBrandLavender,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
+                  // Goal progress
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ChildSoftCard(
+                      color: kBrandSunny,
                       padding: const EdgeInsets.all(18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Column(
                         children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: kChildAccentOrange.withValues(alpha: 0.18),
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.flag_rounded,
-                              color: kChildAccentOrange,
+                          const Text(
+                            'Текущая цель',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: kChildInk,
                             ),
                           ),
-                          const SizedBox(width: 14),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'ОБЩАЯ ЦЕЛЬ',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildInk,
-                                    letterSpacing: 0.6,
-                                  ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: SizedBox(
+                              height: 16,
+                              child: LinearProgressIndicator(
+                                value:
+                                    (data?.goalProgress ?? 0).clamp(0.0, 1.0),
+                                backgroundColor: Colors.white,
+                                valueColor:
+                                    const AlwaysStoppedAnimation<Color>(
+                                  kChildBrandBlue,
                                 ),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Общая цель',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildAccentOrange,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Скоро родитель задаст общую цель семьи.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: kChildInkMuted,
-                                  ),
-                                ),
-                              ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${data?.goalCurrent ?? balance} / ${data?.goalTarget ?? 10000} монет',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: kChildInk,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Reverse task card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ChildSoftCard(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Обратная задача',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: kChildInk,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Поставь одну спец-цель с родителем. Собранное идет в цель.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: kChildInkMuted,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          FilledButton(
+                            onPressed: () => _showReverseTaskDialog(context),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: kBrandMint,
+                              foregroundColor: const Color(0xFF1F4F1B),
+                              elevation: 4,
+                              minimumSize: const Size.fromHeight(48),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            child: const Text(
+                              'Создать',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],
@@ -360,10 +614,65 @@ class _ChildOverviewData {
   const _ChildOverviewData({
     required this.walletBalance,
     required this.activeAssignments,
+    this.exchangeCount = 0,
+    this.completedCount = 0,
+    this.goalCurrent = 0,
+    this.goalTarget = 10000,
+    this.goalProgress = 0.0,
   });
 
   final int walletBalance;
   final int activeAssignments;
+  final int exchangeCount;
+  final int completedCount;
+  final int goalCurrent;
+  final int goalTarget;
+  final double goalProgress;
+}
+
+class _ChildSquareTile extends StatelessWidget {
+  const _ChildSquareTile({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 1.05,
+      child: ChildSoftCard(
+        color: color,
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: kChildInk,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 38,
+                fontWeight: FontWeight.w900,
+                color: kChildInk,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ChildHeroCard extends StatelessWidget {
@@ -500,7 +809,7 @@ class _ChildHeroCard extends StatelessWidget {
                       Expanded(
                         child: _ChildHeroMetric(
                           title: 'БАЛАНС',
-                          value: '$balance ₽',
+                          value: '$balance 🪙',
                         ),
                       ),
                       const SizedBox(width: 10),
