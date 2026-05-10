@@ -24,6 +24,7 @@ class App extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Clan Capital',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,

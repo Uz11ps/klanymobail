@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/device_identity.dart';
 import '../../auth/auth_actions.dart';
@@ -421,89 +422,65 @@ class _InfoPanelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SoftCard(
-      color: bg,
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(26),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Container(
+          height: 170,
+          decoration: BoxDecoration(
+            color: bg ?? Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
                 title,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: kChildInkMuted,
-                  letterSpacing: 0.4,
+                  color: kChildInk,
                   height: 1.15,
                 ),
                 maxLines: 2,
               ),
-              const SizedBox(height: 18),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: kChildBrandBlue,
-                    height: 1.05,
-                  ),
-                  children: [
-                    TextSpan(text: value),
-                    if (unit != null)
-                      TextSpan(
-                        text: ' $unit',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: kChildBrandBlue,
-                        ),
-                      ),
-                  ],
+              Text(
+                value,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  color: kChildInk,
+                  height: 1.0,
                 ),
               ),
-              if (footer != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  footer!,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: kChildInk,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-              if (progress != null) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress!.clamp(0.0, 1.0),
-                    minHeight: 4,
-                    backgroundColor: kChildOutline,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      kChildBrandBlue,
-                    ),
-                  ),
-                ),
-                if (progressCaption != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    progressCaption!,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: kChildInkMuted.withValues(alpha: 0.8),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
+              SizedBox(
+                height: 16,
+                child: footer != null
+                    ? Text(
+                        footer!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: kChildInkMuted.withValues(alpha: 0.85),
+                          letterSpacing: 0.2,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -530,52 +507,40 @@ class _DashboardInfoPanelGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = goalTarget <= 0 ? 0.0 : goalCurrent / goalTarget;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
           Expanded(
-            flex: 3,
             child: _InfoPanelCard(
-              title: 'В РАБОТЕ',
+              title: 'В работе',
               emoji: '🧰',
               value: '$inProgress',
-              unit: inProgress == 1 ? 'задача' : 'задач',
               footer: 'КЛАН / ВСЕ',
               onTap: onQuestsTap,
-              bg: kBrandMint,
+              bg: kBrandSky,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            flex: 3,
             child: _InfoPanelCard(
-              title: 'НА\nПРОВЕРКЕ',
+              title: 'На проверке',
               emoji: '🔎',
               value: '$onReview',
               bg: kBrandSunny,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            flex: 4,
             child: _InfoPanelCard(
-              title: 'ОБЩАЯ\nЦЕЛЬ',
+              title: 'Общая цель',
               emoji: '🔐',
               value: '$goalCurrent',
-              unit: '₽',
-              footer: 'ОБЩАЯ ЦЕЛЬ',
-              progress: progress,
-              progressCaption: goalTarget > 0
-                  ? 'к цели: $goalTarget'
-                  : 'цель не задана',
+              footer: 'Накопления',
               onTap: onGoalTap,
-              bg: kBrandPeach,
+              bg: kBrandMint,
             ),
           ),
         ],
-      ),
     );
   }
 }
@@ -621,7 +586,7 @@ class _DashboardSelectorStripState extends State<_DashboardSelectorStrip> {
                   : p.displayName.trim();
               final initial = name.characters.first.toUpperCase();
               return Padding(
-                padding: const EdgeInsets.only(left: 14),
+                padding: const EdgeInsets.only(left: 10),
                 child: _RoundMemberChip(
                   label: name,
                   initial: initial,
@@ -638,7 +603,7 @@ class _DashboardSelectorStripState extends State<_DashboardSelectorStrip> {
                   : e.value.displayName.trim();
               final initial = name.characters.first.toUpperCase();
               return Padding(
-                padding: const EdgeInsets.only(left: 14),
+                padding: const EdgeInsets.only(left: 10),
                 child: _RoundMemberChip(
                   label: name,
                   initial: initial,
@@ -714,64 +679,70 @@ class _RoundMemberChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: bg,
-              shape: BoxShape.circle,
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: kChildBrandBlue.withValues(alpha: 0.35),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : const [],
-              border: selected
-                  ? Border.all(color: Colors.white, width: 3)
-                  : null,
+      child: Container(
+        width: 96,
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: selected
+              ? Border.all(color: kChildBrandBlue, width: 2)
+              : Border.all(color: const Color(0xFFE7ECF3), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            clipBehavior: Clip.antiAlias,
-            alignment: Alignment.center,
-            child: icon != null
-                ? Icon(icon, color: fg, size: 26)
-                : (userKey != null)
-                    ? UserAvatar(
-                        userKey: userKey!,
-                        size: 56,
-                        fallbackText: initial,
-                      )
-                    : Text(
-                        initial ?? '?',
-                        style: TextStyle(
-                          color: fg,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 20,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: bg,
+                shape: BoxShape.circle,
+              ),
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              child: icon != null
+                  ? Icon(icon, color: fg, size: 28)
+                  : (userKey != null)
+                      ? UserAvatar(
+                          userKey: userKey!,
+                          size: 64,
+                          fallbackText: initial,
+                        )
+                      : Text(
+                          initial ?? '?',
+                          style: TextStyle(
+                            color: fg,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 24,
+                          ),
                         ),
-                      ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            width: 62,
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: kChildInkMuted.withValues(alpha: 0.85),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 84,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: kChildInk,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1140,18 +1111,8 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
             onWalletTap: _showChildDetails,
           ),
           const SizedBox(height: 18),
-          // APK: "Инфо-панель" section title.
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 10),
-            child: Text(
-              'Инфо-панель',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: kChildInk,
-              ),
-            ),
-          ),
+          // APK: "Инфо-панель" section title with divider.
+          const _SectionTitleWithDivider('Инфо-панель'),
           _DashboardInfoPanelGrid(
             inProgress: activeQuests.length,
             onReview: _reviews.length,
@@ -1177,25 +1138,24 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
               ),
             )
           else ...[
-            if (_reviews.isNotEmpty)
-              _PendingReviewFeed(
-                items: _reviews,
-                onItemRemoved: (item) {
-                  setState(() {
-                    _reviews = _reviews
-                        .where(
-                          (r) =>
-                              !(r.questId == item.questId &&
-                                  r.childId == item.childId),
-                        )
-                        .toList();
-                  });
-                },
-              ),
-            if (_reviews.isNotEmpty && _notifications.isNotEmpty)
-              const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            const _SectionTitleWithDivider('Недавние события'),
             if (_notifications.isNotEmpty)
-              _NotificationsFeedCard(items: _notifications),
+              _NotificationsFeedCard(items: _notifications)
+            else
+              _SoftCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+                  child: Text(
+                    'Лента пуста',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: kChildInkMuted.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ),
+              ),
           ],
           const SizedBox(height: 24),
         ],
@@ -1211,126 +1171,57 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
     int pendingReviews = 0,
     required Widget child,
   }) {
-    final body = CustomScrollView(
+    final body = ListView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: ClampingScrollPhysics(),
       ),
-      slivers: [
-        SliverAppBar(
-          pinned: true,
-          expandedHeight: 80,
-          backgroundColor: const Color(0xFFCEE0F5),
-          foregroundColor: kChildInk,
-          elevation: 4,
-          scrolledUnderElevation: 0,
-          surfaceTintColor: Colors.transparent,
-          systemOverlayStyle: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            statusBarIconBrightness: Brightness.dark,
-            statusBarBrightness: Brightness.light,
-          ),
-          flexibleSpace: FlexibleSpaceBar(
-            expandedTitleScale: 1,
-            titlePadding: EdgeInsets.zero,
-            background: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFCEE0F5), kChildSurfaceSoft],
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Stack(
-                  children: [
-                    // APK: visible decorative circles.
-                    Positioned(
-                      top: -80,
-                      right: -60,
-                      child: Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFB74D).withValues(alpha: 0.14),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 40,
-                      right: 140,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: kChildBrandBlue.withValues(alpha: 0.08),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 8, 14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: ClanCapitalUi.logoHeader(
-                              title.isEmpty ? null : title,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: widget.onOpenNotifications,
-                            icon: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                const Icon(
-                                  Icons.notifications_none_rounded,
-                                  color: kChildInk,
-                                  size: 26,
-                                ),
-                                if (_notifications.any(
-                                  (n) => n.status != 'read',
-                                ))
-                                  Positioned(
-                                    right: -2,
-                                    top: -2,
-                                    child: Container(
-                                      width: 9,
-                                      height: 9,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFD83A3A),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _reload(),
-                            icon: const Icon(Icons.refresh, color: kChildInk),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
+        // Figma: big CLAN CAPITAL title + round white refresh button
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                'CLAN CAPITAL',
+                style: GoogleFonts.manrope(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  color: kChildBrandBlue,
+                  letterSpacing: 0.5,
+                  height: 1.0,
                 ),
               ),
             ),
-          ),
+            Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.14),
+              child: InkWell(
+                onTap: () => _reload(),
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.refresh_rounded,
+                    color: kChildInk,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: child,
-          ),
-        ),
+        const SizedBox(height: 16),
+        child,
       ],
     );
 
     return Container(
-      color: kChildSurfaceSoft,
+      color: kBgCloud,
       child: RefreshIndicator(
         onRefresh: () => _reload(),
         child: body,
@@ -1841,136 +1732,143 @@ class _NotificationsFeedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
-    final list = items.take(6).toList();
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: kChildBrandBlue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+    final list = items.take(8).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: list.map((n) {
+        final childId =
+            n.payload['childId']?.toString() ?? n.payload['actorId']?.toString();
+        final actorName = (n.payload['childName']?.toString() ??
+                n.payload['displayName']?.toString() ??
+                n.payload['actorName']?.toString() ??
+                '')
+            .trim();
+        final richText = _buildRichEvent(n, actorName);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE7ECF3), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.notifications_active_outlined,
-                  color: kChildBrandBlue,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'СОБЫТИЯ',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: kChildInk,
-                  letterSpacing: 0.6,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: kChildBrandBlue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${items.length}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: kChildBrandBlue,
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (childId != null && childId.isNotEmpty)
+                  ClipOval(
+                    child: UserAvatar(userKey: 'child:$childId', size: 48),
+                  )
+                else
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: kChildBrandBlue.withValues(alpha: 0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      _iconFor(n),
+                      size: 22,
+                      color: kChildBrandBlue,
+                    ),
                   ),
-                ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(child: richText),
+              ],
+            ),
           ),
-          const SizedBox(height: 14),
-          ...list.map((n) {
-            final subtitle = _subtitleFor(n);
-            final unread = n.status != 'read';
-            final childId =
-                n.payload['childId']?.toString() ?? n.payload['actorId']?.toString();
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (childId != null && childId.isNotEmpty)
-                    UserAvatar(userKey: 'child:$childId', size: 36)
-                  else
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: (unread ? kChildBrandBlue : kChildInkMuted)
-                            .withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Icon(
-                        _iconFor(n),
-                        size: 18,
-                        color: unread ? kChildBrandBlue : kChildInkMuted,
-                      ),
-                    ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _titleFor(n),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: kChildInk,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: kChildInkMuted.withValues(alpha: 0.85),
-                              height: 1.3,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (unread)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(left: 8, top: 4),
-                      decoration: const BoxDecoration(
-                        color: kChildBrandBlue,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
-              ),
-            );
-          }),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRichEvent(InAppNotificationItem n, String actorName) {
+    final type = n.type;
+    final title = (n.payload['title']?.toString() ??
+            n.payload['questTitle']?.toString() ??
+            n.payload['productTitle']?.toString() ??
+            '')
+        .trim();
+    final reward = n.payload['rewardAmount']?.toString() ??
+        n.payload['amount']?.toString() ??
+        n.payload['price']?.toString();
+
+    String verb;
+    String? rewardSuffix;
+    if (type.startsWith('quest_submitted')) {
+      verb = 'выполнил${_isFemale(actorName) ? 'а' : ''} задачу';
+      if (reward != null) rewardSuffix = '(+$reward монет)';
+    } else if (type.startsWith('quest_approved')) {
+      verb = 'получил${_isFemale(actorName) ? 'а' : ''} награду';
+      if (reward != null) rewardSuffix = '(+$reward монет)';
+    } else if (type.startsWith('quest_rejected')) {
+      verb = 'задача отклонена';
+    } else if (type.startsWith('shop_purchase_requested')) {
+      verb = 'запросил${_isFemale(actorName) ? 'а' : ''} покупку';
+      if (reward != null) rewardSuffix = '($reward монет)';
+    } else if (type.startsWith('shop_purchase_approved')) {
+      verb = 'покупка одобрена';
+    } else if (type.startsWith('wallet_adjusted')) {
+      verb = 'баланс изменён';
+      if (reward != null) rewardSuffix = '($reward монет)';
+    } else if (type == 'access_request') {
+      verb = 'запросил${_isFemale(actorName) ? 'а' : ''} доступ к семье';
+    } else if (type.startsWith('family_goal')) {
+      verb = 'добавил${_isFemale(actorName) ? 'а' : ''} цель';
+      if (reward != null) rewardSuffix = '($reward₽)';
+    } else {
+      verb = 'обновление';
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 14,
+          color: kChildInk,
+          height: 1.35,
+        ),
+        children: [
+          if (actorName.isNotEmpty) ...[
+            TextSpan(
+              text: actorName,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const TextSpan(text: ' '),
+          ],
+          TextSpan(text: verb),
+          if (title.isNotEmpty) ...[
+            const TextSpan(text: ' '),
+            TextSpan(
+              text: '«$title»',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ],
+          if (rewardSuffix != null) ...[
+            const TextSpan(text: ' '),
+            TextSpan(
+              text: rewardSuffix,
+              style: TextStyle(color: kChildInkMuted.withValues(alpha: 0.85)),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  bool _isFemale(String name) {
+    if (name.isEmpty) return false;
+    final lower = name.toLowerCase();
+    return lower.endsWith('а') || lower.endsWith('я');
   }
 }
 
@@ -2086,6 +1984,34 @@ class _SkeletonCard extends StatelessWidget {
         color: kChildSurfaceWhite,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: kChildOutline),
+      ),
+    );
+  }
+}
+
+/// Section title with horizontal divider line (Figma style).
+class _SectionTitleWithDivider extends StatelessWidget {
+  const _SectionTitleWithDivider(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 6, bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: kChildInk,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(height: 1, color: kChildOutline),
+        ],
       ),
     );
   }

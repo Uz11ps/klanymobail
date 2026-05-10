@@ -157,27 +157,6 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                       fg: kChildInk,
                       onTap: () => context.go('/auth/child/sign-in'),
                     ),
-                    const SizedBox(height: 14),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.go('/auth/parent/sign-up'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: kChildBrandBlue,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                        ),
-                        child: const Text(
-                          'Создать новый клан',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

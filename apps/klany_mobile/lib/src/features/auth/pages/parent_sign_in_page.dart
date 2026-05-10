@@ -107,6 +107,37 @@ class _SmyshlCard extends StatelessWidget {
 
 // ─── APK-style text field decoration ────────────────────────────────────────
 
+/// Wraps a child (e.g. TextField) in a soft-shadowed pill-shaped container
+/// to match Figma input styling.
+class SoftInputContainer extends StatelessWidget {
+  const SoftInputContainer({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E2D52).withValues(alpha: 0.10),
+            offset: const Offset(0, 6),
+            blurRadius: 18,
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            offset: const Offset(0, 2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
 InputDecoration _authInput(String hint, {Widget? suffixIcon}) {
   return InputDecoration(
     hintText: hint,
@@ -299,8 +330,8 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
             // Hero illustration card
             _AuthHeroCard(
               asset: isEmailStep
-                  ? 'assets/figma/slide_team.png'
-                  : 'assets/figma/slide_capital.png',
+                  ? 'assets/figma/hero_birzha.png'
+                  : 'assets/figma/hero_economika.png',
               bg: isEmailStep ? kBrandLavender : kBrandSunny,
               title: isEmailStep ? 'Биржа задач' : 'Лимиты и Капитал',
               subtitle: isEmailStep
@@ -321,15 +352,17 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                   ),
                 ),
               ),
-              TextField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                autofillHints: const [
-                  AutofillHints.username,
-                  AutofillHints.email,
-                ],
-                decoration: _authInput('email@gmail.com'),
-                style: const TextStyle(fontSize: 15, color: kChildInk),
+              SoftInputContainer(
+                child: TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [
+                    AutofillHints.username,
+                    AutofillHints.email,
+                  ],
+                  decoration: _authInput('email@gmail.com'),
+                  style: const TextStyle(fontSize: 15, color: kChildInk),
+                ),
               ),
               const SizedBox(height: 22),
               SizedBox(
@@ -354,28 +387,6 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                   ),
                 ),
               ),
-              if (_biometricReady) ...[
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _busy ? null : _signInWithBiometric,
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text('Войти по биометрии'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: kChildBrandBlue,
-                      minimumSize: const Size.fromHeight(50),
-                      side: const BorderSide(
-                        color: kChildBrandBlue,
-                        width: 1.4,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ] else ...[
               const Padding(
                 padding: EdgeInsets.only(left: 6, bottom: 10),
@@ -389,23 +400,25 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                 ),
               ),
               StatefulBuilder(
-                builder: (context, setLocal) => TextField(
-                  controller: _password,
-                  obscureText: _obscure,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: _authInput(
-                    '••••••••',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscure
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        color: kChildInkMuted,
+                builder: (context, setLocal) => SoftInputContainer(
+                  child: TextField(
+                    controller: _password,
+                    obscureText: _obscure,
+                    autofillHints: const [AutofillHints.password],
+                    decoration: _authInput(
+                      '••••••••',
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: kChildInkMuted,
+                        ),
+                        onPressed: () => setState(() => _obscure = !_obscure),
                       ),
-                      onPressed: () => setState(() => _obscure = !_obscure),
                     ),
+                    style: const TextStyle(fontSize: 15, color: kChildInk),
                   ),
-                  style: const TextStyle(fontSize: 15, color: kChildInk),
                 ),
               ),
               const SizedBox(height: 22),
@@ -478,13 +491,30 @@ class _AuthHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 0.95,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(28),
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              offset: const Offset(0, 12),
+              blurRadius: 28,
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              offset: const Offset(0, 4),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(28),
+            ),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -520,7 +550,7 @@ class _AuthHeroCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
-                          color: kChildInk,
+                          color: Colors.white,
                           height: 1.1,
                         ),
                       ),
@@ -529,7 +559,7 @@ class _AuthHeroCard extends StatelessWidget {
                         subtitle,
                         style: const TextStyle(
                           fontSize: 14,
-                          color: kChildInk,
+                          color: Colors.white,
                           height: 1.3,
                         ),
                       ),
@@ -539,6 +569,7 @@ class _AuthHeroCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

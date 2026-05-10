@@ -389,10 +389,11 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const SizedBox(
-                                width: 36,
-                                height: 36,
-                                child: _CoinStackIcon(),
+                              Image.asset(
+                                'assets/figma/coin_stack.png',
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.contain,
                               ),
                               const SizedBox(width: 10),
                               Text(

@@ -35,7 +35,7 @@ abstract class ClanCapitalUi {
       children: [
         Text(
           'CLAN CAPITAL',
-          style: GoogleFonts.nunito(
+          style: GoogleFonts.manrope(
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: kChildBrandBlue,
@@ -44,7 +44,7 @@ abstract class ClanCapitalUi {
         if (subtitle != null && subtitle.isNotEmpty)
           Text(
             subtitle,
-            style: GoogleFonts.nunito(
+            style: GoogleFonts.manrope(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: kChildInk,
