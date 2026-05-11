@@ -14,7 +14,10 @@ final ValueNotifier<int> avatarVersion = ValueNotifier<int>(0);
 class AvatarStore {
   static const _idxPrefix = 'avatar_idx_';
   static const _filePrefix = 'avatar_file_';
-  static const totalAvatars = 9;
+  /// Сколько готовых пресетов показываем в пикере.
+  static const totalAvatars = 3;
+  /// Сколько файлов аватаров реально лежит в assets (avatar_1.png .. avatar_9.png).
+  static const _assetAvatars = 9;
 
   /// Возвращает путь к загруженному файлу или null.
   static Future<String?> getFilePath(String key) async {
@@ -26,16 +29,16 @@ class AvatarStore {
     return null;
   }
 
-  /// Возвращает индекс аватара (1..9) если файла нет.
+  /// Возвращает индекс выбранного аватара (1..totalAvatars) или 0 если ничего не выбрано.
+  /// 0 означает «пользователь явно ничего не выбирал» — показываем инициалы.
   static Future<int> getIndex(String key) async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getInt('$_idxPrefix$key');
-    if (saved != null && saved >= 1 && saved <= totalAvatars) return saved;
-    return (key.hashCode.abs() % totalAvatars) + 1;
+    if (saved != null && saved >= 1 && saved <= _assetAvatars) return saved;
+    return 0;
   }
 
-  static int fallbackIndex(String key) =>
-      (key.hashCode.abs() % totalAvatars) + 1;
+  static int fallbackIndex(String key) => 0;
 
   static Future<void> setIndex(String key, int index) async {
     final prefs = await SharedPreferences.getInstance();
@@ -81,8 +84,11 @@ Future<bool> showAvatarPicker({
 }) async {
   final initial = await AvatarStore.getIndex(userKey);
   if (!context.mounted) return false;
-  int selected = initial;
-  final result = await showDialog<bool>(
+  int selected = initial > 0 ? initial : 1;
+  // 'preset' = выбрали пресет и нажали "Сохранить"
+  // 'file' = загрузили свою картинку через "Загрузить из галереи"
+  // null = отмена
+  final result = await showDialog<String>(
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setSt) => AlertDialog(
@@ -147,9 +153,23 @@ Future<bool> showAvatarPicker({
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () async {
-                    final p = await _pickAndStoreImage(userKey);
-                    if (p != null && ctx.mounted) {
-                      Navigator.pop(ctx, true);
+                    try {
+                      final p = await _pickAndStoreImage(userKey);
+                      if (p != null && ctx.mounted) {
+                        Navigator.pop(ctx, 'file');
+                      } else if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(
+                            content: Text('Не удалось выбрать фото'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text('Ошибка загрузки: $e')),
+                        );
+                      }
                     }
                   },
                   icon: const Icon(Icons.photo_library_outlined),
@@ -172,11 +192,11 @@ Future<bool> showAvatarPicker({
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
+            onPressed: () => Navigator.pop(ctx, null),
             child: const Text('Отмена'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(ctx, 'preset'),
             style: FilledButton.styleFrom(
               backgroundColor: kBrandMint,
               foregroundColor: const Color(0xFF1F4F1B),
@@ -188,12 +208,13 @@ Future<bool> showAvatarPicker({
       ),
     ),
   );
-  if (result == true) {
-    // Если выбран один из 9 (а не загружен файл) — сохраняем индекс.
-    final hasFile = await AvatarStore.getFilePath(userKey) != null;
-    if (!hasFile) {
-      await AvatarStore.setIndex(userKey, selected);
-    }
+  if (result == 'preset') {
+    // setIndex затрёт ранее загруженный файл — это и нужно, если хотим вернуться к пресету.
+    await AvatarStore.setIndex(userKey, selected);
+    return true;
+  }
+  if (result == 'file') {
+    // Файл уже сохранён внутри _pickAndStoreImage — ничего больше делать не нужно.
     return true;
   }
   return false;
@@ -281,16 +302,33 @@ class _UserAvatarState extends State<UserAvatar> {
     );
   }
 
-  Widget _assetImage() => Image.asset(
-        AvatarStore.assetForIndex(_index),
-        fit: BoxFit.cover,
-        errorBuilder: (_, e, s) => Text(
+  Widget _assetImage() {
+    if (_index <= 0) {
+      // Пользователь ничего не выбирал — показываем инициалы вместо mock-фото.
+      return Container(
+        color: const Color(0xFFE3ECF8),
+        alignment: Alignment.center,
+        child: Text(
           widget.fallbackText ?? '?',
           style: TextStyle(
-            fontSize: widget.size * 0.4,
+            fontSize: widget.size * 0.42,
             fontWeight: FontWeight.w900,
             color: kChildBrandBlue,
           ),
         ),
       );
+    }
+    return Image.asset(
+      AvatarStore.assetForIndex(_index),
+      fit: BoxFit.cover,
+      errorBuilder: (_, e, s) => Text(
+        widget.fallbackText ?? '?',
+        style: TextStyle(
+          fontSize: widget.size * 0.4,
+          fontWeight: FontWeight.w900,
+          color: kChildBrandBlue,
+        ),
+      ),
+    );
+  }
 }

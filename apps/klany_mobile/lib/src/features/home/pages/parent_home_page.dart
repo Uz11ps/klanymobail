@@ -1200,6 +1200,46 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: 0.14),
               child: InkWell(
+                onTap: widget.onOpenNotifications,
+                customBorder: const CircleBorder(),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      const Icon(
+                        Icons.notifications_none_rounded,
+                        color: kChildInk,
+                        size: 22,
+                      ),
+                      if (_notifications.any((n) => n.status != 'read'))
+                        Positioned(
+                          top: 10,
+                          right: 11,
+                          child: Container(
+                            width: 9,
+                            height: 9,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFD83A3A),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.14),
+              child: InkWell(
                 onTap: () => _reload(),
                 customBorder: const CircleBorder(),
                 child: const SizedBox(

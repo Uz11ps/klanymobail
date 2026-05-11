@@ -490,7 +490,7 @@ class _AuthHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 0.95,
+      aspectRatio: 1.05,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),

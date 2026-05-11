@@ -583,16 +583,6 @@ class _ParentFamilySettingsPageState
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'МОЙ ТАРИФ: ${isPremium ? "PREMIUM" : "BASIC"}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: kChildInkMuted,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
                       if (isPremium) ...[
                         Container(
                           padding: const EdgeInsets.all(18),
@@ -882,11 +872,10 @@ class _ParentFamilySettingsPageState
                             final initial = c.displayName.isNotEmpty
                                 ? c.displayName[0].toUpperCase()
                                 : '?';
-                            final asset = 'assets/figma/avatar_${(c.displayName.hashCode.abs() % 9) + 1}.png';
                             return Padding(
                               padding: const EdgeInsets.only(right: 10),
                               child: _MemberTile(
-                                avatarAsset: asset,
+                                userKey: 'member:${c.id}',
                                 avatarFallback: initial,
                                 label: c.displayName,
                               ),
@@ -1042,19 +1031,12 @@ class _ParentFamilySettingsPageState
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 alignment: Alignment.center,
-                                child: Image.asset(
-                                  'assets/figma/avatar_${(item.displayName.hashCode.abs() % 9) + 1}.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, e, s) => Text(
-                                    item.displayName.isNotEmpty
-                                        ? item.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: kChildBrandBlue,
-                                    ),
-                                  ),
+                                child: UserAvatar(
+                                  userKey: 'member:${item.id}',
+                                  size: 40,
+                                  fallbackText: item.displayName.isNotEmpty
+                                      ? item.displayName[0].toUpperCase()
+                                      : '?',
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -1845,11 +1827,11 @@ class _TaxSegmentSlider extends StatelessWidget {
 
 class _MemberTile extends StatelessWidget {
   const _MemberTile({
-    required this.avatarAsset,
+    required this.userKey,
     required this.avatarFallback,
     required this.label,
   });
-  final String avatarAsset;
+  final String userKey;
   final String avatarFallback;
   final String label;
 
@@ -1881,17 +1863,10 @@ class _MemberTile extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             alignment: Alignment.center,
-            child: Image.asset(
-              avatarAsset,
-              fit: BoxFit.cover,
-              errorBuilder: (_, e, s) => Text(
-                avatarFallback,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: kChildBrandBlue,
-                ),
-              ),
+            child: UserAvatar(
+              userKey: userKey,
+              size: 56,
+              fallbackText: avatarFallback,
             ),
           ),
           const SizedBox(height: 4),

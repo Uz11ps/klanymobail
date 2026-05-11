@@ -8,8 +8,60 @@ class ApiException implements Exception {
   final int statusCode;
   final Object? body;
 
+  /// Сообщение из тела ответа (без HTTP-кода, без stack trace).
+  String get message {
+    final b = body;
+    String? raw;
+    if (b is Map) {
+      final m = b['message'];
+      if (m is String) {
+        raw = m;
+      } else if (m is List && m.isNotEmpty) {
+        raw = m.first.toString();
+      }
+      raw ??= b['error']?.toString();
+    } else if (b is String && b.isNotEmpty) {
+      raw = b;
+    }
+    raw = (raw ?? '').trim();
+    return _friendly(raw);
+  }
+
+  /// Перевод типовых API-сообщений на понятный русский.
+  String _friendly(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('пользователь уже существует') ||
+        lower.contains('user already exists') ||
+        lower.contains('email already') ||
+        lower.contains('already registered') ||
+        statusCode == 409) {
+      return 'Этот email уже зарегистрирован. Войдите или используйте другой.';
+    }
+    if (lower.contains('invalid credentials') ||
+        lower.contains('invalid login') ||
+        lower.contains('неверн') && lower.contains('парол')) {
+      return 'Неверный email или пароль.';
+    }
+    if (lower.contains('not found') || statusCode == 404) {
+      return 'Не найдено.';
+    }
+    if (lower.contains('unauthorized') || statusCode == 401) {
+      return 'Нужно войти заново.';
+    }
+    if (lower.contains('forbidden') || statusCode == 403) {
+      return 'Доступ запрещён.';
+    }
+    if (lower.contains('validation') || lower.contains('bad request')) {
+      return raw.isEmpty ? 'Проверьте введённые данные.' : raw;
+    }
+    if (statusCode >= 500) {
+      return 'Сервер временно недоступен. Попробуйте позже.';
+    }
+    return raw.isEmpty ? 'Что-то пошло не так. Попробуйте ещё раз.' : raw;
+  }
+
   @override
-  String toString() => 'ApiException($statusCode): $body';
+  String toString() => message;
 }
 
 class ApiClient {

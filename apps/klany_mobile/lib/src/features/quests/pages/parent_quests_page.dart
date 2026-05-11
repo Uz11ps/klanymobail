@@ -232,7 +232,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     return Scaffold(
       backgroundColor: kBgCloud,
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
+        padding: const EdgeInsets.only(bottom: 16),
         child: FloatingActionButton(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -290,26 +290,6 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             clipBehavior: Clip.antiAlias,
                             elevation: 4,
                             child: InkWell(
-                              onTap: _loadWallets,
-                              customBorder: const CircleBorder(),
-                              child: const SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Icon(
-                                  Icons.refresh,
-                                  color: kChildInk,
-                                  size: 22,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Material(
-                            color: Colors.white,
-                            shape: const CircleBorder(),
-                            clipBehavior: Clip.antiAlias,
-                            elevation: 4,
-                            child: InkWell(
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const ParentShopPage(),
@@ -333,10 +313,10 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
 
                     // ── Members selector ───────────────────────────────
                     SizedBox(
-                      height: 116,
+                      height: 100,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                         children: [
                           _WalletChip(
                             label: 'Все',
@@ -380,9 +360,14 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       ),
                     ),
 
+                    // Divider after member chips
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(height: 1, color: kChildOutline),
+                    ),
                     // ── Big balance ─────────────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                      padding: const EdgeInsets.fromLTRB(20, 36, 20, 36),
                       child: Column(
                         children: [
                           Row(
@@ -391,15 +376,15 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             children: [
                               Image.asset(
                                 'assets/figma/coin_stack.png',
-                                width: 40,
-                                height: 40,
+                                width: 44,
+                                height: 44,
                                 fit: BoxFit.contain,
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Text(
                                 _formatBalance(sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance)),
                                 style: const TextStyle(
-                                  fontSize: 36,
+                                  fontSize: 40,
                                   fontWeight: FontWeight.w900,
                                   color: kChildBrandBlue,
                                   height: 1.0,
@@ -407,12 +392,12 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           Text(
                             '${(sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance)) * _rublesPer10Coins ~/ 10} ₽',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: kChildInkMuted,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: kChildInkMuted.withValues(alpha: 0.65),
                             ),
                           ),
                         ],
@@ -516,31 +501,41 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
                     const SizedBox(height: 8),
 
-                    // ── Биржа задач section (always visible) ──────────
+                    // Divider before Биржа задач
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                      child: Text(
-                        'Биржа задач',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                      child: Container(height: 1, color: kChildOutline),
+                    ),
+                    // ── Биржа задач section (always visible) ──────────
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 14, 20, 12),
+                      child: Center(
+                        child: Text(
+                          'Биржа задач',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: kChildInk,
+                          ),
                         ),
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
+                          SizedBox(
+                            width: 130,
                             child: _PillTab(
                               label: 'Активные',
                               selected: _tab == 0,
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 130,
                             child: _PillTab(
                               label: 'Проверка',
                               selected: _tab == 2,
@@ -550,17 +545,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: Text(
-                        _tab == 2 ? 'На проверке' : 'Все задачи',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: kChildInkMuted,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
                     // List rendered inline
                     if (_tab == 0)
                       _QuestsList(familyId: family.familyId)
@@ -596,19 +581,19 @@ class _PillTab extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           border: selected
               ? null
-              : Border.all(color: kChildOutline, width: 1.4),
+              : Border.all(color: kChildOutline, width: 1.2),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             color: fg,
           ),
@@ -647,33 +632,28 @@ class _WalletChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 88,
-        padding: const EdgeInsets.all(8),
+        width: 74,
+        padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: kChildBrandBlue.withValues(alpha: 0.18),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          borderRadius: BorderRadius.circular(18),
+          border: selected
+              ? Border.all(color: kChildBrandBlue, width: 2)
+              : Border.all(color: const Color(0xFFE7ECF3), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 color: const Color(0xFFEFF2F8),
                 shape: BoxShape.circle,
@@ -684,11 +664,11 @@ class _WalletChip extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: icon != null
-                  ? Icon(icon, color: kChildInk, size: 28)
+                  ? Icon(icon, color: kChildInk, size: 22)
                   : (userKey != null
                       ? UserAvatar(
                           userKey: userKey!,
-                          size: 56,
+                          size: 46,
                           fallbackText:
                               emoji ?? label.characters.first.toUpperCase(),
                         )
@@ -707,7 +687,7 @@ class _WalletChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 color: kChildInk,
                 fontWeight: FontWeight.w700,
               ),

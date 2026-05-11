@@ -88,7 +88,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка регистрации: $e')),
+        SnackBar(content: Text('$e')),
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -116,90 +116,6 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
               ),
             ),
             const SizedBox(height: 28),
-            // СМЫСЛ 3 card
-            ChildSoftCard(
-              color: kChildSurfaceWhite,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: kChildAccentOrange,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.play_arrow,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      const Text(
-                        'СМЫСЛ 3',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: kChildInk,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 82,
-                        height: 82,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE3ECF8),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          '👥🛡️',
-                          style: TextStyle(fontSize: 28),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ТВОЯ КОМАНДА',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: kChildBrandBlue,
-                                height: 1.15,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              'Добавь детей, чтобы распределять задачи и отслеживать их финансовый рост в реальном времени',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: kChildInkMuted,
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
             TextField(
               controller: _name,
               textCapitalization: TextCapitalization.words,

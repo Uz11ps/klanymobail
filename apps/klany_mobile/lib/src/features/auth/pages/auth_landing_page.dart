@@ -87,7 +87,8 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              Expanded(
+              SizedBox(
+                height: 360,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _slides.length,
@@ -114,7 +115,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                   );
                 }),
               ),
-              const SizedBox(height: 22),
+              const Spacer(),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(
