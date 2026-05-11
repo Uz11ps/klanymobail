@@ -88,7 +88,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
               ),
               const SizedBox(height: 14),
               SizedBox(
-                height: 360,
+                height: 460,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _slides.length,
@@ -96,8 +96,10 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                   itemBuilder: (_, i) => _SlideCard(slide: _slides[i]),
                 ),
               ),
-              const SizedBox(height: 14),
-              Row(
+              const SizedBox(height: 0),
+              Transform.translate(
+                offset: const Offset(0, -36),
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_slides.length, (i) {
                   final active = i == _slide;
@@ -114,6 +116,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                     ),
                   );
                 }),
+                ),
               ),
               const Spacer(),
               Padding(
@@ -186,56 +189,11 @@ class _SlideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: Container(
-          decoration: BoxDecoration(
-            color: slide.bg,
-            borderRadius: BorderRadius.circular(32),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                slide.asset,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                errorBuilder: (_, _, _) => Container(color: slide.bg),
-              ),
-              // Subtle dim overlay so white text is readable on photo
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.05),
-                      Colors.black.withValues(alpha: 0.30),
-                    ],
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-                  child: Text(
-                    slide.title,
-                    style: const TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.15,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return Image.asset(
+      slide.asset,
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      errorBuilder: (_, _, _) => const SizedBox.shrink(),
     );
   }
 }

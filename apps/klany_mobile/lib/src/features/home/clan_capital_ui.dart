@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 const Color kChildBrandBlue = Color(0xFF2E63D8);
 const Color kChildInk = Color(0xFF1E2D52);
@@ -35,7 +34,8 @@ abstract class ClanCapitalUi {
       children: [
         Text(
           'CLAN CAPITAL',
-          style: GoogleFonts.manrope(
+          style: const TextStyle(
+            fontFamily: 'Nunito',
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: kChildBrandBlue,
@@ -44,7 +44,8 @@ abstract class ClanCapitalUi {
         if (subtitle != null && subtitle.isNotEmpty)
           Text(
             subtitle,
-            style: GoogleFonts.manrope(
+            style: const TextStyle(
+            fontFamily: 'Nunito',
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: kChildInk,

@@ -491,86 +491,11 @@ class _AuthHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 1.05,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              offset: const Offset(0, 12),
-              blurRadius: 28,
-              spreadRadius: 0,
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              offset: const Offset(0, 4),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Container(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(28),
-            ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                asset,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                errorBuilder: (_, __, ___) => Container(color: bg),
-              ),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        bg.withValues(alpha: 0.0),
-                        bg.withValues(alpha: 0.85),
-                        bg,
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        ),
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        errorBuilder: (_, __, ___) => Container(color: bg),
       ),
     );
   }

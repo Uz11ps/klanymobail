@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // Force consistent Material Design on all platforms (iOS + Android look identical).
 const _pageTransitions = PageTransitionsTheme(
@@ -19,8 +18,8 @@ ThemeData _build(ColorScheme colorScheme) {
   );
 
   return base.copyWith(
-    textTheme: GoogleFonts.manropeTextTheme(base.textTheme),
-    primaryTextTheme: GoogleFonts.manropeTextTheme(base.primaryTextTheme),
+    textTheme: base.textTheme.apply(fontFamily: 'Nunito'),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Nunito'),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     // Make Scaffold transparent so the global cloud background shows through.
     scaffoldBackgroundColor: Colors.transparent,
@@ -29,10 +28,11 @@ ThemeData _build(ColorScheme colorScheme) {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
-      titleTextStyle: GoogleFonts.manrope(
+      titleTextStyle: const TextStyle(
+        fontFamily: 'Nunito',
         fontSize: 22,
         fontWeight: FontWeight.w900,
-        color: const Color(0xFF1E2D52),
+        color: Color(0xFF1E2D52),
       ),
     ),
     // App-style FilledButton: mint, dark ink text, hard bottom shadow.
@@ -46,7 +46,8 @@ ThemeData _build(ColorScheme colorScheme) {
         ),
         elevation: const WidgetStatePropertyAll(6),
         shadowColor: const WidgetStatePropertyAll(Color(0xFF7BC976)),
-        textStyle: WidgetStatePropertyAll(GoogleFonts.manrope(
+        textStyle: const WidgetStatePropertyAll(TextStyle(
+          fontFamily: 'Nunito',
           fontSize: 16,
           fontWeight: FontWeight.w800,
         )),
@@ -61,7 +62,8 @@ ThemeData _build(ColorScheme colorScheme) {
         side: const WidgetStatePropertyAll(
           BorderSide(color: Color(0xFFD7E1F2), width: 1.4),
         ),
-        textStyle: WidgetStatePropertyAll(GoogleFonts.manrope(
+        textStyle: const WidgetStatePropertyAll(TextStyle(
+          fontFamily: 'Nunito',
           fontSize: 15,
           fontWeight: FontWeight.w800,
         )),
@@ -125,10 +127,11 @@ ThemeData _build(ColorScheme colorScheme) {
         borderRadius: BorderRadius.circular(18),
         side: const BorderSide(color: Color(0xFFD7E1F2), width: 1.2),
       ),
-      labelStyle: GoogleFonts.manrope(
+      labelStyle: const TextStyle(
+        fontFamily: 'Nunito',
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: const Color(0xFF1E2D52),
+        color: Color(0xFF1E2D52),
       ),
     ),
     dropdownMenuTheme: DropdownMenuThemeData(

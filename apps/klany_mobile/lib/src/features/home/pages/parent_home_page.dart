@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/device_identity.dart';
 import '../../auth/auth_actions.dart';
@@ -1184,7 +1183,8 @@ class _ParentDashboardBodyState extends ConsumerState<_ParentDashboardBody> {
             Expanded(
               child: Text(
                 'CLAN CAPITAL',
-                style: GoogleFonts.manrope(
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
                   fontSize: 30,
                   fontWeight: FontWeight.w900,
                   color: kChildBrandBlue,

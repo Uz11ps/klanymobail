@@ -107,87 +107,14 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
           physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
           children: [
-            // Hero card with flag image and shadow
+            // Hero card with flag image (text and bg are part of the image)
             AspectRatio(
               aspectRatio: 1.05,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      offset: const Offset(0, 12),
-                      blurRadius: 28,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      offset: const Offset(0, 4),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: Container(
-                    decoration: const BoxDecoration(color: kBrandSky),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.asset(
-                          'assets/figma/hero_flag.png',
-                          fit: BoxFit.cover,
-                          alignment: Alignment.topCenter,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: kBrandSky),
-                        ),
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Container(
-                            width: double.infinity,
-                            padding:
-                                const EdgeInsets.fromLTRB(22, 24, 22, 22),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  kBrandSky.withValues(alpha: 0.0),
-                                  kBrandSky.withValues(alpha: 0.85),
-                                  kBrandSky,
-                                ],
-                                stops: const [0.0, 0.5, 1.0],
-                              ),
-                            ),
-                            child: const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Твои мечты и цели',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.white,
-                                    height: 1.1,
-                                  ),
-                                ),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Следи за вкладом каждого и общим прогрессом',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              child: Image.asset(
+                'assets/figma/hero_flag.png',
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) => Container(color: kBrandSky),
               ),
             ),
             const SizedBox(height: 28),
