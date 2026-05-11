@@ -14,7 +14,7 @@ class AuthLandingPage extends StatefulWidget {
 }
 
 class _AuthLandingPageState extends State<AuthLandingPage> {
-  final _pageController = PageController(viewportFraction: 0.88);
+  final _pageController = PageController(viewportFraction: 0.82);
   int _slide = 0;
   Timer? _autoTimer;
 
@@ -88,18 +88,19 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
               ),
               const SizedBox(height: 14),
               SizedBox(
-                height: 460,
+                height: 360,
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _slides.length,
                   onPageChanged: (i) => setState(() => _slide = i),
-                  itemBuilder: (_, i) => _SlideCard(slide: _slides[i]),
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: _SlideCard(slide: _slides[i]),
+                  ),
                 ),
               ),
-              const SizedBox(height: 0),
-              Transform.translate(
-                offset: const Offset(0, -36),
-                child: Row(
+              const SizedBox(height: 16),
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_slides.length, (i) {
                   final active = i == _slide;
@@ -116,7 +117,6 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                     ),
                   );
                 }),
-                ),
               ),
               const Spacer(),
               Padding(
@@ -193,6 +193,8 @@ class _SlideCard extends StatelessWidget {
       slide.asset,
       fit: BoxFit.contain,
       alignment: Alignment.center,
+      // Decode at ~screen width to keep memory + decoding cheap.
+      cacheWidth: 1200,
       errorBuilder: (_, _, _) => const SizedBox.shrink(),
     );
   }

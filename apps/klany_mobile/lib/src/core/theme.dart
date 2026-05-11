@@ -15,9 +15,11 @@ ThemeData _build(ColorScheme colorScheme) {
     platform: TargetPlatform.android, // widgets look same on iOS and Android
     colorScheme: colorScheme,
     pageTransitionsTheme: _pageTransitions,
+    fontFamily: 'Nunito',
   );
 
   return base.copyWith(
+    // Global default font for any text without an explicit family.
     textTheme: base.textTheme.apply(fontFamily: 'Nunito'),
     primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Nunito'),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
