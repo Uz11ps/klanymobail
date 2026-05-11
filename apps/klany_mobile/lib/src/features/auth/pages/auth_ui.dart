@@ -86,7 +86,7 @@ class AuthPrimaryButton extends StatelessWidget {
         onPressed: busy ? null : onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: color ?? kBrandMint,
-          foregroundColor: fg ?? const Color(0xFF1F4F1B),
+          foregroundColor: fg ?? const Color(0xFF000000),
           minimumSize: const Size.fromHeight(54),
           elevation: 4,
           shape: RoundedRectangleBorder(

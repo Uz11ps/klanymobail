@@ -14,7 +14,7 @@ class AuthLandingPage extends StatefulWidget {
 }
 
 class _AuthLandingPageState extends State<AuthLandingPage> {
-  final _pageController = PageController(viewportFraction: 0.82);
+  final _pageController = PageController(viewportFraction: 0.78);
   int _slide = 0;
   Timer? _autoTimer;
 
@@ -94,7 +94,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                   itemCount: _slides.length,
                   onPageChanged: (i) => setState(() => _slide = i),
                   itemBuilder: (_, i) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: _SlideCard(slide: _slides[i]),
                   ),
                 ),
@@ -151,14 +151,14 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                     SoftButton(
                       label: 'Я - Глава Клана',
                       bg: kBrandMint,
-                      fg: kChildInk,
+                      fg: const Color(0xFF000000),
                       onTap: () => context.go('/auth/parent/sign-in'),
                     ),
                     const SizedBox(height: 14),
                     SoftButton(
                       label: 'Я - Участник Клана',
                       bg: kBrandSky,
-                      fg: kChildInk,
+                      fg: const Color(0xFF000000),
                       onTap: () => context.go('/auth/child/sign-in'),
                     ),
                   ],

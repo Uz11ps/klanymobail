@@ -371,7 +371,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                   onPressed: _busy ? null : _proceed,
                   style: FilledButton.styleFrom(
                     backgroundColor: kBrandMint,
-                    foregroundColor: const Color(0xFF1F4F1B),
+                    foregroundColor: const Color(0xFF000000),
                     minimumSize: const Size.fromHeight(56),
                     elevation: 4,
                     shape: RoundedRectangleBorder(
@@ -428,7 +428,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                   onPressed: _busy ? null : _submit,
                   style: FilledButton.styleFrom(
                     backgroundColor: kBrandMint,
-                    foregroundColor: const Color(0xFF1F4F1B),
+                    foregroundColor: const Color(0xFF000000),
                     minimumSize: const Size.fromHeight(56),
                     elevation: 4,
                     shape: RoundedRectangleBorder(

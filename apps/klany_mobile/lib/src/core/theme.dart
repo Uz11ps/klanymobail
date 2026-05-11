@@ -18,10 +18,19 @@ ThemeData _build(ColorScheme colorScheme) {
     fontFamily: 'Nunito',
   );
 
+  const inkDark = Color(0xFF1E2D52);
   return base.copyWith(
-    // Global default font for any text without an explicit family.
-    textTheme: base.textTheme.apply(fontFamily: 'Nunito'),
-    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Nunito'),
+    // Global default font + ink color for any text without explicit overrides.
+    textTheme: base.textTheme.apply(
+      fontFamily: 'Nunito',
+      bodyColor: inkDark,
+      displayColor: inkDark,
+    ),
+    primaryTextTheme: base.primaryTextTheme.apply(
+      fontFamily: 'Nunito',
+      bodyColor: inkDark,
+      displayColor: inkDark,
+    ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     // Make Scaffold transparent so the global cloud background shows through.
     scaffoldBackgroundColor: Colors.transparent,
@@ -41,7 +50,7 @@ ThemeData _build(ColorScheme colorScheme) {
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
         backgroundColor: const WidgetStatePropertyAll(Color(0xFFC5F2C0)),
-        foregroundColor: const WidgetStatePropertyAll(Color(0xFF1F4F1B)),
+        foregroundColor: const WidgetStatePropertyAll(Color(0xFF000000)),
         minimumSize: const WidgetStatePropertyAll(Size.fromHeight(54)),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),

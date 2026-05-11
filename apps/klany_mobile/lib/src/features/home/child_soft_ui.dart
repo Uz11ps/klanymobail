@@ -55,6 +55,7 @@ class SoftButton extends StatelessWidget {
     this.fg = const Color(0xFF1F4F1B),
     this.height = 54,
     this.fontSize = 16,
+    this.fontWeight = FontWeight.w800,
     this.icon,
   });
 
@@ -64,6 +65,7 @@ class SoftButton extends StatelessWidget {
   final Color fg;
   final double height;
   final double fontSize;
+  final FontWeight fontWeight;
   final IconData? icon;
 
   @override
@@ -94,8 +96,9 @@ class SoftButton extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
+                      fontFamily: 'Nunito',
                       fontSize: fontSize,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: fontWeight,
                       color: fg,
                     ),
                   ),
