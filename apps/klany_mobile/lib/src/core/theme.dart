@@ -154,6 +154,61 @@ ThemeData _build(ColorScheme colorScheme) {
         ),
       ),
     ),
+    // App-style alert dialogs: white rounded card with Nunito text.
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      titleTextStyle: const TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 19,
+        fontWeight: FontWeight.w900,
+        color: inkDark,
+      ),
+      contentTextStyle: const TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 14,
+        color: inkDark,
+        height: 1.4,
+      ),
+    ),
+    // Bottom sheets — rounded top corners, white surface.
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 12,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      showDragHandle: true,
+    ),
+    // PopupMenu — same soft white look.
+    popupMenuTheme: PopupMenuThemeData(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      textStyle: const TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 14,
+        color: inkDark,
+      ),
+    ),
+    listTileTheme: const ListTileThemeData(
+      iconColor: inkDark,
+      titleTextStyle: TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: inkDark,
+      ),
+      subtitleTextStyle: TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 13,
+        color: Color(0xFF5B6B85),
+      ),
+    ),
     // Remove iOS extra bottom padding from NavigationBar.
     navigationBarTheme: const NavigationBarThemeData(
       height: 64,

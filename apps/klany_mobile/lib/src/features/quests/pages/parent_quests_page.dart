@@ -509,7 +509,8 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     // ── Биржа задач section (always visible) ──────────
                     const Padding(
                       padding: EdgeInsets.fromLTRB(20, 14, 20, 12),
-                      child: Center(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
                         child: Text(
                           'Биржа задач',
                           style: TextStyle(
@@ -530,6 +531,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             child: _PillTab(
                               label: 'Активные',
                               selected: _tab == 0,
+                              selectedColor: kChildBrandBlue,
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
@@ -539,13 +541,27 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             child: _PillTab(
                               label: 'Проверка',
                               selected: _tab == 2,
+                              selectedColor: kBrandMint,
                               onTap: () => setState(() => _tab = 2),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    if (_tab == 2) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          'На проверке',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: kChildInkMuted.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ] else
+                      const SizedBox(height: 14),
                     // List rendered inline
                     if (_tab == 0)
                       _QuestsList(familyId: family.familyId)
@@ -568,15 +584,20 @@ class _PillTab extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.selectedColor = kBrandMint,
   });
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final Color selectedColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? kBrandMint : Colors.white;
-    final fg = selected ? const Color(0xFF1F4F1B) : kChildInk;
+    final bg = selected ? selectedColor : Colors.white;
+    final isBlue = selectedColor == kChildBrandBlue;
+    final fg = selected
+        ? (isBlue ? Colors.white : const Color(0xFF000000))
+        : kChildInk;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -589,6 +610,15 @@ class _PillTab extends StatelessWidget {
           border: selected
               ? null
               : Border.all(color: kChildOutline, width: 1.2),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    offset: const Offset(0, 4),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
@@ -631,44 +661,39 @@ class _WalletChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 74,
-        padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: selected
-              ? Border.all(color: kChildBrandBlue, width: 2)
-              : Border.all(color: const Color(0xFFE7ECF3), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+      child: SizedBox(
+        width: 72,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 54,
+              height: 54,
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF2F8),
+                color: Colors.white,
                 shape: BoxShape.circle,
-                border: selected
-                    ? Border.all(color: kChildBrandBlue, width: 2)
-                    : null,
+                border: Border.all(
+                  color: selected
+                      ? kChildBrandBlue
+                      : const Color(0xFFE7ECF3),
+                  width: selected ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: icon != null
-                  ? Icon(icon, color: kChildInk, size: 22)
+                  ? Icon(icon, color: kChildInk, size: 24)
                   : (userKey != null
                       ? UserAvatar(
                           userKey: userKey!,
-                          size: 46,
+                          size: 54,
                           fallbackText:
                               emoji ?? label.characters.first.toUpperCase(),
                         )
@@ -687,7 +712,7 @@ class _WalletChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: kChildInk,
                 fontWeight: FontWeight.w700,
               ),
@@ -1708,6 +1733,8 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
 
 // ─── Quest review list ────────────────────────────────────────────────────────
 
+const _reviewCardColors = <Color>[kBrandMint, kBrandSky, kBrandLavender];
+
 class _QuestReviewList extends ConsumerWidget {
   const _QuestReviewList({required this.familyId});
   final String familyId;
@@ -1722,7 +1749,7 @@ class _QuestReviewList extends ConsumerWidget {
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           children: [
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator()),
@@ -1740,7 +1767,15 @@ class _QuestReviewList extends ConsumerWidget {
                   ),
                 ),
               ),
-            ...list.map((item) => _ReviewCard(item: item)),
+            ...list.asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _ReviewCard(
+                      item: e.value,
+                      bg: _reviewCardColors[e.key % _reviewCardColors.length],
+                    ),
+                  ),
+                ),
           ],
         );
       },
@@ -1749,24 +1784,18 @@ class _QuestReviewList extends ConsumerWidget {
 }
 
 class _ReviewCard extends ConsumerStatefulWidget {
-  const _ReviewCard({required this.item});
+  const _ReviewCard({required this.item, required this.bg});
   final ParentReviewItem item;
+  final Color bg;
 
   @override
   ConsumerState<_ReviewCard> createState() => _ReviewCardState();
 }
 
 class _ReviewCardState extends ConsumerState<_ReviewCard> {
-  final _comment = TextEditingController();
   bool _busy = false;
 
-  @override
-  void dispose() {
-    _comment.dispose();
-    super.dispose();
-  }
-
-  Future<void> _review(bool approve) async {
+  Future<void> _review(bool approve, {String comment = ''}) async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
@@ -1774,7 +1803,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
             questId: widget.item.questId,
             childId: widget.item.childId,
             approve: approve,
-            comment: _comment.text,
+            comment: comment,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1786,74 +1815,148 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Ошибка проверки: $e')));
+          .showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
+  Future<void> _openReviewSheet() async {
+    final commentCtrl = TextEditingController();
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               widget.item.title,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: kChildInk,
+              ),
             ),
-            Text('Исполнитель: ${widget.item.childName}'),
+            const SizedBox(height: 4),
+            Text(
+              'Исполнитель: ${widget.item.childName}',
+              style: const TextStyle(fontSize: 13, color: kChildInkMuted),
+            ),
             if (widget.item.submittedAt != null)
               Text(
                 'Отправлено: ${DateFormat('dd.MM HH:mm').format(widget.item.submittedAt!.toLocal())}',
+                style: const TextStyle(fontSize: 13, color: kChildInkMuted),
               ),
-            if ((widget.item.evidencePath ?? '').isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: (widget.item.evidenceUrl ?? '').isNotEmpty
-                        ? Image.network(
-                            widget.item.evidenceUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, err, st) => Center(
-                              child: Text('Фото: ${widget.item.evidencePath}'),
-                            ),
-                          )
-                        : Center(
-                            child: Text('Фото: ${widget.item.evidencePath}'),
-                          ),
+            if ((widget.item.evidenceUrl ?? '').isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: Image.network(
+                    widget.item.evidenceUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: const Color(0xFFEFF2F8),
+                      alignment: Alignment.center,
+                      child: const Text('Не удалось загрузить фото'),
+                    ),
                   ),
                 ),
               ),
-            const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 14),
             TextField(
-              controller: _comment,
-              decoration: const InputDecoration(labelText: 'Комментарий'),
+              controller: commentCtrl,
+              decoration: const InputDecoration(hintText: 'Комментарий'),
+              maxLines: 2,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _busy ? null : () => _review(false),
+                    onPressed: () => Navigator.of(ctx).pop(false),
                     child: const Text('Отклонить'),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _busy ? null : () => _review(true),
+                    onPressed: () => Navigator.of(ctx).pop(true),
                     child: const Text('Подтвердить'),
                   ),
                 ),
               ],
             ),
           ],
+        ),
+      ),
+    );
+    if (result != null) {
+      await _review(result, comment: commentCtrl.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reward = widget.item.rewardAmount;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: _busy ? null : _openReviewSheet,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          decoration: BoxDecoration(
+            color: widget.bg,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.item.title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: kChildInk,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (reward != null)
+                Text(
+                  '$reward монет',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: kChildInk,
+                  ),
+                ),
+              if (widget.item.childName.isNotEmpty)
+                Text(
+                  widget.item.childName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: kChildInk,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

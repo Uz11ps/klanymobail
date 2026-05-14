@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/child_session.dart';
+import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../quests/quests_repository.dart';
 import '../wallet_repository.dart';
 
 String _formatNumber(int n) {
@@ -38,12 +40,13 @@ class ChildWalletPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back, color: kChildInk),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        centerTitle: true,
+        titleSpacing: 0,
         title: const Text(
           'Кошелёк',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
+            fontFamily: 'Nunito',
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
             color: kChildInk,
           ),
         ),
@@ -59,29 +62,13 @@ class ChildWalletPage extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             children: [
-              // Big balance row
+              const SizedBox(height: 4),
+              _ChildWalletProfileCard(balance: balance),
               const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CoinStackIcon(size: 38),
-                  const SizedBox(width: 10),
-                  Text(
-                    _formatNumber(balance),
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: kChildBrandBlue,
-                      height: 1,
-                    ),
-                  ),
-                ],
-              ),
+              Container(height: 1, color: kChildOutline),
               const SizedBox(height: 18),
-              // Withdraw card
               _WithdrawCard(balance: balance),
               const SizedBox(height: 18),
-              // Operations title
               const Padding(
                 padding: EdgeInsets.only(left: 4, bottom: 10),
                 child: Text(
@@ -411,5 +398,118 @@ class _TxRow extends StatelessWidget {
     if (tx.type == 'purchase') return 'Покупка';
     if (tx.type == 'adjust') return 'Корректировка';
     return 'Выполнено';
+  }
+}
+
+class _ChildWalletProfileCard extends ConsumerWidget {
+  const _ChildWalletProfileCard({required this.balance});
+  final int balance;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(childSessionProvider).asData?.value;
+    final name = session?.childDisplayName.trim().isNotEmpty == true
+        ? session!.childDisplayName.trim()
+        : 'Участник';
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final userKey =
+        session != null ? 'child:${session.childId}' : 'child:guest';
+
+    return FutureBuilder<List<ChildQuestAssignmentItem>>(
+      future: session == null
+          ? Future.value(const <ChildQuestAssignmentItem>[])
+          : ref
+              .read(questsRepositoryProvider)
+              .getChildAssignments(session.childId),
+      builder: (context, snap) {
+        final completed = (snap.data ?? const <ChildQuestAssignmentItem>[])
+            .where((a) => a.status == 'completed')
+            .length;
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              ClipOval(
+                child: UserAvatar(
+                  userKey: userKey,
+                  size: 60,
+                  fallbackText: initial,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: kChildInk,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$completed ${_taskWord(completed)} выполнено',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: kChildInkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF2F8),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CoinStackIcon(size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            _formatNumber(balance),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: kChildBrandBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static String _taskWord(int n) {
+    final mod10 = n % 10;
+    final mod100 = n % 100;
+    if (mod10 == 1 && mod100 != 11) return 'задача';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    return 'задач';
   }
 }

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clan Capital — оплата подписки</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div class="logo">CLAN CAPITAL</div>
+      <p class="tagline">Мотивируй делом, а не словом</p>
+    </header>
+
+    <section class="intro">
+      <h1>Premium-подписка</h1>
+      <p>
+        Откройте обратные и VIP-задачи, до 999 участников клана и расширенную
+        аналитику. После оплаты вы получите промо-код для активации тарифа
+        в приложении.
+      </p>
+    </section>
+
+    <section class="plans" id="plans">
+      <article class="plan" data-plan="premium_1m">
+        <h2>1 месяц</h2>
+        <div class="price">499 ₽</div>
+        <ul>
+          <li>Обратные и VIP-задачи</li>
+          <li>До 999 участников</li>
+          <li>Расширенная статистика</li>
+        </ul>
+        <button class="btn btn-mint" data-plan="premium_1m" data-amount="499">
+          Купить
+        </button>
+      </article>
+
+      <article class="plan plan-best" data-plan="premium_6m">
+        <div class="badge">Выгодно</div>
+        <h2>6 месяцев</h2>
+        <div class="price">2 490 ₽</div>
+        <div class="price-note">≈ 415 ₽ / мес</div>
+        <ul>
+          <li>Всё из тарифа 1 месяц</li>
+          <li>Экономия 18%</li>
+        </ul>
+        <button class="btn btn-mint" data-plan="premium_6m" data-amount="2490">
+          Купить
+        </button>
+      </article>
+
+      <article class="plan" data-plan="premium_12m">
+        <h2>12 месяцев</h2>
+        <div class="price">4 490 ₽</div>
+        <div class="price-note">≈ 374 ₽ / мес</div>
+        <ul>
+          <li>Всё из тарифа 6 месяцев</li>
+          <li>Экономия 25%</li>
+        </ul>
+        <button class="btn btn-mint" data-plan="premium_12m" data-amount="4490">
+          Купить
+        </button>
+      </article>
+    </section>
+
+    <section class="steps">
+      <h2>Как это работает</h2>
+      <ol>
+        <li>
+          <span class="step-num">1</span>
+          <span>Выберите тариф и оплатите через ЮKassa (карты МИР, СБП, ЮMoney)</span>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <span>Получите промо-код на этой странице сразу после оплаты</span>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <span>Введите код в приложении: «Настройки» → «Управлять подпиской» → «Активировать промо-код»</span>
+        </li>
+      </ol>
+    </section>
+
+    <section class="faq">
+      <h2>Часто задаваемые вопросы</h2>
+      <details>
+        <summary>Сколько действует промо-код?</summary>
+        <p>Код активируется в течение 30 дней после покупки. После активации подписка действует выбранный период.</p>
+      </details>
+      <details>
+        <summary>Можно вернуть деньги?</summary>
+        <p>Да, в течение 14 дней после покупки, если промо-код не был использован. Напишите на support@clancapital.ru.</p>
+      </details>
+      <details>
+        <summary>Где скачать приложение?</summary>
+        <p>iOS — App Store, Android — RuStore или прямой APK с сайта.</p>
+      </details>
+    </section>
+
+    <footer class="footer">
+      <p>© Clan Capital, 2026</p>
+      <div class="links">
+        <a href="/policy.html">Политика</a>
+        <a href="/terms.html">Условия</a>
+        <a href="mailto:support@clancapital.ru">Поддержка</a>
+      </div>
+    </footer>
+  </main>
+
+  <script src="assets/pay.js"></script>
+</body>
+</html>

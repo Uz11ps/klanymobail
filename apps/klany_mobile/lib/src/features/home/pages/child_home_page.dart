@@ -10,6 +10,7 @@ import '../avatar_store.dart';
 import '../../auth/device_identity.dart';
 import '../../quests/pages/child_quests_page.dart';
 import '../../quests/quests_repository.dart';
+import '../../wallet/pages/child_wallet_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../shop/pages/child_shop_page.dart';
 import '../../notifications/fcm.dart';
@@ -440,29 +441,37 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const ChildWalletPage(),
+                                    ),
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF2F8),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const CoinStackIcon(size: 18),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _formatNumber(balance),
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          color: kChildBrandBlue,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF2F8),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const CoinStackIcon(size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          _formatNumber(balance),
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            color: kChildBrandBlue,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -810,6 +819,11 @@ class _ChildHeroCard extends StatelessWidget {
                         child: _ChildHeroMetric(
                           title: 'БАЛАНС',
                           value: '$balance 🪙',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ChildWalletPage(),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -839,14 +853,19 @@ class _ChildHeroCard extends StatelessWidget {
 }
 
 class _ChildHeroMetric extends StatelessWidget {
-  const _ChildHeroMetric({required this.title, required this.value});
+  const _ChildHeroMetric({
+    required this.title,
+    required this.value,
+    this.onTap,
+  });
 
   final String title;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.18),
@@ -876,6 +895,15 @@ class _ChildHeroMetric extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: card,
       ),
     );
   }

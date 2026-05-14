@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/child_session.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../quests/quests_repository.dart';
 import '../../wallet/pages/child_wallet_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../shop_repository.dart';
+
+const _shopCardColors = <Color>[kBrandMint, kBrandSky, kBrandLavender];
 
 class ChildShopPage extends ConsumerStatefulWidget {
   const ChildShopPage({super.key});
@@ -34,28 +37,30 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
   }
 
   Future<_ChildShopData> _load() async {
-    final products = await ref
-        .read(shopRepositoryProvider)
-        .getProducts(_familyId ?? '');
+    final products =
+        await ref.read(shopRepositoryProvider).getProducts(_familyId ?? '');
     WalletSummary? wallet;
+    int completed = 0;
     if ((_childId ?? '').isNotEmpty) {
-      wallet = await ref.read(walletRepositoryProvider).getChildWallet(_childId!);
+      wallet =
+          await ref.read(walletRepositoryProvider).getChildWallet(_childId!);
+      try {
+        final assignments = await ref
+            .read(questsRepositoryProvider)
+            .getChildAssignments(_childId!);
+        completed = assignments.where((a) => a.status == 'completed').length;
+      } catch (_) {}
     }
     return _ChildShopData(
-      // Don't hide items by isActive on the client side — the backend already
-      // returns the products that should be visible to this child. The extra
-      // filter caused parents' new items not to appear when isActive was
-      // missing/falsy in the response.
       products: products,
       balance: wallet?.balance ?? 0,
+      completedCount: completed,
     );
   }
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() {
-      _future = next;
-    });
+    setState(() => _future = next);
     await next;
   }
 
@@ -64,14 +69,12 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
       await ref.read(shopRepositoryProvider).requestPurchase(p.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Запрос отправлен, средства заморожены'),
-        ),
+        const SnackBar(content: Text('Запрос отправлен, средства заморожены')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка покупки: $e')),
+        SnackBar(content: Text('$e')),
       );
     }
   }
@@ -92,17 +95,63 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
         final data = snapshot.data;
         final products = data?.products ?? const <ShopProductItem>[];
         final balance = data?.balance ?? 0;
+        final completed = data?.completedCount ?? 0;
 
-        return ClanSectionPage(
-          title: 'Магазин',
-          onRefresh: _refresh,
-          onRefreshAsync: _refresh,
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate.fixed([
-                  _ShopIntroCard(balance: balance),
+        return Container(
+          color: kBgCloud,
+          child: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Магазин наград',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: kChildInk,
+                          ),
+                        ),
+                      ),
+                      Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        elevation: 4,
+                        shadowColor: Colors.black.withValues(alpha: 0.12),
+                        child: InkWell(
+                          onTap: _refresh,
+                          customBorder: const CircleBorder(),
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Icon(
+                              Icons.refresh_rounded,
+                              color: kChildInk,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _ChildProfileCard(
+                    completedCount: completed,
+                    balance: balance,
+                  ),
+                  const SizedBox(height: 18),
+                  Container(height: 1, color: kChildOutline),
                   const SizedBox(height: 18),
                   if (snapshot.connectionState == ConnectionState.waiting)
                     const Padding(
@@ -116,26 +165,31 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
                   if (!snapshot.hasError &&
                       snapshot.connectionState != ConnectionState.waiting &&
                       products.isEmpty)
-                    const ChildSoftCard(
-                      child: Text(
-                        'Пока нет доступных товаров',
-                        style: TextStyle(color: kChildInkMuted),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          'Пока нет доступных товаров',
+                          style: TextStyle(
+                            color: kChildInkMuted.withValues(alpha: 0.75),
+                          ),
+                        ),
                       ),
                     ),
-                  ...products.map(
-                    (p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _ChildProductVisual(
-                        product: p,
-                        onBuy: () => _buy(p),
+                  ...products.asMap().entries.map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _ChildProductCard(
+                            product: e.value,
+                            bg: _shopCardColors[e.key % _shopCardColors.length],
+                            onBuy: () => _buy(e.value),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ]),
+                ],
               ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -143,42 +197,61 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
 }
 
 class _ChildShopData {
-  _ChildShopData({required this.products, required this.balance});
+  _ChildShopData({
+    required this.products,
+    required this.balance,
+    required this.completedCount,
+  });
   final List<ShopProductItem> products;
   final int balance;
+  final int completedCount;
 }
 
-class _ShopIntroCard extends ConsumerWidget {
-  const _ShopIntroCard({required this.balance});
+class _ChildProfileCard extends ConsumerWidget {
+  const _ChildProfileCard({
+    required this.completedCount,
+    required this.balance,
+  });
+  final int completedCount;
   final int balance;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(childSessionProvider).asData?.value;
     final name = session?.childDisplayName.trim().isNotEmpty == true
-        ? session!.childDisplayName
+        ? session!.childDisplayName.trim()
         : 'Участник';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final userKey = session != null ? 'child:${session.childId}' : 'child:guest';
+    final userKey =
+        session != null ? 'child:${session.childId}' : 'child:guest';
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        borderRadius: BorderRadius.circular(24),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => const ChildWalletPage(),
-          ),
+          MaterialPageRoute<void>(builder: (_) => const ChildWalletPage()),
         ),
-        borderRadius: BorderRadius.circular(26),
-        child: ChildSoftCard(
-          color: kChildSurfaceWhite,
+        child: Container(
           padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              UserAvatar(
-                userKey: userKey,
-                size: 60,
-                fallbackText: initial,
+              ClipOval(
+                child: UserAvatar(
+                  userKey: userKey,
+                  size: 60,
+                  fallbackText: initial,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -189,20 +262,20 @@ class _ShopIntroCard extends ConsumerWidget {
                     Text(
                       name,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 19,
                         fontWeight: FontWeight.w900,
                         color: kChildInk,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Копи монеты на награды',
-                      style: TextStyle(
-                        fontSize: 12,
+                    Text(
+                      '$completedCount ${_taskWord(completedCount)} выполнено',
+                      style: const TextStyle(
+                        fontSize: 13,
                         color: kChildInkMuted,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -210,17 +283,17 @@ class _ShopIntroCard extends ConsumerWidget {
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF2F8),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const CoinStackIcon(size: 16),
+                          const CoinStackIcon(size: 18),
                           const SizedBox(width: 6),
                           Text(
-                            balance.toString(),
+                            _formatBalance(balance),
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w900,
                               color: kChildBrandBlue,
                             ),
@@ -231,72 +304,58 @@ class _ShopIntroCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right,
-                color: kChildInkMuted,
-              ),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _ShopBalanceCard extends StatelessWidget {
-  const _ShopBalanceCard({required this.balance});
+  static String _formatBalance(int n) {
+    final s = n.toString();
+    final buf = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
 
-  final int balance;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChildSoftCard(
-      color: kChildSurfaceWhite,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        children: [
-          const Icon(Icons.savings_rounded, color: kChildBrandBlue, size: 26),
-          const SizedBox(width: 10),
-          Text(
-            '$balance',
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: kChildBrandBlue,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            '🪙',
-            style: TextStyle(fontSize: 22),
-          ),
-        ],
-      ),
-    );
+  static String _taskWord(int n) {
+    final mod10 = n % 10;
+    final mod100 = n % 100;
+    if (mod10 == 1 && mod100 != 11) return 'задача';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    return 'задач';
   }
 }
 
 String _emojiForProduct(ShopProductItem p) {
-  if ((p.imageUrl ?? '').isNotEmpty) return '🛍';
   final desc = '${p.title} ${p.description ?? ''}'.toLowerCase();
   if (desc.contains('игр') || desc.contains('psp') || desc.contains('xbox')) {
     return '🎮';
   }
   if (desc.contains('кино') || desc.contains('фильм')) return '🎬';
-  if (desc.contains('книг') || desc.contains('читать')) return '📚';
+  if (desc.contains('книг') || desc.contains('читать') || desc.contains('урок')) return '📚';
   if (desc.contains('шокол') || desc.contains('сладк')) return '🍫';
   if (desc.contains('пицц')) return '🍕';
   if (desc.contains('игрушк')) return '🐻';
   if (desc.contains('наушник') || desc.contains('музык')) return '🎧';
-  if (desc.contains('мяч') || desc.contains('спорт')) return '🏈';
+  if (desc.contains('мяч') || desc.contains('спорт') || desc.contains('матч')) return '🏈';
   if (desc.contains('прогул')) return '🐻';
+  if (desc.contains('вечер') || desc.contains('свобод')) return '🎧';
   return '🎁';
 }
 
-class _ChildProductVisual extends StatelessWidget {
-  const _ChildProductVisual({required this.product, required this.onBuy});
+class _ChildProductCard extends StatelessWidget {
+  const _ChildProductCard({
+    required this.product,
+    required this.bg,
+    required this.onBuy,
+  });
 
   final ShopProductItem product;
+  final Color bg;
   final VoidCallback onBuy;
 
   @override
@@ -304,55 +363,63 @@ class _ChildProductVisual extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        borderRadius: BorderRadius.circular(24),
         onTap: onBuy,
-        borderRadius: BorderRadius.circular(26),
-        child: ChildSoftCard(
-          color: kBrandLavender,
-          padding: const EdgeInsets.all(16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
+              SizedBox(
+                width: 56,
+                height: 56,
                 child: (product.imageUrl ?? '').isNotEmpty
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         child: Image.network(
                           product.imageUrl!,
-                          width: 60,
-                          height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Text(
-                            _emojiForProduct(product),
-                            style: const TextStyle(fontSize: 28),
+                          errorBuilder: (_, __, ___) => Center(
+                            child: Text(
+                              _emojiForProduct(product),
+                              style: const TextStyle(fontSize: 40),
+                            ),
                           ),
                         ),
                       )
-                    : Text(
-                        _emojiForProduct(product),
-                        style: const TextStyle(fontSize: 28),
+                    : Center(
+                        child: Text(
+                          _emojiForProduct(product),
+                          style: const TextStyle(fontSize: 40),
+                        ),
                       ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       product.title,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
                         color: kChildInk,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       '${product.price} монет',
                       style: const TextStyle(
@@ -363,12 +430,6 @@ class _ChildProductVisual extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: kChildInkMuted,
-                size: 28,
               ),
             ],
           ),

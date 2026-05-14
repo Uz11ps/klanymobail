@@ -84,6 +84,7 @@ class ParentReviewItem {
     required this.childName,
     required this.title,
     required this.submittedAt,
+    this.rewardAmount,
     this.evidencePath,
     this.evidenceUrl,
   });
@@ -93,6 +94,7 @@ class ParentReviewItem {
   final String childName;
   final String title;
   final DateTime? submittedAt;
+  final int? rewardAmount;
   final String? evidencePath;
   final String? evidenceUrl;
 }
@@ -402,6 +404,9 @@ class QuestsRepository {
           childName: (row['childName'] ?? '').toString(),
           title: (row['title'] ?? '').toString(),
           submittedAt: DateTime.tryParse((row['submittedAt'] ?? '').toString()),
+          rewardAmount:
+              (row['rewardAmount'] as num?)?.toInt() ??
+                  (row['reward'] as num?)?.toInt(),
           evidencePath: evidencePath,
           evidenceUrl: evidenceUrl,
         );

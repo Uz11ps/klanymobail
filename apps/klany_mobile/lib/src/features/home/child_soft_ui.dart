@@ -175,7 +175,7 @@ class _CoinStackPainter extends CustomPainter {
 
 /// Облачный фон-картинка для основных экранов приложения.
 class CloudBackground extends StatelessWidget {
-  const CloudBackground({super.key, required this.child, this.opacity = 0.55});
+  const CloudBackground({super.key, required this.child, this.opacity = 0.15});
   final Widget child;
   final double opacity;
 

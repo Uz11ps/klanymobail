@@ -325,29 +325,27 @@ class _BottomNavCenterBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: kChildBrandBlue,
+      color: selected ? kChildBrandBlue.withValues(alpha: 0.12) : Colors.transparent,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
-      elevation: selected ? 6 : 2,
-      shadowColor: kChildBrandBlue.withValues(alpha: 0.4),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 64,
-          height: 64,
+          width: 52,
+          height: 52,
           child: Stack(
             alignment: Alignment.center,
             children: [
-              const Icon(
-                Icons.home_filled,
-                size: 30,
-                color: Colors.white,
+              Icon(
+                Icons.home_outlined,
+                size: 26,
+                color: selected ? kChildBrandBlue : kChildInkMuted,
               ),
               if (badgeCount > 0)
                 Positioned(
-                  top: 10,
-                  right: 10,
+                  top: 8,
+                  right: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(

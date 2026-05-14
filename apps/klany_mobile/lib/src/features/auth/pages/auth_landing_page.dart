@@ -66,7 +66,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
           image: DecorationImage(
             image: AssetImage('assets/figma/cloud_bg.png'),
             fit: BoxFit.cover,
-            opacity: 0.55,
+            opacity: 0.15,
           ),
         ),
         child: SafeArea(
@@ -118,7 +118,7 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                   );
                 }),
               ),
-              const Spacer(),
+              const SizedBox(height: 24),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                 child: Column(

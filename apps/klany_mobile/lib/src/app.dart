@@ -27,7 +27,7 @@ class App extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       routerConfig: router,
       scrollBehavior: const _AppScrollBehavior(),
       builder: (context, child) {
@@ -50,7 +50,7 @@ class App extends ConsumerWidget {
                     image: DecorationImage(
                       image: AssetImage('assets/figma/cloud_bg.png'),
                       fit: BoxFit.cover,
-                      opacity: 0.45,
+                      opacity: 0.15,
                     ),
                   ),
                 ),
