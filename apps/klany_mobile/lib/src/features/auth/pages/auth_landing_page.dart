@@ -19,6 +19,9 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
   static const _carouselViewport = 0.84;
   static const _slideAspectRatio = 335 / 400;
   static const _ctaHorizontalPadding = 16.0;
+  /// Figma frame: воздух сверху/снизу (в т.ч. на web, где safe area = 0).
+  static const _minTopInset = 36.0;
+  static const _minBottomInset = 44.0;
 
   late final PageController _pageController = PageController(
     viewportFraction: _carouselViewport,
@@ -61,7 +64,9 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
       slideWidth / _slideAspectRatio,
       size.height * 0.48,
     );
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final safe = MediaQuery.paddingOf(context);
+    final topInset = math.max(safe.top, _minTopInset);
+    final bottomInset = math.max(safe.bottom, _minBottomInset);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9FD),
@@ -69,12 +74,12 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
         fit: StackFit.expand,
         children: [
           const _LandingBackground(),
-          SafeArea(
-            bottom: false,
+          Padding(
+            padding: EdgeInsets.only(top: topInset, bottom: bottomInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 const Padding(
                   padding: EdgeInsets.only(left: 24, right: 20),
                   child: Text(
@@ -150,11 +155,8 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                 ),
                 const SizedBox(height: 28),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    _ctaHorizontalPadding,
-                    0,
-                    _ctaHorizontalPadding,
-                    12 + bottomInset,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _ctaHorizontalPadding,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
