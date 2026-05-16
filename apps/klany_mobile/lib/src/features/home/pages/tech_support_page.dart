@@ -45,7 +45,7 @@ class TechSupportPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Если есть вопросы по доступу, подписке, оплате или публикации приложения, напишите нам на почту.',
+                  'Если есть вопросы по доступу, подписке или оплате, напишите нам на почту.',
                   style: TextStyle(
                     fontSize: 14,
                     color: kChildInk,
@@ -169,43 +169,6 @@ class TechSupportPage extends StatelessWidget {
                         body: dataConsentBody,
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ── Для публикации в RuStore ──────────────────────
-          ChildSoftCard(
-            color: kChildSurfaceWhite,
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
-                Text(
-                  'Для публикации в RuStore',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: kChildInk,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'В приложении уже доступны политика, согласия и контакты поддержки. Для карточки стора дополнительно понадобятся иконка, скриншоты и публичная ссылка на политику.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: kChildInk,
-                    height: 1.4,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Публичную web-ссылку на политику конфиденциальности нужно разместить на сайте проекта или сервере, который доступен модерации RuStore.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: kChildInk,
-                    height: 1.4,
                   ),
                 ),
               ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -119,13 +120,25 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
             ),
             const SizedBox(height: 28),
             const Padding(
-              padding: EdgeInsets.only(left: 6, bottom: 10),
+              padding: EdgeInsets.only(left: 6, bottom: 4),
               child: Text(
                 'Ввод ключа',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: kChildInk,
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(left: 6, bottom: 10),
+              child: Text(
+                '6 цифр — персональный код от Главы Клана',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: kChildInkMuted,
+                  height: 1.3,
                 ),
               ),
             ),
@@ -151,9 +164,13 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                 controller: _authCode,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 obscureText: _obscure,
                 decoration: _authInput(
-                  '••••••••',
+                  '••••••',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscure
@@ -168,17 +185,15 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: kChildInk,
-                  letterSpacing: 4,
+                  letterSpacing: 6,
                 ),
                 textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 14),
-            SoftButton(
+            FigmaGradientButton(
               label: _busy ? '...' : 'Войти',
-              bg: kBrandMint,
-              fg: const Color(0xFF1F4F1B),
-              fontSize: 17,
+              gradient: FigmaGradientButton.mintGradient,
               onTap: _busy ? null : _codeSignIn,
             ),
             const SizedBox(height: 12),

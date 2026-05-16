@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
@@ -210,19 +212,29 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   }
 
   Future<void> _initBiometric() async {
-    final prefs = await SharedPreferences.getInstance();
-    final canUse =
-        await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
-    final savedLogin = prefs.getString(_kBiometricLogin);
-    final savedPassword = prefs.getString(_kBiometricPassword);
-    if (!mounted) return;
-    setState(() {
-      _biometricReady = canUse &&
-          (savedLogin ?? '').isNotEmpty &&
-          (savedPassword ?? '').isNotEmpty;
-      _savedLogin = savedLogin;
-      _savedPassword = savedPassword;
-    });
+    if (kIsWeb) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final canUse =
+          await _auth.canCheckBiometrics || await _auth.isDeviceSupported();
+      final savedLogin = prefs.getString(_kBiometricLogin);
+      final savedPassword = prefs.getString(_kBiometricPassword);
+      if (!mounted) return;
+      setState(() {
+        _biometricReady = canUse &&
+            (savedLogin ?? '').isNotEmpty &&
+            (savedPassword ?? '').isNotEmpty;
+        _savedLogin = savedLogin;
+        _savedPassword = savedPassword;
+      });
+    } on MissingPluginException {
+      if (!mounted) return;
+      setState(() => _biometricReady = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _biometricReady = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -273,7 +285,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   }
 
   Future<void> _signInWithBiometric() async {
-    if (_busy || !_biometricReady) return;
+    if (kIsWeb || _busy || !_biometricReady) return;
     setState(() => _busy = true);
     try {
       final ok = await _auth.authenticate(

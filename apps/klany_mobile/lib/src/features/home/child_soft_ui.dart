@@ -45,6 +45,90 @@ List<BoxShadow> kSoftButtonShadow(Color tint) => [
       ),
     ];
 
+/// CTA как на Figma-лендинге: градиент, высокая «таблетка», Nunito чёрный.
+class FigmaGradientButton extends StatelessWidget {
+  const FigmaGradientButton({
+    super.key,
+    required this.label,
+    required this.gradient,
+    required this.onTap,
+    this.height = kFigmaCtaHeight,
+    this.fontSize = kFigmaCtaFontSize,
+  });
+
+  static const double kFigmaCtaHeight = 68;
+  static const double kFigmaCtaFontSize = 18;
+
+  static const mintGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFFD8F8D0),
+      Color(0xFFC5F2C0),
+      Color(0xFFB8E8AF),
+    ],
+  );
+
+  static const skyGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFFEAF4FC),
+      Color(0xFFD8E9F8),
+      Color(0xFFC8DFF2),
+    ],
+  );
+
+  final String label;
+  final Gradient gradient;
+  final VoidCallback? onTap;
+  final double height;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(height / 2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1E2D52).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(height / 2),
+            splashColor: Colors.black.withValues(alpha: 0.06),
+            highlightColor: Colors.black.withValues(alpha: 0.04),
+            child: Center(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF000000),
+                  height: 1.12,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Кнопка с цветной тенью снизу (универсальный wrapper).
 class SoftButton extends StatelessWidget {
   const SoftButton({
