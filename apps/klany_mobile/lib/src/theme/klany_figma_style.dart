@@ -75,14 +75,14 @@ double figmaLandingSlideMaxSideFromScreenHeight(BuildContext context) {
 /// Зазор под «CLAN CAPITAL» до блока карусели.
 const double kFigmaLandingHeaderToCarouselGap = 20;
 
-/// Скругление карточки слайда.
-const double kFigmaLandingSlideRadius = 28;
+/// Скругление слайда (алиас — см. [kFigmaAuthHeroCornerRadius]).
+const double kFigmaLandingSlideRadius = kFigmaAuthHeroCornerRadius;
 
-/// Зазор от слайда до индикаторов.
-const double kFigmaLandingSlideToDotsGap = 8;
+/// Зазор от слайда до индикаторов (алиас).
+const double kFigmaLandingSlideToDotsGap = kFigmaHeroDotsGap;
 
-/// Диаметр активной точки (ряд индикаторов); для расчёта высоты блока под слайдом.
-const double kFigmaLandingDotsDiameter = 7;
+/// Диаметр точки (алиас).
+const double kFigmaLandingDotsDiameter = kFigmaHeroDotsDiameter;
 
 /// Отступ после точек до блока кнопок.
 const double kFigmaLandingDotsToButtonsGap = 20;

@@ -177,28 +177,17 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                   },
                 ),
                 Expanded(
-                  child: ListView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
-                      kFigmaAuthScreenPaddingH,
-                      kFigmaAuthScreenContentTop,
-                      kFigmaAuthScreenPaddingH,
-                      16,
+                  child: FigmaAuthPageBody(
+                    hero: const FigmaAuthHero(
+                      asset: 'assets/figma/hero_birzha.png',
+                      fallbackColor: kBrandLavender,
+                      showDots: true,
+                      dotCount: 2,
+                      activeDotIndex: 0,
                     ),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: kFigmaAuthHeroInsetH,
-                        ),
-                        child: const FigmaAuthHero(
-                          asset: 'assets/figma/hero_birzha.png',
-                          fallbackColor: kBrandLavender,
-                          showDots: true,
-                          dotCount: 2,
-                          activeDotIndex: 0,
-                        ),
-                      ),
-                      const SizedBox(height: kFigmaAuthHeroToFormGap),
+                    form: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                       const Padding(
                         padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
                         child: Text('Имя участника', style: kFigmaAuthFieldLabelStyle),
@@ -375,7 +364,8 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                           ),
                         ),
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],

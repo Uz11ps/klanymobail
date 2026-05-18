@@ -307,39 +307,20 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                   onBack: onBack,
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
+                  child: FigmaAuthPageBody(
+                    hero: FigmaAuthHero(
+                      asset: isEmailStep
+                          ? 'assets/figma/hero_birzha.png'
+                          : 'assets/figma/hero_economika.png',
+                      fallbackColor:
+                          isEmailStep ? kBrandLavender : kBrandSunny,
+                      showDots: true,
+                      dotCount: 3,
+                      activeDotIndex: _step.clamp(0, 2),
+                    ),
+                    form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: kFigmaAuthScreenContentTop,
-                              left: kFigmaAuthHeroInsetH,
-                              right: kFigmaAuthHeroInsetH,
-                            ),
-                            child: FigmaAuthHero(
-                              asset: isEmailStep
-                                  ? 'assets/figma/hero_birzha.png'
-                                  : 'assets/figma/hero_economika.png',
-                              fallbackColor: isEmailStep
-                                  ? kBrandLavender
-                                  : kBrandSunny,
-                              showDots: true,
-                              dotCount: 3,
-                              activeDotIndex: _step.clamp(0, 2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: kFigmaAuthHeroBelowGap),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: kFigmaAuthScreenPaddingH,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
                           if (isEmailStep) ...[
                         const Padding(
                           padding:
@@ -447,9 +428,6 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                           ),
                         ),
                       ],
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),

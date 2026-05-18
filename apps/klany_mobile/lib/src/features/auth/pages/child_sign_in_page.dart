@@ -100,32 +100,14 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                   onBack: onBack,
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
+                  child: FigmaAuthPageBody(
+                    hero: const FigmaAuthHero(
+                      asset: 'assets/figma/hero_flag.png',
+                      fallbackColor: kBrandSky,
+                    ),
+                    form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              top: kFigmaAuthScreenContentTop,
-                              left: kFigmaAuthHeroInsetH,
-                              right: kFigmaAuthHeroInsetH,
-                            ),
-                            child: const FigmaAuthHero(
-                              asset: 'assets/figma/hero_flag.png',
-                              fallbackColor: kBrandSky,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: kFigmaAuthHeroBelowGap),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: kFigmaAuthScreenPaddingH,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
                               const Padding(
                                 padding: EdgeInsets.only(bottom: 6),
                                 child: Text(
@@ -225,9 +207,6 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ),
