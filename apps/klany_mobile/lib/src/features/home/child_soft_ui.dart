@@ -148,6 +148,7 @@ class FigmaAuthHeroCard extends StatelessWidget {
 
   /// См. [bleedWideLandscapeSlotHeight].
   final double? bleedWideLandscapeSlotHeight;
+
   List<BoxShadow> _boxShadow() {
     return [
       BoxShadow(
