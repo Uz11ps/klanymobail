@@ -459,6 +459,25 @@ class FigmaGradientButton extends StatelessWidget {
   }
 }
 
+/// Отступы вокруг [Dialog], чтобы контент мог занять **widthFraction** ширины
+/// экрана (по умолчанию 80%).
+EdgeInsets figmaWideModalInsets(
+  BuildContext context, {
+  double widthFraction = 0.8,
+}) {
+  final w = MediaQuery.sizeOf(context).width;
+  final side = math.max(0.0, (w * (1.0 - widthFraction)) / 2.0);
+  return EdgeInsets.fromLTRB(side, 24, side, 24);
+}
+
+/// Целевая ширина модалки как доля экрана (по умолчанию 80%).
+double figmaWideModalWidth(
+  BuildContext context, {
+  double widthFraction = 0.8,
+}) {
+  return MediaQuery.sizeOf(context).width * widthFraction;
+}
+
 /// Две полноширинные CTA как у кнопок лендинга: сверху отмена, снизу подтверждение.
 class FigmaDialogActionStack extends StatelessWidget {
   const FigmaDialogActionStack({

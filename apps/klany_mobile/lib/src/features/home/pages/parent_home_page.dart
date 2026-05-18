@@ -16,6 +16,7 @@ import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
 import '../../quests/pages/parent_quests_page.dart';
 import '../../quests/quests_repository.dart';
+import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../avatar_store.dart';
@@ -147,6 +148,12 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
     );
   }
 
+  void _openParentShop() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ParentShopPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
@@ -197,10 +204,9 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
           ),
           bottomNavigationBar: _ParentBottomBar(
             homeSelected: _index == 0,
-            economyTabActive: _index == 1,
             pendingRequests: _pendingRequestsCount,
             onHome: () => setState(() => _index = 0),
-            onEconomy: () => setState(() => _index = 1),
+            onOpenShop: _openParentShop,
             onOpenSettings: _openSettings,
           ),
         ),
@@ -221,18 +227,16 @@ const double _kParentNavSlot = 64;
 class _ParentBottomBar extends StatelessWidget {
   const _ParentBottomBar({
     required this.homeSelected,
-    required this.economyTabActive,
     required this.pendingRequests,
     required this.onHome,
-    required this.onEconomy,
+    required this.onOpenShop,
     required this.onOpenSettings,
   });
 
   final bool homeSelected;
-  final bool economyTabActive;
   final int pendingRequests;
   final VoidCallback onHome;
-  final VoidCallback onEconomy;
+  final VoidCallback onOpenShop;
   final VoidCallback onOpenSettings;
 
   @override
@@ -276,8 +280,8 @@ class _ParentBottomBar extends StatelessWidget {
                     children: [
                       _ParentCapsuleNavIcon(
                         asset: 'assets/figma/nav_shop.svg',
-                        selected: economyTabActive,
-                        onTap: onEconomy,
+                        selected: false,
+                        onTap: onOpenShop,
                       ),
                       const SizedBox(width: _kParentNavGap),
                       _ParentCapsuleHomeNav(
@@ -1096,7 +1100,7 @@ class _MemberAvatarCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),

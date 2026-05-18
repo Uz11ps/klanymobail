@@ -86,31 +86,62 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     final commentCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Корректировка: ${wallet.displayName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: amountCtrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(signed: true),
-              decoration: const InputDecoration(labelText: 'Сумма (+/-)'),
+      builder: (ctx) {
+        final modalW = figmaWideModalWidth(ctx);
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          insetPadding: figmaWideModalInsets(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: modalW,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Корректировка: ${wallet.displayName}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _kEconomyTitleBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: amountCtrl,
+                    autofocus: true,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(signed: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Сумма (+/-)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: commentCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Комментарий',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FigmaDialogActionStack(
+                    onCancel: () => Navigator.pop(ctx, false),
+                    onConfirm: () => Navigator.pop(ctx, true),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: commentCtrl,
-              decoration: const InputDecoration(hintText: 'Комментарий'),
-            ),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(ctx, false),
-              onConfirm: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (ok != true || !mounted) return;
     final amount = int.tryParse(amountCtrl.text.trim());
@@ -133,26 +164,54 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     final ctrl = TextEditingController(text: _rublesPer10Coins.toString());
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Курс монет'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '10 монет = ? рублей'),
+      builder: (ctx) {
+        final modalW = figmaWideModalWidth(ctx);
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          insetPadding: figmaWideModalInsets(ctx),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: modalW,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Курс монет',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _kEconomyTitleBlue,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: ctrl,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '10 монет = ? рублей',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  FigmaDialogActionStack(
+                    onCancel: () => Navigator.pop(ctx, false),
+                    onConfirm: () => Navigator.pop(ctx, true),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(ctx, false),
-              onConfirm: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (ok != true || !mounted) return;
     final rate = int.tryParse(ctrl.text.trim());
@@ -1409,19 +1468,42 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
           .getFamilyChildren(widget.familyId),
       builder: (context, snapshot) {
         final children = snapshot.data ?? const <FamilyChildLite>[];
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 12),
-                    child: CircularProgressIndicator(),
+        return Form(
+          key: _formKey,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(19, 8, 19, 28),
+            children: [
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: kChildBrandBlue,
+                    ),
                   ),
-                DropdownButtonFormField<String>(
+                ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Тип', style: kFigmaAuthFieldLabelStyle),
+                ),
+              ),
+              FigmaAuthInputShell(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey<String>('qcreate_type_$_type'),
+                  isExpanded: true,
                   initialValue: _type,
+                  style: kFigmaAuthInputTextStyle,
+                  icon: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: kChildInkMuted,
+                  ),
+                  dropdownColor: Colors.white,
+                  decoration: _questCreateDropdownDecoration(),
                   items: const [
                     DropdownMenuItem(
                       value: 'recurring',
@@ -1440,28 +1522,81 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                     _type = v ?? 'one_time';
                     _preset = 'custom';
                     _title.clear();
-                    _scheduleType =
-                        _type == 'recurring' ? 'daily' : 'none';
+                    _scheduleType = _type == 'recurring' ? 'daily' : 'none';
                     _scheduleDays.clear();
                   }),
-                  decoration: const InputDecoration(labelText: 'Тип'),
                 ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
+              ),
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              ChildSoftCard(
+                color: Colors.white,
+                radius: 22,
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: CheckboxListTile(
                   value: _usePreset,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  activeColor: kChildBrandBlue,
+                  title: const Text(
+                    'Выбрать из базового списка',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: kChildInk,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Снимите, если нужна своя задача',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: kChildInkMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) => setState(() {
                     _usePreset = v == true;
                     _preset = 'custom';
                     _title.clear();
                   }),
-                  title: const Text('Выбрать из базового списка'),
-                  subtitle: const Text('Снимите, если нужна своя задача'),
-                  controlAffinity: ListTileControlAffinity.leading,
                 ),
-                const SizedBox(height: 8),
-                if (_usePreset)
-                  DropdownButtonFormField<String>(
+              ),
+              if (_usePreset) ...[
+                SizedBox(height: kFigmaAuthFieldStackGap),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Выбор задачи',
+                      style: kFigmaAuthFieldLabelStyle,
+                    ),
+                  ),
+                ),
+                FigmaAuthInputShell(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey<String>('qcreate_preset_$_preset'),
+                    isExpanded: true,
                     initialValue: _preset,
+                    style: kFigmaAuthInputTextStyle,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: kChildInkMuted,
+                    ),
+                    dropdownColor: Colors.white,
+                    decoration: _questCreateDropdownDecoration(
+                      prefix: Icon(
+                        Icons.playlist_add_check_rounded,
+                        color: kChildInkMuted,
+                        size: 22,
+                      ),
+                    ),
                     items: _presetItems
                         .map(
                           (title) => DropdownMenuItem<String>(
@@ -1476,28 +1611,70 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                       _preset = v ?? 'custom';
                       if (_preset != 'custom') _title.text = _preset;
                     }),
-                    decoration: const InputDecoration(
-                      labelText: 'Выбор задачи',
-                      prefixIcon: Icon(Icons.playlist_add_check),
+                  ),
+                ),
+              ],
+              if (!_usePreset || _preset == 'custom') ...[
+                SizedBox(height: kFigmaAuthFieldStackGap),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Название',
+                      style: kFigmaAuthFieldLabelStyle,
                     ),
                   ),
-                if (!_usePreset || _preset == 'custom')
-                  TextFormField(
+                ),
+                FigmaAuthInputShell(
+                  child: TextFormField(
                     controller: _title,
-                    decoration:
-                        const InputDecoration(labelText: 'Название'),
+                    style: kFigmaAuthInputTextStyle,
+                    decoration: figmaAuthFieldDecoration('Кратко, о чём задача'),
                     validator: (v) =>
                         (v ?? '').trim().isEmpty ? 'Введите название' : null,
                   ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _description,
-                  maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Описание'),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
+              ],
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              Padding(
+                padding: const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Описание', style: kFigmaAuthFieldLabelStyle),
+                ),
+              ),
+              FigmaAuthInputShell(
+                child: TextFormField(
+                  controller: _description,
+                  maxLines: 4,
+                  style: kFigmaAuthInputTextStyle,
+                  decoration: figmaAuthFieldDecoration(
+                    'Детали и условия (по желанию)',
+                  ),
+                ),
+              ),
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              Padding(
+                padding: const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Распределение', style: kFigmaAuthFieldLabelStyle),
+                ),
+              ),
+              FigmaAuthInputShell(
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey<String>('qcreate_dist_$_distributionType'),
+                  isExpanded: true,
                   initialValue: _distributionType,
+                  style: kFigmaAuthInputTextStyle,
+                  icon: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: kChildInkMuted,
+                  ),
+                  dropdownColor: Colors.white,
+                  decoration: _questCreateDropdownDecoration(),
                   items: const [
                     DropdownMenuItem(
                       value: 'assigned',
@@ -1510,51 +1687,151 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                   ],
                   onChanged: (v) =>
                       setState(() => _distributionType = v ?? 'assigned'),
-                  decoration:
-                      const InputDecoration(labelText: 'Распределение'),
                 ),
-                const SizedBox(height: 8),
-                SwitchListTile(
+              ),
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              ChildSoftCard(
+                color: Colors.white,
+                radius: 22,
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: SwitchListTile(
                   value: _autoApprove,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  activeTrackColor: kBrandMint,
+                  activeThumbColor: Colors.white,
+                  inactiveTrackColor: kChildOutline,
+                  title: const Text(
+                    'Автоподтверждение',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: kChildInk,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Награда зачисляется сразу после выполнения',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: kChildInkMuted,
+                      height: 1.35,
+                    ),
+                  ),
                   onChanged: (v) => setState(() => _autoApprove = v),
-                  title: const Text('Автоподтверждение'),
-                  subtitle:
-                      const Text('Награда зачисляется сразу после выполнения'),
                 ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
+              ),
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              ChildSoftCard(
+                color: Colors.white,
+                radius: 22,
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: CheckboxListTile(
                   value: _hasTimeLimit,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  activeColor: kChildBrandBlue,
+                  title: const Text(
+                    'Лимит времени',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: kChildInk,
+                    ),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
                   onChanged: (v) =>
                       setState(() => _hasTimeLimit = v == true),
-                  title: const Text('Лимит времени'),
-                  controlAffinity: ListTileControlAffinity.leading,
                 ),
-                if (_hasTimeLimit)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _hours,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(labelText: 'Часы'),
-                        ),
+              ),
+              if (_hasTimeLimit) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: kFigmaAuthLabelToFieldGap,
+                            ),
+                            child: Text(
+                              'Часы',
+                              style: kFigmaAuthFieldLabelStyle,
+                            ),
+                          ),
+                          FigmaAuthInputShell(
+                            child: TextFormField(
+                              controller: _hours,
+                              keyboardType: TextInputType.number,
+                              style: kFigmaAuthInputTextStyle,
+                              decoration: figmaAuthFieldDecoration('0'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _minutes,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(labelText: 'Минуты'),
-                        ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: kFigmaAuthLabelToFieldGap,
+                            ),
+                            child: Text(
+                              'Минуты',
+                              style: kFigmaAuthFieldLabelStyle,
+                            ),
+                          ),
+                          FigmaAuthInputShell(
+                            child: TextFormField(
+                              controller: _minutes,
+                              keyboardType: TextInputType.number,
+                              style: kFigmaAuthInputTextStyle,
+                              decoration: figmaAuthFieldDecoration('0'),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ],
+              if (_type == 'recurring') ...[
+                SizedBox(height: kFigmaAuthFieldStackGap),
+                Padding(
+                  padding:
+                      const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'График повторения',
+                      style: kFigmaAuthFieldLabelStyle,
+                    ),
                   ),
-                if (_type == 'recurring') ...[
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
+                ),
+                FigmaAuthInputShell(
+                  child: DropdownButtonFormField<String>(
+                    key: ValueKey<String>('qcreate_sched_$_scheduleType'),
+                    isExpanded: true,
                     initialValue: _scheduleType,
+                    style: kFigmaAuthInputTextStyle,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: kChildInkMuted,
+                    ),
+                    dropdownColor: Colors.white,
+                    decoration: _questCreateDropdownDecoration(),
                     items: const [
                       DropdownMenuItem(
                         value: 'daily',
@@ -1571,195 +1848,288 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                     ],
                     onChanged: (v) =>
                         setState(() => _scheduleType = v ?? 'daily'),
-                    decoration:
-                        const InputDecoration(labelText: 'График повторения'),
                   ),
-                  if (_scheduleType == 'custom_days') ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        ('mon', 'Пн'),
-                        ('tue', 'Вт'),
-                        ('wed', 'Ср'),
-                        ('thu', 'Чт'),
-                        ('fri', 'Пт'),
-                        ('sat', 'Сб'),
-                        ('sun', 'Вс'),
-                      ]
-                          .map(
-                            (d) => FilterChip(
-                              label: Text(d.$2),
-                              selected: _scheduleDays.contains(d.$1),
-                              onSelected: (selected) {
-                                setState(() {
-                                  if (selected) {
-                                    _scheduleDays.add(d.$1);
-                                  } else {
-                                    _scheduleDays.remove(d.$1);
-                                  }
-                                });
-                              },
+                ),
+                if (_scheduleType == 'custom_days') ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ('mon', 'Пн'),
+                      ('tue', 'Вт'),
+                      ('wed', 'Ср'),
+                      ('thu', 'Чт'),
+                      ('fri', 'Пт'),
+                      ('sat', 'Сб'),
+                      ('sun', 'Вс'),
+                    ]
+                        .map(
+                          (d) => FilterChip(
+                            label: Text(
+                              d.$2,
+                              style: const TextStyle(
+                                fontFamily: 'Nunito',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
                             ),
-                          )
-                          .toList(),
-                    ),
-                  ],
+                            selected: _scheduleDays.contains(d.$1),
+                            selectedColor: kBrandMint,
+                            checkmarkColor: kChildInk,
+                            backgroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.black.withValues(alpha: 0.12),
+                            ),
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _scheduleDays.add(d.$1);
+                                } else {
+                                  _scheduleDays.remove(d.$1);
+                                }
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
                 ],
-                const SizedBox(height: 8),
-                TextFormField(
+              ],
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              Padding(
+                padding: const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Награда (монеты)',
+                    style: kFigmaAuthFieldLabelStyle,
+                  ),
+                ),
+              ),
+              FigmaAuthInputShell(
+                child: TextFormField(
                   controller: _reward,
                   keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Награда (монеты)'),
+                  style: kFigmaAuthInputTextStyle,
+                  decoration: figmaAuthFieldDecoration('10'),
                   validator: (v) {
                     final value = int.tryParse((v ?? '').trim());
-                    if (value == null || value < 0) return 'Укажите число >= 0';
+                    if (value == null || value < 0) {
+                      return 'Укажите число >= 0';
+                    }
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
-                Align(
+              ),
+              SizedBox(height: kFigmaAuthFieldStackGap),
+              Padding(
+                padding: const EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Исполнители',
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: kFigmaAuthFieldLabelStyle,
                   ),
                 ),
-                const SizedBox(height: 8),
-                if (_distributionType == 'exchange')
-                  const ListTile(
-                    leading: Icon(Icons.storefront),
-                    title: Text('Задача будет опубликована на Бирже'),
-                    subtitle: Text('Любой ребёнок сможет взять её в работу'),
-                  ),
-                if (_distributionType == 'assigned')
-                  ...children.map(
-                    (child) => CheckboxListTile(
-                      value: _selectedChildren.contains(child.id),
-                      title: Text(child.displayName),
-                      onChanged: (v) {
-                        setState(() {
-                          if (v == true) {
-                            _selectedChildren.add(child.id);
-                          } else {
-                            _selectedChildren.remove(child.id);
-                          }
-                        });
-                      },
+              ),
+              if (_distributionType == 'exchange')
+                ChildSoftCard(
+                  color: Colors.white,
+                  radius: 22,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.storefront_rounded,
+                      color: kChildBrandBlue,
+                      size: 28,
+                    ),
+                    title: const Text(
+                      'Задача будет опубликована на Бирже',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Любой ребёнок сможет взять её в работу',
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: kChildInkMuted,
+                        height: 1.35,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                            if (!(_formKey.currentState?.validate() ?? false)) {
-                              return;
-                            }
-                            final messenger = ScaffoldMessenger.of(context);
-                            if (_distributionType == 'assigned' &&
-                                _selectedChildren.isEmpty) {
-                              messenger.showSnackBar(
-                                const SnackBar(
-                                  content:
-                                      Text('Выберите хотя бы одного ребёнка'),
+                ),
+              if (_distributionType == 'assigned')
+                ChildSoftCard(
+                  color: Colors.white,
+                  radius: 22,
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: children.isEmpty
+                        ? [
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'Нет детей в семье',
+                                style: TextStyle(
+                                  fontFamily: 'Nunito',
+                                  color: kChildInkMuted,
                                 ),
-                              );
-                              return;
-                            }
-                            final hours =
-                                int.tryParse(_hours.text.trim()) ?? 0;
-                            final minutes =
-                                int.tryParse(_minutes.text.trim()) ?? 0;
-                            final totalMinutes = hours * 60 + minutes;
-                            if (_hasTimeLimit && totalMinutes <= 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Укажите лимит времени больше 0',
+                              ),
+                            ),
+                          ]
+                        : children
+                            .map(
+                              (child) => CheckboxListTile(
+                                value: _selectedChildren.contains(child.id),
+                                activeColor: kChildBrandBlue,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 2,
+                                ),
+                                title: Text(
+                                  child.displayName,
+                                  style: const TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: kChildInk,
                                   ),
                                 ),
-                              );
-                              return;
-                            }
-                            if (_type == 'recurring' &&
-                                _scheduleType == 'custom_days' &&
-                                _scheduleDays.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Выберите хотя бы один день повторения',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            setState(() => _busy = true);
-                            try {
-                              await ref
-                                  .read(questsRepositoryProvider)
-                                  .createQuest(
-                                    title: _title.text,
-                                    description: _description.text,
-                                    rewardAmount:
-                                        int.parse(_reward.text.trim()),
-                                    questType: _type,
-                                    dueAt: null,
-                                    childIds:
-                                        _distributionType == 'assigned'
-                                            ? _selectedChildren.toList()
-                                            : const [],
-                                    distributionType: _distributionType,
-                                    autoApprove: _autoApprove,
-                                    timeLimitMinutes: _hasTimeLimit
-                                        ? totalMinutes
-                                        : null,
-                                    scheduleType: _type == 'recurring'
-                                        ? _scheduleType
-                                        : 'none',
-                                    scheduleDays: _type == 'recurring'
-                                        ? _scheduleDays.toList()
-                                        : const [],
-                                  );
-                              if (!mounted) return;
-                              messenger.showSnackBar(
-                                const SnackBar(content: Text('Квест создан')),
-                              );
-                              _title.clear();
-                              _description.clear();
-                              _reward.text = '10';
-                              _hours.text = '0';
-                              _minutes.text = '0';
-                              setState(() {
-                                _selectedChildren.clear();
-                                _scheduleDays.clear();
-                                _preset = 'custom';
-                                _usePreset = true;
-                                _distributionType = 'assigned';
-                                _autoApprove = false;
-                                _hasTimeLimit = false;
-                                _type = 'one_time';
-                                _scheduleType = 'none';
-                              });
-                            } catch (e) {
-                              if (!mounted) return;
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('Ошибка создания: $e'),
-                                ),
-                              );
-                            } finally {
-                              if (mounted) setState(() => _busy = false);
-                            }
-                          },
-                    child: const Text('Создать квест'),
+                                onChanged: (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      _selectedChildren.add(child.id);
+                                    } else {
+                                      _selectedChildren.remove(child.id);
+                                    }
+                                  });
+                                },
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
-              ],
-            ),
+              SizedBox(height: kFigmaAuthBeforePrimaryCtaGap),
+              if (_busy)
+                const SizedBox(
+                  height: kFigmaAuthPrimaryCtaHeight,
+                  child: Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Color(0xFF1F4F1B),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                FigmaGradientButton(
+                  label: 'Создать квест',
+                  gradient: FigmaGradientButton.mintGradientVertical,
+                  height: kFigmaAuthPrimaryCtaHeight,
+                  labelStyle: kFigmaLandingCtaTextStyle,
+                  boxShadow: kFigmaLandingCtaBoxShadows,
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
+                  onTap: () async {
+                    if (!(_formKey.currentState?.validate() ?? false)) {
+                      return;
+                    }
+                    final messenger = ScaffoldMessenger.of(context);
+                    if (_distributionType == 'assigned' &&
+                        _selectedChildren.isEmpty) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Выберите хотя бы одного ребёнка'),
+                        ),
+                      );
+                      return;
+                    }
+                    final hours = int.tryParse(_hours.text.trim()) ?? 0;
+                    final minutes = int.tryParse(_minutes.text.trim()) ?? 0;
+                    final totalMinutes = hours * 60 + minutes;
+                    if (_hasTimeLimit && totalMinutes <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Укажите лимит времени больше 0'),
+                        ),
+                      );
+                      return;
+                    }
+                    if (_type == 'recurring' &&
+                        _scheduleType == 'custom_days' &&
+                        _scheduleDays.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Выберите хотя бы один день повторения'),
+                        ),
+                      );
+                      return;
+                    }
+                    setState(() => _busy = true);
+                    try {
+                      await ref.read(questsRepositoryProvider).createQuest(
+                            title: _title.text,
+                            description: _description.text,
+                            rewardAmount: int.parse(_reward.text.trim()),
+                            questType: _type,
+                            dueAt: null,
+                            childIds: _distributionType == 'assigned'
+                                ? _selectedChildren.toList()
+                                : const [],
+                            distributionType: _distributionType,
+                            autoApprove: _autoApprove,
+                            timeLimitMinutes:
+                                _hasTimeLimit ? totalMinutes : null,
+                            scheduleType: _type == 'recurring'
+                                ? _scheduleType
+                                : 'none',
+                            scheduleDays: _type == 'recurring'
+                                ? _scheduleDays.toList()
+                                : const [],
+                          );
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('Квест создан')),
+                      );
+                      _title.clear();
+                      _description.clear();
+                      _reward.text = '10';
+                      _hours.text = '0';
+                      _minutes.text = '0';
+                      setState(() {
+                        _selectedChildren.clear();
+                        _scheduleDays.clear();
+                        _preset = 'custom';
+                        _usePreset = true;
+                        _distributionType = 'assigned';
+                        _autoApprove = false;
+                        _hasTimeLimit = false;
+                        _type = 'one_time';
+                        _scheduleType = 'none';
+                      });
+                    } catch (e) {
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Ошибка создания: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _busy = false);
+                    }
+                  },
+                ),
+            ],
           ),
         );
       },
