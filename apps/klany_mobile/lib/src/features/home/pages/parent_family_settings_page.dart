@@ -337,7 +337,9 @@ class _ParentFamilySettingsPageState
       if (img == null || !mounted) return;
       setState(() => _busy = true);
       try {
-        await ref.read(parentAccessRepositoryProvider).uploadMemberCodeAvatar(
+        await ref
+            .read(parentAccessRepositoryProvider)
+            .uploadMemberCodeAvatar(
               familyId: familyId,
               memberCodeId: code.id,
               imageFile: img,
@@ -346,7 +348,8 @@ class _ParentFamilySettingsPageState
         avatarVersion.value++;
         if (mounted) setState(() {});
       } catch (e) {
-        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        if (mounted)
+          messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -362,49 +365,66 @@ class _ParentFamilySettingsPageState
             title: const Text('Аватар участника'),
             content: SizedBox(
               width: 280,
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: AvatarStore.totalAvatars,
-                itemBuilder: (_, i) {
-                  final idx = i + 1;
-                  final sel = idx == selected;
-                  return GestureDetector(
-                    onTap: () => setSt(() => selected = idx),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: sel ? kChildBrandBlue : Colors.transparent,
-                          width: 3,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    itemCount: AvatarStore.totalAvatars,
+                    itemBuilder: (_, i) {
+                      final idx = i + 1;
+                      final sel = idx == selected;
+                      return GestureDetector(
+                        onTap: () => setSt(() => selected = idx),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: sel ? kChildBrandBlue : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              AvatarStore.assetForIndex(idx),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: kFigmaLandingCtaHeight,
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            kFigmaLandingCtaHeight / 2,
+                          ),
                         ),
                       ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          AvatarStore.assetForIndex(idx),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Сохранить'),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 12),
+                  FigmaDialogCancelButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Отмена'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Сохранить'),
-              ),
-            ],
           ),
         ),
       );
@@ -413,7 +433,9 @@ class _ParentFamilySettingsPageState
       try {
         final data = await rootBundle.load(AvatarStore.assetForIndex(selected));
         final bytes = data.buffer.asUint8List();
-        await ref.read(parentAccessRepositoryProvider).uploadMemberCodeAvatarFromAsset(
+        await ref
+            .read(parentAccessRepositoryProvider)
+            .uploadMemberCodeAvatarFromAsset(
               familyId: familyId,
               memberCodeId: code.id,
               pngBytes: bytes,
@@ -422,7 +444,8 @@ class _ParentFamilySettingsPageState
         avatarVersion.value++;
         if (mounted) setState(() {});
       } catch (e) {
-        if (mounted) messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        if (mounted)
+          messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -602,9 +625,9 @@ class _ParentFamilySettingsPageState
                                       padding: EdgeInsets.zero,
                                       constraints:
                                           const BoxConstraints.tightFor(
-                                        width: 48,
-                                        height: 48,
-                                      ),
+                                            width: 48,
+                                            height: 48,
+                                          ),
                                       icon: const Icon(
                                         Icons.arrow_back,
                                         color: Colors.black,
@@ -638,9 +661,9 @@ class _ParentFamilySettingsPageState
                                       padding: EdgeInsets.zero,
                                       constraints:
                                           const BoxConstraints.tightFor(
-                                        width: 48,
-                                        height: 48,
-                                      ),
+                                            width: 48,
+                                            height: 48,
+                                          ),
                                       icon: const Icon(
                                         Icons.logout_outlined,
                                         color: Colors.black,
@@ -1038,7 +1061,9 @@ class _ParentFamilySettingsPageState
                                                 color: const Color(0xFF1F4F1B),
                                               ),
                                         ),
-                                        child: const Text('Активировать промокод'),
+                                        child: const Text(
+                                          'Активировать промокод',
+                                        ),
                                       ),
                                       const SizedBox(height: 10),
                                       FilledButton(
@@ -1090,11 +1115,11 @@ class _ParentFamilySettingsPageState
                                           onAvatarTap: _busy
                                               ? null
                                               : () => unawaited(
-                                                    _editMemberAvatar(
-                                                      family.familyId,
-                                                      c,
-                                                    ),
+                                                  _editMemberAvatar(
+                                                    family.familyId,
+                                                    c,
                                                   ),
+                                                ),
                                         ),
                                       );
                                     }),
@@ -1255,7 +1280,8 @@ class _ParentFamilySettingsPageState
                                                     ? item.displayName[0]
                                                           .toUpperCase()
                                                     : '?',
-                                                remoteImageUrl: item.avatarImageUrl,
+                                                remoteImageUrl:
+                                                    item.avatarImageUrl,
                                               ),
                                             ),
                                             const SizedBox(width: 10),
@@ -1267,7 +1293,8 @@ class _ParentFamilySettingsPageState
                                                   Text(
                                                     '${item.displayName} — ${item.code}',
                                                     maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: const TextStyle(
                                                       fontSize: 14,
                                                       fontWeight:

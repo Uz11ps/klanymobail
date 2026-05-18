@@ -498,7 +498,10 @@ export class QuestsService {
             comment: a.comment,
             dueAt: a.quest.dueAt,
             createdAt: a.createdAt,
-            distributionType: meta.distributionType,
+            // У ребёнка строки из QuestAssignee — это уже «мои задачи»; иначе взятый с биржи
+            // квест остаётся с distributionType exchange и зависает во вкладке «Биржа».
+            distributionType:
+              meta.distributionType === "exchange" ? "assigned" : meta.distributionType,
             autoApprove: meta.autoApprove,
             timeLimitMinutes: meta.timeLimitMinutes,
             scheduleType: meta.scheduleType,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../theme/klany_figma_style.dart';
 export '../../theme/klany_figma_style.dart';
@@ -477,7 +478,53 @@ double figmaWideModalWidth(BuildContext context, {double widthFraction = 0.8}) {
   return MediaQuery.sizeOf(context).width * widthFraction;
 }
 
-/// Две полноширинные CTA как у кнопок лендинга: сверху отмена, снизу подтверждение.
+/// Красная обводка вторичной кнопки «Отмена» в модалках.
+const Color kFigmaModalCancelBorder = Color(0xFFE53935);
+const Color kFigmaModalCancelForeground = Color(0xFFB71C1C);
+
+/// Прозрачная «Отмена» только с красной обводкой — под основным CTA.
+class FigmaDialogCancelButton extends StatelessWidget {
+  const FigmaDialogCancelButton({
+    super.key,
+    required this.onPressed,
+    this.label = 'Отмена',
+  });
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: kFigmaLandingCtaHeight,
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          foregroundColor: kFigmaModalCancelForeground,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          side: const BorderSide(color: kFigmaModalCancelBorder, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kFigmaLandingCtaHeight / 2),
+          ),
+          padding: EdgeInsets.zero,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontWeight: FontWeight.w700,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Две полноширинные CTA: сверху подтверждение (градиент), снизу «Отмена» с красной обводкой.
 class FigmaDialogActionStack extends StatelessWidget {
   const FigmaDialogActionStack({
     super.key,
@@ -518,19 +565,6 @@ class FigmaDialogActionStack extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FigmaGradientButton(
-          label: cancelLabel,
-          gradient: FigmaGradientButton.mintGradientVertical,
-          height: kFigmaLandingCtaHeight,
-          labelStyle: kFigmaLandingCtaTextStyle,
-          boxShadow: kFigmaLandingCtaBoxShadows,
-          textHeightBehavior: const TextHeightBehavior(
-            applyHeightToFirstAscent: false,
-            applyHeightToLastDescent: false,
-          ),
-          onTap: onCancel,
-        ),
-        const SizedBox(height: 12),
-        FigmaGradientButton(
           label: confirmLabel,
           gradient: gradient,
           height: kFigmaLandingCtaHeight,
@@ -542,6 +576,8 @@ class FigmaDialogActionStack extends StatelessWidget {
           ),
           onTap: onConfirm,
         ),
+        const SizedBox(height: 12),
+        FigmaDialogCancelButton(onPressed: onCancel, label: cancelLabel),
       ],
     );
   }
@@ -751,6 +787,20 @@ class FigmaAuthInputShell extends StatelessWidget {
   }
 }
 
+/// Glow под CTA «Обратная задача» в дашборде ребёнка (Figma node 0-137).
+const List<BoxShadow> kFigmaMintCtaGlow = [
+  BoxShadow(
+    color: Color.fromRGBO(230, 247, 217, 0.35),
+    blurRadius: 50,
+    offset: Offset(0, 20),
+  ),
+  BoxShadow(
+    color: Color.fromRGBO(212, 255, 179, 0.35),
+    blurRadius: 20,
+    offset: Offset(0, 13),
+  ),
+];
+
 /// Кнопка с цветной тенью снизу (универсальный wrapper).
 class SoftButton extends StatelessWidget {
   const SoftButton({
@@ -763,6 +813,9 @@ class SoftButton extends StatelessWidget {
     this.fontSize = 16,
     this.fontWeight = FontWeight.w800,
     this.icon,
+    this.boxShadow,
+    this.border,
+    this.labelStyle,
   });
 
   final VoidCallback? onTap;
@@ -773,9 +826,21 @@ class SoftButton extends StatelessWidget {
   final double fontSize;
   final FontWeight fontWeight;
   final IconData? icon;
+  final List<BoxShadow>? boxShadow;
+  final BoxBorder? border;
+  final TextStyle? labelStyle;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedLabelStyle =
+        labelStyle ??
+        TextStyle(
+          fontFamily: 'Nunito',
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          color: fg,
+        );
+
     return SizedBox(
       width: double.infinity,
       height: height,
@@ -783,7 +848,8 @@ class SoftButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(height / 2),
-          boxShadow: kSoftButtonShadow(bg),
+          border: border,
+          boxShadow: boxShadow ?? kSoftButtonShadow(bg),
         ),
         child: Material(
           color: Colors.transparent,
@@ -799,15 +865,7 @@ class SoftButton extends StatelessWidget {
                     Icon(icon, color: fg, size: fontSize + 4),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: fontSize,
-                      fontWeight: fontWeight,
-                      color: fg,
-                    ),
-                  ),
+                  Text(label, style: resolvedLabelStyle),
                 ],
               ),
             ),
@@ -1061,7 +1119,7 @@ class ChildBottomClanBar extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(36),
+                borderRadius: BorderRadius.circular(45),
                 border: Border.all(color: kFigmaChildNavPillBorder, width: 1),
                 boxShadow: [
                   BoxShadow(
@@ -1073,7 +1131,7 @@ class ChildBottomClanBar extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 22,
+                  horizontal: 20,
                   vertical: 10,
                 ),
                 child: Row(
@@ -1194,8 +1252,7 @@ class _ChildHomeNavColumn extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(
-                  fontFamily: 'Nunito',
+                style: GoogleFonts.nunito(
                   fontSize: 16,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected ? blue : muted,

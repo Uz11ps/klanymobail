@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth/child_self_avatar.dart';
@@ -24,6 +26,103 @@ import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
 import '../child_soft_ui.dart';
+
+/// Nunito через google_fonts — на web гарантирует те же начертания, что в Figma.
+TextStyle _dashNunito({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double height = 1.0,
+  double letterSpacing = 0,
+}) =>
+    GoogleFonts.nunito(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color ?? kChildInk,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+
+/// MCP 0:152 «Мои задачи»
+const List<BoxShadow> kFigmaMintStatShadows = [
+  BoxShadow(
+    color: Color.fromRGBO(222, 247, 203, 0.35),
+    blurRadius: 50,
+    offset: Offset(0, 20),
+  ),
+  BoxShadow(
+    color: Color.fromRGBO(173, 211, 165, 0.35),
+    blurRadius: 20,
+    offset: Offset(0, 13),
+  ),
+];
+
+/// MCP 0:155 «Биржа»
+const List<BoxShadow> kFigmaLavenderStatShadows = [
+  BoxShadow(
+    color: Color.fromRGBO(216, 203, 247, 0.35),
+    blurRadius: 50,
+    offset: Offset(0, 20),
+  ),
+  BoxShadow(
+    color: Color.fromRGBO(179, 165, 211, 0.35),
+    blurRadius: 20,
+    offset: Offset(0, 13),
+  ),
+];
+
+/// Приближение к inset-теням Figma на цветных карточках.
+class _FigmaSoftInsetOverlay extends StatelessWidget {
+  const _FigmaSoftInsetOverlay({required this.radius});
+
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.08),
+                Colors.transparent,
+                Colors.white.withValues(alpha: 0.52),
+              ],
+              stops: const [0.0, 0.48, 1.0],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Widget _figmaHorizontalDivider() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final w = math.min(311.0, constraints.maxWidth);
+      return Center(
+        child: SizedBox(
+          width: w,
+          height: 1,
+          child: Image.asset(
+            'assets/figma/child_dashboard_divider.png',
+            fit: BoxFit.fill,
+            errorBuilder: (_, _, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ChildHomePage extends ConsumerStatefulWidget {
   const ChildHomePage({super.key});
@@ -315,24 +414,34 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
         ? 'Привет!'
         : session.childDisplayName;
 
-    return CloudBackground(
-      opacity: 0.16,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: ColoredBox(
-              color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
-            ),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/figma/child_dashboard_bg.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, __, ___) =>
+                ColoredBox(color: kBgCloud.withValues(alpha: 0.35)),
           ),
-          RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              ),
-              padding: EdgeInsets.zero,
-              children: [
+        ),
+        Positioned.fill(
+          child: ColoredBox(
+            color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
+          ),
+        ),
+        RefreshIndicator(
+          onRefresh: _reload,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: ClampingScrollPhysics(),
+            ),
+            padding: EdgeInsets.only(bottom: bottomInset + 104),
+            children: [
                 SizedBox(
                   height: 112,
                   child: Stack(
@@ -345,15 +454,13 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 353),
-                            child: const Text(
+                            child: Text(
                               'CLAN CAPITAL',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
+                              style: _dashNunito(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w800,
                                 color: kFigmaChildScreenBlue,
-                                letterSpacing: 0.4,
                                 height: 1.05,
                               ),
                             ),
@@ -370,10 +477,10 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                               onTap: _reload,
                               child: SvgPicture.asset(
                                 'assets/figma/nav_refresh.svg',
-                                width: 22,
-                                height: 22,
+                                width: 24,
+                                height: 24,
                                 colorFilter: const ColorFilter.mode(
-                                  kChildInk,
+                                  Colors.black,
                                   BlendMode.srcIn,
                                 ),
                               ),
@@ -394,10 +501,10 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                               },
                               child: SvgPicture.asset(
                                 'assets/figma/child_nav_menu_dots.svg',
-                                width: 22,
-                                height: 22,
+                                width: 24,
+                                height: 24,
                                 colorFilter: const ColorFilter.mode(
-                                  kChildInk,
+                                  Colors.black,
                                   BlendMode.srcIn,
                                 ),
                               ),
@@ -415,28 +522,38 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                     final data = snapshot.data;
                     final balance = data?.walletBalance ?? 0;
                     final active = data?.activeAssignments ?? 0;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 353),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
                         // Profile card
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.symmetric(horizontal: 1),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.10),
+                                  color: Colors.black.withValues(alpha: 0.1),
                                   blurRadius: 20,
                                   offset: const Offset(0, 10),
                                 ),
                               ],
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Row(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Stack(
                                 children: [
+                                  Positioned.fill(
+                                    child: ColoredBox(color: Colors.white),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Row(
+                                      children: [
                                   GestureDetector(
                                     onTap: () async {
                                       final messenger = ScaffoldMessenger.of(
@@ -518,64 +635,96 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                               title: const Text('Аватар'),
                                               content: SizedBox(
                                                 width: 280,
-                                                child: GridView.builder(
-                                                  shrinkWrap: true,
-                                                  physics:
-                                                      const NeverScrollableScrollPhysics(),
-                                                  gridDelegate:
-                                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                                        crossAxisCount: 3,
-                                                        crossAxisSpacing: 10,
-                                                        mainAxisSpacing: 10,
-                                                      ),
-                                                  itemCount:
-                                                      AvatarStore.totalAvatars,
-                                                  itemBuilder: (_, i) {
-                                                    final idx = i + 1;
-                                                    final sel = idx == selected;
-                                                    return GestureDetector(
-                                                      onTap: () => setSt(
-                                                        () => selected = idx,
-                                                      ),
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          border: Border.all(
-                                                            color: sel
-                                                                ? kFigmaChildScreenBlue
-                                                                : Colors
-                                                                      .transparent,
-                                                            width: 3,
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment
+                                                          .stretch,
+                                                  children: [
+                                                    GridView.builder(
+                                                      shrinkWrap: true,
+                                                      physics:
+                                                          const NeverScrollableScrollPhysics(),
+                                                      gridDelegate:
+                                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                                            crossAxisCount: 3,
+                                                            crossAxisSpacing:
+                                                                10,
+                                                            mainAxisSpacing: 10,
                                                           ),
-                                                        ),
-                                                        child: ClipOval(
-                                                          child: Image.asset(
-                                                            AvatarStore.assetForIndex(
-                                                              idx,
+                                                      itemCount: AvatarStore
+                                                          .totalAvatars,
+                                                      itemBuilder: (_, i) {
+                                                        final idx = i + 1;
+                                                        final sel =
+                                                            idx == selected;
+                                                        return GestureDetector(
+                                                          onTap: () => setSt(
+                                                            () =>
+                                                                selected = idx,
+                                                          ),
+                                                          child: Container(
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              border: Border.all(
+                                                                color: sel
+                                                                    ? kFigmaChildScreenBlue
+                                                                    : Colors
+                                                                          .transparent,
+                                                                width: 3,
+                                                              ),
                                                             ),
-                                                            fit: BoxFit.cover,
+                                                            child: ClipOval(
+                                                              child: Image.asset(
+                                                                AvatarStore.assetForIndex(
+                                                                  idx,
+                                                                ),
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
+                                                    const SizedBox(height: 16),
+                                                    SizedBox(
+                                                      height:
+                                                          kFigmaLandingCtaHeight,
+                                                      width: double.infinity,
+                                                      child: FilledButton(
+                                                        style: FilledButton.styleFrom(
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  kFigmaLandingCtaHeight /
+                                                                      2,
+                                                                ),
                                                           ),
                                                         ),
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              ctx,
+                                                              true,
+                                                            ),
+                                                        child: const Text(
+                                                          'Сохранить',
+                                                        ),
                                                       ),
-                                                    );
-                                                  },
+                                                    ),
+                                                    const SizedBox(height: 12),
+                                                    FigmaDialogCancelButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                            ctx,
+                                                            false,
+                                                          ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(ctx, false),
-                                                  child: const Text('Отмена'),
-                                                ),
-                                                FilledButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(ctx, true),
-                                                  child: const Text(
-                                                    'Сохранить',
-                                                  ),
-                                                ),
-                                              ],
                                             ),
                                           ),
                                         );
@@ -683,21 +832,19 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                       children: [
                                         Text(
                                           displayName,
-                                          style: const TextStyle(
-                                            fontFamily: 'Nunito',
+                                          style: _dashNunito(
                                             fontSize: 24,
                                             fontWeight: FontWeight.w700,
-                                            color: kChildInk,
+                                            color: Colors.black,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 10),
                                         Text(
                                           '${data?.completedCount ?? 0} ${_taskWord(data?.completedCount ?? 0)} выполнено',
-                                          style: TextStyle(
-                                            fontFamily: 'Nunito',
+                                          style: _dashNunito(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w400,
-                                            color: kChildInk.withValues(
+                                            color: Colors.black.withValues(
                                               alpha: 0.5,
                                             ),
                                           ),
@@ -713,9 +860,9 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                                 ),
                                               ),
                                           child: Container(
+                                            height: 29,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
+                                              horizontal: 10,
                                             ),
                                             decoration: BoxDecoration(
                                               color: kFigmaChildBalancePill,
@@ -726,14 +873,13 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 const CoinStackIcon(
-                                                  size: 22,
+                                                  size: 18,
                                                   color: kFigmaChildScreenBlue,
                                                 ),
-                                                const SizedBox(width: 6),
+                                                const SizedBox(width: 3),
                                                 Text(
                                                   _formatNumber(balance),
-                                                  style: const TextStyle(
-                                                    fontFamily: 'Nunito',
+                                                  style: _dashNunito(
                                                     fontSize: 24,
                                                     fontWeight: FontWeight.w800,
                                                     color:
@@ -750,170 +896,257 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                                 ],
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Container(
-                            height: 1,
-                            color: Colors.black.withValues(alpha: 0.08),
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        // Stat tiles (Figma)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _ChildSquareTile(
-                                  label: 'Мои задачи',
-                                  value: active.toString(),
-                                  bg: kFigmaChildStatMint,
-                                ),
+                                  Positioned.fill(
+                                    child: _FigmaSoftInsetOverlay(
+                                      radius: BorderRadius.circular(20),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 7),
-                              Expanded(
-                                child: _ChildSquareTile(
-                                  label: 'Биржа',
-                                  value: (data?.exchangeCount ?? 0).toString(),
-                                  bg: kFigmaChildStatLavender,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _figmaHorizontalDivider(),
+                        const SizedBox(height: 20),
+                        LayoutBuilder(
+                          builder: (context, c) {
+                            const gap = 7.0;
+                            final maxW = c.maxWidth;
+                            final tileW = maxW >= 353
+                                ? 173.0
+                                : ((maxW - gap) / 2).clamp(120.0, 173.0);
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: tileW,
+                                  child: _ChildSquareTile(
+                                    label: 'Мои задачи',
+                                    value: active.toString(),
+                                    bg: kFigmaChildStatMint,
+                                    outerShadows: kFigmaMintStatShadows,
+                                  ),
                                 ),
+                                const SizedBox(width: gap),
+                                SizedBox(
+                                  width: tileW,
+                                  child: _ChildSquareTile(
+                                    label: 'Биржа',
+                                    value: (data?.exchangeCount ?? 0)
+                                        .toString(),
+                                    bg: kFigmaChildStatLavender,
+                                    outerShadows: kFigmaLavenderStatShadows,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        _figmaHorizontalDivider(),
+                        const SizedBox(height: 20),
+                        // Goal (MCP 0:159)
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.08),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color.fromRGBO(249, 232, 165, 0.35),
+                                blurRadius: 25,
+                                offset: const Offset(0, 20),
+                              ),
+                              BoxShadow(
+                                color: Color.fromRGBO(249, 232, 165, 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 10),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                        // Goal progress
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: kFigmaChildGoalCard,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.black.withValues(alpha: 0.06),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 8),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(25),
+                            child: Stack(
+                              children: [
+                                const Positioned.fill(
+                                  child: ColoredBox(color: Color(0xFFF9E8A5)),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 38,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'Текущая цель',
+                                        textAlign: TextAlign.center,
+                                        style: _dashNunito(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 15),
+                                      LayoutBuilder(
+                                        builder: (context, bc) {
+                                          final tw = math.min(
+                                            294.0,
+                                            bc.maxWidth,
+                                          );
+                                          return Center(
+                                            child: SizedBox(
+                                              width: tw,
+                                              child: _FigmaChildGoalTrack(
+                                                progress: (data?.goalProgress ??
+                                                        0)
+                                                    .clamp(0.0, 1.0),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 15),
+                                      Text(
+                                        '${_formatNumber(data?.goalCurrent ?? balance)} / ${_formatNumber(data?.goalTarget ?? 10000)} монет',
+                                        textAlign: TextAlign.center,
+                                        style: _dashNunito(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF515151),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: _FigmaSoftInsetOverlay(
+                                    radius: BorderRadius.circular(25),
+                                  ),
                                 ),
                               ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                20,
-                                20,
-                                20,
-                                18,
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'Текущая цель',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: kChildInk,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _FigmaChildGoalTrack(
-                                    progress: (data?.goalProgress ?? 0).clamp(
-                                      0.0,
-                                      1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    '${data?.goalCurrent ?? balance} / ${data?.goalTarget ?? 10000} монет',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: kChildInk,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        // Reverse task card
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.black.withValues(alpha: 0.06),
+                        const SizedBox(height: 20),
+                        _figmaHorizontalDivider(),
+                        const SizedBox(height: 20),
+                        // Reverse task (MCP 0:167)
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.08),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 10),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.07),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 8),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(25),
+                            child: Stack(
+                              children: [
+                                const Positioned.fill(
+                                  child: ColoredBox(color: Colors.white),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    10,
+                                    20,
+                                    10,
+                                    20,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Text(
+                                        'Обратная задача',
+                                        style: _dashNunito(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      Text(
+                                        'Поставь одну спец-цель с родителем. Собранное идет в цель.',
+                                        style: _dashNunito(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.black,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(28),
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            SoftButton(
+                                              onTap: () =>
+                                                  _showReverseTaskDialog(
+                                                    context,
+                                                  ),
+                                              label: 'Создать',
+                                              bg: kFigmaChildStatMint,
+                                              fg: Colors.black,
+                                              height: 56,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                              boxShadow: kFigmaMintCtaGlow,
+                                              border: Border.all(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                ),
+                                              ),
+                                              labelStyle: _dashNunito(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                            Positioned.fill(
+                                              child: _FigmaSoftInsetOverlay(
+                                                radius: BorderRadius.circular(
+                                                  28,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: _FigmaSoftInsetOverlay(
+                                    radius: BorderRadius.circular(25),
+                                  ),
                                 ),
                               ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    'Обратная задача',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: kChildInk,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Поставь одну спец-цель с родителем. Собранное идёт в цель.',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: kChildInk.withValues(alpha: 0.55),
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  SoftButton(
-                                    onTap: () =>
-                                        _showReverseTaskDialog(context),
-                                    label: 'Создать',
-                                    bg: kFigmaChildStatMint,
-                                    fg: const Color(0xFF1F4F1B),
-                                    height: 52,
-                                    fontSize: 17,
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                         ),
                         const SizedBox(height: 24),
-                      ],
+                          ],
+                        ),
+                      ),
                     );
                   },
                 ),
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -926,14 +1159,15 @@ class _ChildHeaderRoundBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const r = 41.0;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 2,
             offset: const Offset(0, 4),
           ),
         ],
@@ -941,9 +1175,9 @@ class _ChildHeaderRoundBtn extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(r),
           onTap: onTap,
-          child: SizedBox(width: 44, height: 44, child: Center(child: child)),
+          child: Padding(padding: const EdgeInsets.all(10), child: child),
         ),
       ),
     );
@@ -961,10 +1195,12 @@ class _FigmaChildGoalTrack extends StatelessWidget {
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         const trackH = 27.0;
-        final thumb = trackH;
+        const thumbW = 30.0;
+        const thumbH = 28.0;
         final clamped = progress.clamp(0.0, 1.0);
-        final thumbX = ((w - thumb) * clamped).clamp(0.0, w - thumb);
-        final fillW = clamped <= 0 ? 0.0 : (w * clamped).clamp(0.0, w);
+        final thumbX = ((w - thumbW) * clamped)
+            .clamp(0.0, math.max(0.0, w - thumbW))
+            .toDouble();
 
         return SizedBox(
           height: trackH,
@@ -979,43 +1215,30 @@ class _FigmaChildGoalTrack extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.06),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: fillW,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    color: clamped <= 0
-                        ? Colors.transparent
-                        : kFigmaChildGoalThumb.withValues(alpha: 0.38),
+                    color: Colors.black.withValues(alpha: 0.31),
                   ),
                 ),
               ),
               Positioned(
                 left: thumbX,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: Container(
-                    width: thumb,
-                    height: thumb,
-                    decoration: BoxDecoration(
-                      color: kFigmaChildGoalThumb,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.14),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                top: (trackH - thumbH) / 2,
+                child: Container(
+                  width: thumbW,
+                  height: thumbH,
+                  decoration: BoxDecoration(
+                    color: kFigmaChildGoalThumb,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      width: 0.5,
+                      color: Colors.black.withValues(alpha: 0.31),
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1052,57 +1275,62 @@ class _ChildSquareTile extends StatelessWidget {
     required this.label,
     required this.value,
     required this.bg,
+    required this.outerShadows,
   });
   final String label;
   final String value;
   final Color bg;
+  final List<BoxShadow> outerShadows;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 173 / 165,
+    const r = 25.0;
+    final borderRadius = BorderRadius.circular(r);
+    return SizedBox(
+      height: 165,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: borderRadius,
           border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 15,
-              offset: const Offset(0, 10),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.07),
-              blurRadius: 6,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: outerShadows,
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w400,
-                  color: kChildInk,
+              ColoredBox(color: bg),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: _dashNunito(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    Text(
+                      value,
+                      textAlign: TextAlign.center,
+                      style: _dashNunito(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        height: 1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 40,
-                  fontWeight: FontWeight.w700,
-                  color: kChildInk,
-                  height: 1,
-                ),
+              Positioned.fill(
+                child: _FigmaSoftInsetOverlay(radius: borderRadius),
               ),
             ],
           ),

@@ -50,16 +50,19 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
     }
 
     return FutureBuilder<List<ChildQuestAssignmentItem>>(
-      future: _future ??
+      future:
+          _future ??
           ref
               .read(questsRepositoryProvider)
               .getChildAssignments(session.childId),
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <ChildQuestAssignmentItem>[];
-        final personal =
-            all.where((a) => a.distributionType != 'exchange').toList();
-        final exchange =
-            all.where((a) => a.distributionType == 'exchange').toList();
+        final personal = all
+            .where((a) => a.distributionType != 'exchange')
+            .toList();
+        final exchange = all
+            .where((a) => a.distributionType == 'exchange')
+            .toList();
         final completed = all.where((a) => a.status == 'completed').length;
         final current = _tab == 0 ? personal : exchange;
 
@@ -146,9 +149,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                       child: Center(child: CircularProgressIndicator()),
                     ),
                   if (snapshot.hasError)
-                    ChildSoftCard(
-                      child: Text('Ошибка: ${snapshot.error}'),
-                    ),
+                    ChildSoftCard(child: Text('Ошибка: ${snapshot.error}')),
                   if (!snapshot.hasError &&
                       snapshot.connectionState != ConnectionState.waiting &&
                       current.isEmpty)
@@ -164,16 +165,19 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                       ),
                     ),
                   ...current.asMap().entries.map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _ChildQuestCard(
-                            item: e.value,
-                            bg: _cardColors[e.key % _cardColors.length],
-                            isExchange: _tab == 1,
-                            onChanged: _reload,
-                          ),
-                        ),
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _ChildQuestCard(
+                        item: e.value,
+                        bg: _cardColors[e.key % _cardColors.length],
+                        isExchange: _tab == 1,
+                        onChanged: _reload,
+                        onClaimedFromMarket: () {
+                          if (mounted) setState(() => _tab = 0);
+                        },
                       ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -195,7 +199,9 @@ class _ChildProfileCard extends ConsumerWidget {
         ? session!.childDisplayName.trim()
         : 'Участник';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final userKey = session != null ? 'child:${session.childId}' : 'child:guest';
+    final userKey = session != null
+        ? 'child:${session.childId}'
+        : 'child:guest';
 
     return FutureBuilder<WalletSummary?>(
       future: session == null
@@ -256,8 +262,10 @@ class _ChildProfileCard extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF2F8),
                             borderRadius: BorderRadius.circular(16),
@@ -304,7 +312,8 @@ class _ChildProfileCard extends ConsumerWidget {
     final mod10 = n % 10;
     final mod100 = n % 100;
     if (mod10 == 1 && mod100 != 11) return 'задача';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
+      return 'задачи';
     return 'задач';
   }
 }
@@ -385,12 +394,16 @@ class _ChildQuestCard extends ConsumerStatefulWidget {
     required this.bg,
     required this.isExchange,
     required this.onChanged,
+    this.onClaimedFromMarket,
   });
 
   final ChildQuestAssignmentItem item;
   final Color bg;
   final bool isExchange;
   final VoidCallback onChanged;
+
+  /// После успешного «Взять с биржи» — переключить родителя на вкладку «Мои задачи».
+  final VoidCallback? onClaimedFromMarket;
 
   @override
   ConsumerState<_ChildQuestCard> createState() => _ChildQuestCardState();
@@ -422,15 +435,14 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
           .takeFromMarket(widget.item.questId);
       if (!mounted) return;
       setState(() => _takenLocally = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Квест взят в работу')),
-      );
+      widget.onClaimedFromMarket?.call();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Квест взят в работу')));
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -447,21 +459,21 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
           imageQuality: 82,
         );
       }
-      await ref.read(questsRepositoryProvider).submitQuestWithEvidence(
+      await ref
+          .read(questsRepositoryProvider)
+          .submitQuestWithEvidence(
             questId: widget.item.questId,
             evidenceFile: photo,
           );
       if (!mounted) return;
       setState(() => _submittedLocally = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Отправлено на проверку')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Отправлено на проверку')));
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -499,10 +511,25 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
   @override
   Widget build(BuildContext context) {
     final reward = widget.item.rewardAmount;
-    final photoLabel =
-        widget.item.autoApprove ? 'Без фото-отчёта' : 'Фото-отчёт';
+    final photoLabel = widget.item.autoApprove
+        ? 'Без фото-отчёта'
+        : 'Фото-отчёт';
     final days = _daysLabel(widget.item);
-    final btnLabel = widget.isExchange ? 'Взять с биржи' : 'Открыть';
+    final btnLabel = () {
+      if (_busy) return 'Подождите…';
+      if (_effectiveStatus == 'overdue') return 'Просрочено';
+      if (_submittedLocally || _effectiveStatus == 'submitted') {
+        return 'На проверке';
+      }
+      if (_effectiveStatus == 'approved' ||
+          _effectiveStatus == 'completed' ||
+          _effectiveStatus == 'done') {
+        return 'Выполнено';
+      }
+      if (_canTake && widget.isExchange) return 'Взять с биржи';
+      if (_canSubmit) return 'Подтвердить выполнение';
+      return widget.isExchange ? 'Взять с биржи' : 'Открыть';
+    }();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
@@ -542,10 +569,7 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
             photoLabel,
             style: const TextStyle(fontSize: 14, color: kChildInk),
           ),
-          Text(
-            days,
-            style: const TextStyle(fontSize: 14, color: kChildInk),
-          ),
+          Text(days, style: const TextStyle(fontSize: 14, color: kChildInk)),
           const SizedBox(height: 14),
           Material(
             color: Colors.white,
@@ -553,12 +577,12 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
             elevation: 0,
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
-              onTap: _busy ? null : _openFlow,
+              onTap: (_busy || (!_canTake && !_canSubmit)) ? null : _openFlow,
               child: Container(
                 height: 44,
                 alignment: Alignment.center,
                 child: Text(
-                  _busy ? 'Подождите…' : btnLabel,
+                  btnLabel,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
