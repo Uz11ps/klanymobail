@@ -9,26 +9,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/storage_presign.dart';
 import '../../auth/child_self_avatar.dart';
 import '../../auth/child_session.dart';
 import '../../auth/child_pin_store.dart';
-import '../avatar_store.dart';
 import '../../auth/device_identity.dart';
-import '../../quests/pages/child_quests_page.dart';
-import '../../quests/quests_repository.dart';
-import '../../wallet/pages/child_wallet_page.dart';
-import '../../wallet/wallet_repository.dart';
-import '../../shop/pages/child_shop_page.dart';
-import '../../../core/storage_presign.dart';
 import '../../notifications/fcm.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
+import '../../quests/pages/child_quests_page.dart';
+import '../../quests/quests_repository.dart';
+import '../../shop/pages/child_shop_page.dart';
+import '../../wallet/wallet_repository.dart';
+import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 
-/// Nunito через google_fonts — на web гарантирует те же начертания, что в Figma.
-TextStyle _dashNunito({
+// ═══════════════════════════════════════════════════════════════════════════════
+// Экран ребёнка — полностью пересобран. Каркас Scaffold совпадает с [ParentHomePage]:
+// extendBody, LayoutBuilder → SizedBox(width,height) → IndexedStack.expand.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TextStyle _nunito({
   required double fontSize,
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
@@ -43,8 +46,7 @@ TextStyle _dashNunito({
       letterSpacing: letterSpacing,
     );
 
-/// MCP 0:152 «Мои задачи»
-const List<BoxShadow> kFigmaMintStatShadows = [
+const List<BoxShadow> _mintTileShadows = [
   BoxShadow(
     color: Color.fromRGBO(222, 247, 203, 0.35),
     blurRadius: 50,
@@ -57,8 +59,7 @@ const List<BoxShadow> kFigmaMintStatShadows = [
   ),
 ];
 
-/// MCP 0:155 «Биржа»
-const List<BoxShadow> kFigmaLavenderStatShadows = [
+const List<BoxShadow> _lavenderTileShadows = [
   BoxShadow(
     color: Color.fromRGBO(216, 203, 247, 0.35),
     blurRadius: 50,
@@ -71,9 +72,8 @@ const List<BoxShadow> kFigmaLavenderStatShadows = [
   ),
 ];
 
-/// Приближение к inset-теням Figma на цветных карточках.
-class _FigmaSoftInsetOverlay extends StatelessWidget {
-  const _FigmaSoftInsetOverlay({required this.radius});
+class _SoftCardHighlight extends StatelessWidget {
+  const _SoftCardHighlight({required this.radius});
 
   final BorderRadius radius;
 
@@ -101,10 +101,13 @@ class _FigmaSoftInsetOverlay extends StatelessWidget {
   }
 }
 
-Widget _figmaHorizontalDivider() {
+Widget _dividerLine() {
   return LayoutBuilder(
     builder: (context, constraints) {
-      final w = math.min(311.0, constraints.maxWidth);
+      final w = math.min(
+        constraints.maxWidth,
+        constraints.maxWidth * (311 / 353),
+      );
       return Center(
         child: SizedBox(
           width: w,
@@ -146,6 +149,12 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
     });
   }
 
+  @override
+  void dispose() {
+    _sessionTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _maybeShowTour() async {
     final seen = await OnboardingStore.isChildTourSeen();
     if (seen || !mounted) return;
@@ -182,9 +191,7 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
       }
       return;
     }
-    await ref
-        .read(notificationsRepositoryProvider)
-        .registerDevice(
+    await ref.read(notificationsRepositoryProvider).registerDevice(
           platform: platform,
           pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
               ? pushToken
@@ -193,15 +200,9 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
   }
 
   @override
-  void dispose() {
-    _sessionTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final pages = <Widget>[
-      const _ChildDashboardBody(),
+    final tabs = <Widget>[
+      const _ChildHomeDashboard(),
       const ChildQuestsPage(),
       const ChildShopPage(),
     ];
@@ -209,31 +210,30 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
     return PopScope(
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _index != 0) {
-          setState(() => _index = 0);
-        }
+        if (!didPop && _index != 0) setState(() => _index = 0);
       },
       child: SizedBox.expand(
         child: Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
+          resizeToAvoidBottomInset: true,
           body: SafeArea(
             bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final maxW = constraints.maxWidth.isFinite
+                final w = constraints.maxWidth.isFinite
                     ? constraints.maxWidth
                     : MediaQuery.sizeOf(context).width;
-                final maxH = constraints.maxHeight.isFinite
+                final h = constraints.maxHeight.isFinite
                     ? constraints.maxHeight
                     : MediaQuery.sizeOf(context).height;
                 return SizedBox(
-                  width: maxW,
-                  height: maxH,
+                  width: w,
+                  height: h,
                   child: IndexedStack(
                     index: _index,
                     sizing: StackFit.expand,
-                    children: pages,
+                    children: tabs,
                   ),
                 );
               },
@@ -249,25 +249,44 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
   }
 }
 
-class _ChildDashboardBody extends ConsumerStatefulWidget {
-  const _ChildDashboardBody();
+// ─────────────────────────────────────────────────────────────────────────────
+// Дашборд (вкладка «Дом»)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ChildHomeDashboard extends ConsumerStatefulWidget {
+  const _ChildHomeDashboard();
 
   @override
-  ConsumerState<_ChildDashboardBody> createState() =>
-      _ChildDashboardBodyState();
+  ConsumerState<_ChildHomeDashboard> createState() => _ChildHomeDashboardState();
 }
 
-class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
-  Future<_ChildOverviewData>? _future;
+class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
+  bool _initialLoading = true;
+  bool _refreshing = false;
+  Object? _loadError;
+  _OverviewModel? _model;
 
-  Future<_ChildOverviewData> _load(String childId) async {
-    final wallet = await ref
-        .read(walletRepositoryProvider)
-        .getChildWallet(childId);
-    final assignments = await ref
-        .read(questsRepositoryProvider)
-        .getChildAssignments(childId);
-    final active = assignments
+  static double _targetContentWidth(double screenWidth) {
+    if (screenWidth < 430) return math.max(0.0, screenWidth - 40);
+    if (screenWidth < 700) return math.min(screenWidth - 56, 430);
+    return math.min(screenWidth * 0.56, 560);
+  }
+
+  static double _layoutScale(double contentWidth) =>
+      (contentWidth / 353).clamp(0.88, 1.22).toDouble();
+
+  @override
+  void initState() {
+    super.initState();
+    _load(showSpinner: true);
+  }
+
+  Future<_OverviewModel> _fetch(String childId) async {
+    final wallet =
+        await ref.read(walletRepositoryProvider).getChildWallet(childId);
+    final list =
+        await ref.read(questsRepositoryProvider).getChildAssignments(childId);
+    final active = list
         .where(
           (a) =>
               a.distributionType != 'exchange' &&
@@ -275,37 +294,91 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
               a.status != 'completed',
         )
         .length;
-    final exchange = assignments
-        .where((a) => a.distributionType == 'exchange')
-        .length;
-    final completed = assignments
+    final exchange = list.where((a) => a.distributionType == 'exchange').length;
+    final done = list
         .where((a) => a.status == 'completed' || a.status == 'done')
         .length;
     final balance = wallet?.balance ?? 0;
     final rawGoal = wallet?.goalAmount ?? 10000;
     final goal = rawGoal > 0 ? rawGoal : 10000;
-    return _ChildOverviewData(
+    return _OverviewModel(
       walletBalance: balance,
       activeAssignments: active,
       exchangeCount: exchange,
-      completedCount: completed,
+      completedCount: done,
       goalCurrent: balance,
       goalTarget: goal,
       goalProgress: balance / goal,
     );
   }
 
-  String _taskWord(int n) {
-    final mod10 = n % 10;
-    final mod100 = n % 100;
-    if (mod10 == 1 && mod100 != 11) return 'задача';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-      return 'задачи';
+  Future<void> _load({bool showSpinner = false}) async {
+    final session = ref.read(childSessionProvider).asData?.value;
+    if (!mounted) return;
+    if (session == null) {
+      setState(() {
+        _initialLoading = false;
+        _refreshing = false;
+      });
+      return;
     }
+
+    setState(() {
+      _loadError = null;
+      if (showSpinner && _model == null) {
+        _initialLoading = true;
+      } else if (_model != null) {
+        _refreshing = true;
+      }
+    });
+
+    try {
+      final m = await _fetch(session.childId);
+      if (!mounted) return;
+      setState(() => _model = m);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadError = e);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _initialLoading = false;
+          _refreshing = false;
+        });
+      }
+    }
+  }
+
+  void _openAccountSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: kChildSurfaceWhite,
+      builder: (_) => _ChildAccountSheet(
+        onSignOut: () => ref.read(childSessionProvider.notifier).clear(),
+      ),
+    );
+  }
+
+  String _taskWordRu(int n) {
+    final t = n % 10;
+    final h = n % 100;
+    if (t == 1 && h != 11) return 'задача';
+    if (t >= 2 && t <= 4 && (h < 12 || h > 14)) return 'задачи';
     return 'задач';
   }
 
-  Future<void> _showReverseTaskDialog(BuildContext context) async {
+  String _formatBalance(int n) {
+    final s = n.toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write(' ');
+      b.write(s[i]);
+    }
+    return b.toString();
+  }
+
+  Future<void> _reverseTaskFlow() async {
     final titleCtl = TextEditingController();
     final amountCtl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -360,47 +433,153 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
     final title = titleCtl.text.trim();
     final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
     if (title.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите название и сумму')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите название и сумму')),
+      );
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
+    final msgr = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(questsRepositoryProvider)
           .createReverseQuest(title: title, rewardAmount: amount);
       if (!mounted) return;
-      messenger.showSnackBar(
+      msgr.showSnackBar(
         SnackBar(
           content: Text('Цель «$title» на $amount монет отправлена родителю'),
         ),
       );
-      _reload();
+      _load();
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      msgr.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
-  String _formatNumber(int n) {
-    final s = n.toString();
-    final buf = StringBuffer();
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
-
-  Future<void> _reload() async {
+  Future<void> _avatarFlow(BuildContext origin) async {
+    final msgr = ScaffoldMessenger.of(origin);
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
-    final f = _load(session.childId);
-    setState(() {
-      _future = f;
-    });
-    await f;
+
+    final pick = await showModalBottomSheet<String>(
+      context: origin,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Галерея'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.face_retouching_natural),
+              title: const Text('Готовый аватар'),
+              onTap: () => Navigator.pop(ctx, 'preset'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (pick == null || !origin.mounted) return;
+
+    try {
+      if (pick == 'gallery') {
+        final img = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 800,
+          maxHeight: 800,
+          imageQuality: 85,
+        );
+        if (img == null || !origin.mounted) return;
+        await uploadChildAvatarXFile(ref, img);
+        return;
+      }
+
+      var selected = 1;
+      final presetOk = await showDialog<bool>(
+        context: origin,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setSt) => AlertDialog(
+            title: const Text('Аватар'),
+            content: SizedBox(
+              width: 280,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: AvatarStore.totalAvatars,
+                    itemBuilder: (_, i) {
+                      final idx = i + 1;
+                      final sel = idx == selected;
+                      return GestureDetector(
+                        onTap: () => setSt(() => selected = idx),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: sel
+                                  ? kFigmaChildScreenBlue
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              AvatarStore.assetForIndex(idx),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: kFigmaLandingCtaHeight,
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            kFigmaLandingCtaHeight / 2,
+                          ),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Сохранить'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FigmaDialogCancelButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      if (presetOk != true || !origin.mounted) return;
+      final bytes =
+          await rootBundle.load(AvatarStore.assetForIndex(selected));
+      await uploadChildAvatarPngBytes(ref, bytes.buffer.asUint8List());
+      await AvatarStore.setIndex('child:${session.childId}', selected);
+    } catch (e) {
+      if (origin.mounted) {
+        msgr.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
   }
 
   @override
@@ -409,12 +588,153 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
     if (session == null) {
       return const Center(child: Text('Сессия ребёнка не найдена'));
     }
-    _future ??= _load(session.childId);
-    final displayName = session.childDisplayName.trim().isEmpty
+
+    final screenW = MediaQuery.sizeOf(context).width;
+    final cw = _targetContentWidth(screenW);
+    final s = _layoutScale(cw);
+    final hPad = ((screenW - cw) / 2).clamp(16.0, 400.0).toDouble();
+    final bottomPad = 24 + MediaQuery.viewPaddingOf(context).bottom + 8;
+    final gap = 20.0 * s;
+    final name = session.childDisplayName.trim().isEmpty
         ? 'Привет!'
         : session.childDisplayName;
 
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    late final List<Widget> body;
+
+    if (_initialLoading && _model == null) {
+      body = [
+        _DashboardHeader(
+          scale: s,
+          onReload: () => _load(),
+          onMenu: _openAccountSheet,
+        ),
+        SizedBox(height: 25 * s),
+        SizedBox(
+          height: math.max(320, MediaQuery.sizeOf(context).height * 0.35),
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 3 * s,
+              color: kFigmaChildScreenBlue,
+            ),
+          ),
+        ),
+      ];
+    } else if (_model == null) {
+      body = [
+        _DashboardHeader(
+          scale: s,
+          onReload: () => _load(),
+          onMenu: _openAccountSheet,
+        ),
+        SizedBox(height: 20 * s),
+        Text(
+          'Не удалось загрузить данные',
+          textAlign: TextAlign.center,
+          style: _nunito(
+            fontSize: 16 * s,
+            fontWeight: FontWeight.w700,
+            color: kChildInkMuted,
+          ),
+        ),
+        SizedBox(height: 12 * s),
+        if (_loadError != null) ...[
+          Text(
+            _loadError.toString(),
+            textAlign: TextAlign.center,
+            style: _nunito(
+              fontSize: 12 * s,
+              fontWeight: FontWeight.w400,
+              color: kChildInkMuted,
+            ),
+          ),
+          SizedBox(height: 12 * s),
+        ],
+        TextButton(
+          onPressed: () => _load(showSpinner: true),
+          child: Text(
+            'Повторить',
+            style: _nunito(
+              fontSize: 15 * s,
+              fontWeight: FontWeight.w700,
+              color: kFigmaChildScreenBlue,
+            ),
+          ),
+        ),
+      ];
+    } else {
+      final m = _model!;
+      final done = m.completedCount;
+      body = [
+        _DashboardHeader(
+          scale: s,
+          onReload: () => _load(),
+          onMenu: _openAccountSheet,
+        ),
+        if (_refreshing) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(
+            color: kFigmaChildScreenBlue,
+            backgroundColor: kChildOutline,
+          ),
+          const SizedBox(height: 8),
+        ],
+        SizedBox(height: gap),
+        SizedBox(
+          width: double.infinity,
+          child: _DashboardProfileCard(
+            scale: s,
+            session: session,
+            displayName: name,
+            completedLine: '$done ${_taskWordRu(done)} выполнено',
+            balance: m.walletBalance,
+            formatInt: _formatBalance,
+            onAvatar: () => _avatarFlow(context),
+          ),
+        ),
+        SizedBox(height: gap),
+        _dividerLine(),
+        SizedBox(height: gap),
+        Row(
+          children: [
+            Expanded(
+              child: _StatTile(
+                scale: s,
+                label: 'Мои задачи',
+                value: '${m.activeAssignments}',
+                background: kFigmaChildStatMint,
+                outerShadows: _mintTileShadows,
+              ),
+            ),
+            SizedBox(width: 7 * s),
+            Expanded(
+              child: _StatTile(
+                scale: s,
+                label: 'Биржа',
+                value: '${m.exchangeCount}',
+                background: kFigmaChildStatLavender,
+                outerShadows: _lavenderTileShadows,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: gap),
+        _dividerLine(),
+        SizedBox(height: gap),
+        _DashboardGoalCard(
+          scale: s,
+          progress: m.goalProgress.clamp(0.0, 1.0),
+          caption:
+              '${_formatBalance(m.goalCurrent)} / ${_formatBalance(m.goalTarget)} монет',
+        ),
+        SizedBox(height: gap),
+        _dividerLine(),
+        SizedBox(height: gap),
+        _DashboardReverseTaskCard(
+          scale: s,
+          onCreate: _reverseTaskFlow,
+        ),
+      ];
+    }
 
     return Stack(
       fit: StackFit.expand,
@@ -425,7 +745,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
             fit: BoxFit.cover,
             alignment: Alignment.topCenter,
             filterQuality: FilterQuality.medium,
-            errorBuilder: (_, __, ___) =>
+            errorBuilder: (_, _, _) =>
                 ColoredBox(color: kBgCloud.withValues(alpha: 0.35)),
           ),
         ),
@@ -434,725 +754,112 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
             color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
           ),
         ),
-        RefreshIndicator(
-          onRefresh: _reload,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            padding: EdgeInsets.only(bottom: bottomInset + 104),
-            children: [
-                SizedBox(
-                  height: 112,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        top: 36,
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 353),
-                            child: Text(
-                              'CLAN CAPITAL',
-                              textAlign: TextAlign.center,
-                              style: _dashNunito(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: kFigmaChildScreenBlue,
-                                height: 1.05,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 28,
-                        right: 16,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _ChildHeaderRoundBtn(
-                              onTap: _reload,
-                              child: SvgPicture.asset(
-                                'assets/figma/nav_refresh.svg',
-                                width: 24,
-                                height: 24,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.black,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            _ChildHeaderRoundBtn(
-                              onTap: () {
-                                showModalBottomSheet<void>(
-                                  context: context,
-                                  showDragHandle: true,
-                                  backgroundColor: kChildSurfaceWhite,
-                                  builder: (ctx) => _ChildSettingsSheet(
-                                    onSignOut: () => ref
-                                        .read(childSessionProvider.notifier)
-                                        .clear(),
-                                  ),
-                                );
-                              },
-                              child: SvgPicture.asset(
-                                'assets/figma/child_nav_menu_dots.svg',
-                                width: 24,
-                                height: 24,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.black,
-                                  BlendMode.srcIn,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                FutureBuilder<_ChildOverviewData>(
-                  future: _future,
-                  builder: (context, snapshot) {
-                    final data = snapshot.data;
-                    final balance = data?.walletBalance ?? 0;
-                    final active = data?.activeAssignments ?? 0;
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 353),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                        // Profile card
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 1),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: ColoredBox(color: Colors.white),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Row(
-                                      children: [
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final messenger = ScaffoldMessenger.of(
-                                        context,
-                                      );
-                                      final pick =
-                                          await showModalBottomSheet<String>(
-                                            context: context,
-                                            showDragHandle: true,
-                                            builder: (ctx) => SafeArea(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  ListTile(
-                                                    leading: const Icon(
-                                                      Icons
-                                                          .photo_library_outlined,
-                                                    ),
-                                                    title: const Text(
-                                                      'Галерея',
-                                                    ),
-                                                    onTap: () => Navigator.pop(
-                                                      ctx,
-                                                      'gallery',
-                                                    ),
-                                                  ),
-                                                  ListTile(
-                                                    leading: const Icon(
-                                                      Icons
-                                                          .face_retouching_natural,
-                                                    ),
-                                                    title: const Text(
-                                                      'Готовый аватар',
-                                                    ),
-                                                    onTap: () => Navigator.pop(
-                                                      ctx,
-                                                      'preset',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                      if (!mounted || pick == null) return;
-                                      if (pick == 'gallery') {
-                                        final img = await ImagePicker()
-                                            .pickImage(
-                                              source: ImageSource.gallery,
-                                              maxWidth: 800,
-                                              maxHeight: 800,
-                                              imageQuality: 85,
-                                            );
-                                        if (img == null || !mounted) return;
-                                        try {
-                                          await uploadChildAvatarXFile(
-                                            ref,
-                                            img,
-                                          );
-                                          if (mounted) setState(() {});
-                                        } catch (e) {
-                                          if (mounted) {
-                                            messenger.showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  'Не удалось загрузить: $e',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                        return;
-                                      }
-                                      if (pick == 'preset') {
-                                        var selected = 1;
-                                        final ok = await showDialog<bool>(
-                                          context: context,
-                                          builder: (ctx) => StatefulBuilder(
-                                            builder: (ctx, setSt) => AlertDialog(
-                                              title: const Text('Аватар'),
-                                              content: SizedBox(
-                                                width: 280,
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .stretch,
-                                                  children: [
-                                                    GridView.builder(
-                                                      shrinkWrap: true,
-                                                      physics:
-                                                          const NeverScrollableScrollPhysics(),
-                                                      gridDelegate:
-                                                          const SliverGridDelegateWithFixedCrossAxisCount(
-                                                            crossAxisCount: 3,
-                                                            crossAxisSpacing:
-                                                                10,
-                                                            mainAxisSpacing: 10,
-                                                          ),
-                                                      itemCount: AvatarStore
-                                                          .totalAvatars,
-                                                      itemBuilder: (_, i) {
-                                                        final idx = i + 1;
-                                                        final sel =
-                                                            idx == selected;
-                                                        return GestureDetector(
-                                                          onTap: () => setSt(
-                                                            () =>
-                                                                selected = idx,
-                                                          ),
-                                                          child: Container(
-                                                            decoration: BoxDecoration(
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                              border: Border.all(
-                                                                color: sel
-                                                                    ? kFigmaChildScreenBlue
-                                                                    : Colors
-                                                                          .transparent,
-                                                                width: 3,
-                                                              ),
-                                                            ),
-                                                            child: ClipOval(
-                                                              child: Image.asset(
-                                                                AvatarStore.assetForIndex(
-                                                                  idx,
-                                                                ),
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                    const SizedBox(height: 16),
-                                                    SizedBox(
-                                                      height:
-                                                          kFigmaLandingCtaHeight,
-                                                      width: double.infinity,
-                                                      child: FilledButton(
-                                                        style: FilledButton.styleFrom(
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  kFigmaLandingCtaHeight /
-                                                                      2,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              ctx,
-                                                              true,
-                                                            ),
-                                                        child: const Text(
-                                                          'Сохранить',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 12),
-                                                    FigmaDialogCancelButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                            ctx,
-                                                            false,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                        if (ok != true || !mounted) return;
-                                        try {
-                                          final data = await rootBundle.load(
-                                            AvatarStore.assetForIndex(selected),
-                                          );
-                                          await uploadChildAvatarPngBytes(
-                                            ref,
-                                            data.buffer.asUint8List(),
-                                          );
-                                          await AvatarStore.setIndex(
-                                            'child:${session.childId}',
-                                            selected,
-                                          );
-                                          if (mounted) setState(() {});
-                                        } catch (e) {
-                                          if (mounted) {
-                                            messenger.showSnackBar(
-                                              SnackBar(
-                                                content: Text('Ошибка: $e'),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      }
-                                    },
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Builder(
-                                          builder: (context) {
-                                            final k = session.avatarObjectKey;
-                                            if (k == null || k.isEmpty) {
-                                              return UserAvatar(
-                                                userKey:
-                                                    'child:${session.childId}',
-                                                size: 107,
-                                                fallbackText:
-                                                    displayName.isEmpty
-                                                    ? '?'
-                                                    : displayName
-                                                          .characters
-                                                          .first
-                                                          .toUpperCase(),
-                                              );
-                                            }
-                                            return FutureBuilder<String?>(
-                                              key: ValueKey(k),
-                                              future: presignStorageDownload(
-                                                accessToken:
-                                                    session.accessToken,
-                                                bucket: 'member-avatars',
-                                                objectKey: k,
-                                              ),
-                                              builder: (context, snap) =>
-                                                  UserAvatar(
-                                                    userKey:
-                                                        'child:${session.childId}',
-                                                    size: 107,
-                                                    fallbackText:
-                                                        displayName.isEmpty
-                                                        ? '?'
-                                                        : displayName
-                                                              .characters
-                                                              .first
-                                                              .toUpperCase(),
-                                                    remoteImageUrl: snap.data,
-                                                  ),
-                                            );
-                                          },
-                                        ),
-                                        Positioned(
-                                          right: 2,
-                                          bottom: 2,
-                                          child: Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: BoxDecoration(
-                                              color: kFigmaChildScreenBlue,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: const Icon(
-                                              Icons.edit,
-                                              size: 14,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          displayName,
-                                          style: _dashNunito(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          '${data?.completedCount ?? 0} ${_taskWord(data?.completedCount ?? 0)} выполнено',
-                                          style: _dashNunito(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.black.withValues(
-                                              alpha: 0.5,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        GestureDetector(
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () =>
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute<void>(
-                                                  builder: (_) =>
-                                                      const ChildWalletPage(),
-                                                ),
-                                              ),
-                                          child: Container(
-                                            height: 29,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: kFigmaChildBalancePill,
-                                              borderRadius:
-                                                  BorderRadius.circular(25),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const CoinStackIcon(
-                                                  size: 18,
-                                                  color: kFigmaChildScreenBlue,
-                                                ),
-                                                const SizedBox(width: 3),
-                                                Text(
-                                                  _formatNumber(balance),
-                                                  style: _dashNunito(
-                                                    fontSize: 24,
-                                                    fontWeight: FontWeight.w800,
-                                                    color:
-                                                        kFigmaChildScreenBlue,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                                  Positioned.fill(
-                                    child: _FigmaSoftInsetOverlay(
-                                      radius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _figmaHorizontalDivider(),
-                        const SizedBox(height: 20),
-                        LayoutBuilder(
-                          builder: (context, c) {
-                            const gap = 7.0;
-                            final maxW = c.maxWidth;
-                            final tileW = maxW >= 353
-                                ? 173.0
-                                : ((maxW - gap) / 2).clamp(120.0, 173.0);
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: tileW,
-                                  child: _ChildSquareTile(
-                                    label: 'Мои задачи',
-                                    value: active.toString(),
-                                    bg: kFigmaChildStatMint,
-                                    outerShadows: kFigmaMintStatShadows,
-                                  ),
-                                ),
-                                const SizedBox(width: gap),
-                                SizedBox(
-                                  width: tileW,
-                                  child: _ChildSquareTile(
-                                    label: 'Биржа',
-                                    value: (data?.exchangeCount ?? 0)
-                                        .toString(),
-                                    bg: kFigmaChildStatLavender,
-                                    outerShadows: kFigmaLavenderStatShadows,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        _figmaHorizontalDivider(),
-                        const SizedBox(height: 20),
-                        // Goal (MCP 0:159)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.08),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Color.fromRGBO(249, 232, 165, 0.35),
-                                blurRadius: 25,
-                                offset: const Offset(0, 20),
-                              ),
-                              BoxShadow(
-                                color: Color.fromRGBO(249, 232, 165, 0.35),
-                                blurRadius: 10,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(25),
-                            child: Stack(
-                              children: [
-                                const Positioned.fill(
-                                  child: ColoredBox(color: Color(0xFFF9E8A5)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 38,
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        'Текущая цель',
-                                        textAlign: TextAlign.center,
-                                        style: _dashNunito(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 15),
-                                      LayoutBuilder(
-                                        builder: (context, bc) {
-                                          final tw = math.min(
-                                            294.0,
-                                            bc.maxWidth,
-                                          );
-                                          return Center(
-                                            child: SizedBox(
-                                              width: tw,
-                                              child: _FigmaChildGoalTrack(
-                                                progress: (data?.goalProgress ??
-                                                        0)
-                                                    .clamp(0.0, 1.0),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 15),
-                                      Text(
-                                        '${_formatNumber(data?.goalCurrent ?? balance)} / ${_formatNumber(data?.goalTarget ?? 10000)} монет',
-                                        textAlign: TextAlign.center,
-                                        style: _dashNunito(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF515151),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Positioned.fill(
-                                  child: _FigmaSoftInsetOverlay(
-                                    radius: BorderRadius.circular(25),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _figmaHorizontalDivider(),
-                        const SizedBox(height: 20),
-                        // Reverse task (MCP 0:167)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                              color: Colors.black.withValues(alpha: 0.08),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(25),
-                            child: Stack(
-                              children: [
-                                const Positioned.fill(
-                                  child: ColoredBox(color: Colors.white),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    10,
-                                    20,
-                                    10,
-                                    20,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                        'Обратная задача',
-                                        style: _dashNunito(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        'Поставь одну спец-цель с родителем. Собранное идет в цель.',
-                                        style: _dashNunito(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(28),
-                                        child: Stack(
-                                          alignment: Alignment.center,
-                                          children: [
-                                            SoftButton(
-                                              onTap: () =>
-                                                  _showReverseTaskDialog(
-                                                    context,
-                                                  ),
-                                              label: 'Создать',
-                                              bg: kFigmaChildStatMint,
-                                              fg: Colors.black,
-                                              height: 56,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w700,
-                                              boxShadow: kFigmaMintCtaGlow,
-                                              border: Border.all(
-                                                color: Colors.black.withValues(
-                                                  alpha: 0.08,
-                                                ),
-                                              ),
-                                              labelStyle: _dashNunito(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                            Positioned.fill(
-                                              child: _FigmaSoftInsetOverlay(
-                                                radius: BorderRadius.circular(
-                                                  28,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Positioned.fill(
-                                  child: _FigmaSoftInsetOverlay(
-                                    radius: BorderRadius.circular(25),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+        Positioned.fill(
+          child: RefreshIndicator(
+            onRefresh: () => _load(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+              padding: EdgeInsets.fromLTRB(hPad, 8, hPad, bottomPad),
+              children: body,
             ),
           ),
+        ),
       ],
     );
   }
 }
 
-class _ChildHeaderRoundBtn extends StatelessWidget {
-  const _ChildHeaderRoundBtn({required this.onTap, required this.child});
+class _OverviewModel {
+  const _OverviewModel({
+    required this.walletBalance,
+    required this.activeAssignments,
+    this.exchangeCount = 0,
+    this.completedCount = 0,
+    this.goalCurrent = 0,
+    this.goalTarget = 10000,
+    this.goalProgress = 0.0,
+  });
+
+  final int walletBalance;
+  final int activeAssignments;
+  final int exchangeCount;
+  final int completedCount;
+  final int goalCurrent;
+  final int goalTarget;
+  final double goalProgress;
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader({
+    required this.scale,
+    required this.onReload,
+    required this.onMenu,
+  });
+
+  final double scale;
+  final VoidCallback onReload;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48 * scale,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            'CLAN CAPITAL',
+            textAlign: TextAlign.center,
+            style: _nunito(
+              fontSize: 32 * scale,
+              fontWeight: FontWeight.w800,
+              color: kFigmaChildScreenBlue,
+              height: 1.05,
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Row(
+              children: [
+                _RoundWhiteButton(
+                  onTap: onReload,
+                  child: SvgPicture.asset(
+                    'assets/figma/nav_refresh.svg',
+                    width: 24 * scale,
+                    height: 24 * scale,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.black,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10 * scale),
+                _RoundWhiteButton(
+                  onTap: onMenu,
+                  child: SvgPicture.asset(
+                    'assets/figma/child_nav_menu_dots.svg',
+                    width: 24 * scale,
+                    height: 24 * scale,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.black,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundWhiteButton extends StatelessWidget {
+  const _RoundWhiteButton({required this.onTap, required this.child});
 
   final VoidCallback onTap;
   final Widget child;
@@ -1184,8 +891,331 @@ class _ChildHeaderRoundBtn extends StatelessWidget {
   }
 }
 
-class _FigmaChildGoalTrack extends StatelessWidget {
-  const _FigmaChildGoalTrack({required this.progress});
+class _DashboardProfileCard extends StatelessWidget {
+  const _DashboardProfileCard({
+    required this.scale,
+    required this.session,
+    required this.displayName,
+    required this.completedLine,
+    required this.balance,
+    required this.formatInt,
+    required this.onAvatar,
+  });
+
+  final double scale;
+  final ChildSession session;
+  final String displayName;
+  final String completedLine;
+  final int balance;
+  final String Function(int) formatInt;
+  final VoidCallback onAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(20 * scale);
+    final size = 107 * scale;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20 * scale,
+            offset: Offset(0, 10 * scale),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: ColoredBox(color: Colors.white)),
+            Padding(
+              padding: EdgeInsets.all(20 * scale),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: onAvatar,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Builder(
+                          builder: (context) {
+                            final key = session.avatarObjectKey;
+                            if (key == null || key.isEmpty) {
+                              return UserAvatar(
+                                userKey: 'child:${session.childId}',
+                                size: size,
+                                fallbackText: displayName.isEmpty
+                                    ? '?'
+                                    : displayName.characters.first
+                                        .toUpperCase(),
+                              );
+                            }
+                            return FutureBuilder<String?>(
+                              key: ValueKey(key),
+                              future: presignStorageDownload(
+                                accessToken: session.accessToken,
+                                bucket: 'member-avatars',
+                                objectKey: key,
+                              ),
+                              builder: (context, snap) => UserAvatar(
+                                userKey: 'child:${session.childId}',
+                                size: size,
+                                fallbackText: displayName.isEmpty
+                                    ? '?'
+                                    : displayName.characters.first
+                                        .toUpperCase(),
+                                remoteImageUrl: snap.data,
+                              ),
+                            );
+                          },
+                        ),
+                        Positioned(
+                          right: 2 * scale,
+                          bottom: 2 * scale,
+                          child: Container(
+                            width: 28 * scale,
+                            height: 28 * scale,
+                            decoration: BoxDecoration(
+                              color: kFigmaChildScreenBlue,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2 * scale,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.edit,
+                              size: 14 * scale,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 10 * scale),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _nunito(
+                            fontSize: 24 * scale,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 10 * scale),
+                        Text(
+                          completedLine,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _nunito(
+                            fontSize: 16 * scale,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.black.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        SizedBox(height: 10 * scale),
+                        Container(
+                          height: 29 * scale,
+                          padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                          decoration: BoxDecoration(
+                            color: kFigmaChildBalancePill,
+                            borderRadius: BorderRadius.circular(25 * scale),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CoinStackIcon(
+                                size: 18 * scale,
+                                color: kFigmaChildScreenBlue,
+                              ),
+                              SizedBox(width: 3 * scale),
+                              Text(
+                                formatInt(balance),
+                                style: _nunito(
+                                  fontSize: 24 * scale,
+                                  fontWeight: FontWeight.w800,
+                                  color: kFigmaChildScreenBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned.fill(child: _SoftCardHighlight(radius: r)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.scale,
+    required this.label,
+    required this.value,
+    required this.background,
+    required this.outerShadows,
+  });
+
+  final double scale;
+  final String label;
+  final String value;
+  final Color background;
+  final List<BoxShadow> outerShadows;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = 25.0 * scale;
+    final borderRadius = BorderRadius.circular(r);
+    return AspectRatio(
+      aspectRatio: 173 / 165,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          boxShadow: outerShadows,
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: background),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: _nunito(
+                        fontSize: 20 * scale,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 15 * scale),
+                    Text(
+                      value,
+                      textAlign: TextAlign.center,
+                      style: _nunito(
+                        fontSize: 40 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: _SoftCardHighlight(radius: borderRadius),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardGoalCard extends StatelessWidget {
+  const _DashboardGoalCard({
+    required this.scale,
+    required this.progress,
+    required this.caption,
+  });
+
+  final double scale;
+  final double progress;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(25 * scale);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromRGBO(249, 232, 165, 0.35),
+            blurRadius: 25 * scale,
+            offset: Offset(0, 20 * scale),
+          ),
+          BoxShadow(
+            color: const Color.fromRGBO(249, 232, 165, 0.35),
+            blurRadius: 10 * scale,
+            offset: Offset(0, 10 * scale),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: Stack(
+          children: [
+            const Positioned.fill(child: ColoredBox(color: Color(0xFFF9E8A5))),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 10 * scale,
+                vertical: 38 * scale,
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Текущая цель',
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 20 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 15 * scale),
+                  FractionallySizedBox(
+                    widthFactor: 294 / 333,
+                    child: _GoalProgressTrack(progress: progress),
+                  ),
+                  SizedBox(height: 15 * scale),
+                  Text(
+                    caption,
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 13 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF515151),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned.fill(child: _SoftCardHighlight(radius: r)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GoalProgressTrack extends StatelessWidget {
+  const _GoalProgressTrack({required this.progress});
 
   final double progress;
 
@@ -1250,257 +1280,99 @@ class _FigmaChildGoalTrack extends StatelessWidget {
   }
 }
 
-class _ChildOverviewData {
-  const _ChildOverviewData({
-    required this.walletBalance,
-    required this.activeAssignments,
-    this.exchangeCount = 0,
-    this.completedCount = 0,
-    this.goalCurrent = 0,
-    this.goalTarget = 10000,
-    this.goalProgress = 0.0,
+class _DashboardReverseTaskCard extends StatelessWidget {
+  const _DashboardReverseTaskCard({
+    required this.scale,
+    required this.onCreate,
   });
 
-  final int walletBalance;
-  final int activeAssignments;
-  final int exchangeCount;
-  final int completedCount;
-  final int goalCurrent;
-  final int goalTarget;
-  final double goalProgress;
-}
-
-class _ChildSquareTile extends StatelessWidget {
-  const _ChildSquareTile({
-    required this.label,
-    required this.value,
-    required this.bg,
-    required this.outerShadows,
-  });
-  final String label;
-  final String value;
-  final Color bg;
-  final List<BoxShadow> outerShadows;
+  final double scale;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    const r = 25.0;
-    final borderRadius = BorderRadius.circular(r);
-    return SizedBox(
-      height: 165,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-          boxShadow: outerShadows,
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: bg),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: _dashNunito(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Text(
-                      value,
-                      textAlign: TextAlign.center,
-                      style: _dashNunito(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        height: 1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned.fill(
-                child: _FigmaSoftInsetOverlay(radius: borderRadius),
-              ),
-            ],
+    final r = BorderRadius.circular(25 * scale);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10 * scale,
+            offset: Offset(0, 10 * scale),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _ChildHeroCard extends StatelessWidget {
-  const _ChildHeroCard({
-    required this.initial,
-    required this.level,
-    required this.name,
-    required this.subtitle,
-    required this.balance,
-    required this.personal,
-    required this.exchange,
-  });
-
-  final String initial;
-  final int level;
-  final String name;
-  final String subtitle;
-  final int balance;
-  final int personal;
-  final int exchange;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [kChildBrandBlue, Color(0xFF5A8EFF)],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x471E2D52),
-              blurRadius: 18,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
+      child: ClipRRect(
+        borderRadius: r,
         child: Stack(
           children: [
-            // decorative orbit rings (top-right)
-            Positioned(
-              top: -32,
-              right: -32,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    width: 14,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 20,
-              right: 10,
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-              ),
-            ),
+            const Positioned.fill(child: ColoredBox(color: Colors.white)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+              padding: EdgeInsets.fromLTRB(
+                10 * scale,
+                20 * scale,
+                10 * scale,
+                20 * scale,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 82,
-                        height: 82,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.45),
-                            width: 2,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$level',
-                          style: const TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                height: 1.05,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              subtitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white.withValues(alpha: 0.92),
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Text(
+                    'Обратная задача',
+                    style: _nunito(
+                      fontSize: 20 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ChildHeroMetric(
-                          title: 'БАЛАНС',
-                          value: '$balance 🪙',
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const ChildWalletPage(),
-                            ),
+                  SizedBox(height: 20 * scale),
+                  Text(
+                    'Поставь одну спец-цель с родителем. Собранное идет в цель.',
+                    style: _nunito(
+                      fontSize: 16 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      height: 1.35,
+                    ),
+                  ),
+                  SizedBox(height: 20 * scale),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(28 * scale),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SoftButton(
+                          onTap: onCreate,
+                          label: 'Создать',
+                          bg: kFigmaChildStatMint,
+                          fg: Colors.black,
+                          height: 56 * scale,
+                          fontSize: 20 * scale,
+                          fontWeight: FontWeight.w700,
+                          boxShadow: kFigmaMintCtaGlow,
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
+                          labelStyle: _nunito(
+                            fontSize: 20 * scale,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ChildHeroMetric(
-                          title: 'ЛИЧНО',
-                          value: personal.toString(),
+                        Positioned.fill(
+                          child: _SoftCardHighlight(
+                            radius: BorderRadius.circular(28 * scale),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ChildHeroMetric(
-                          title: 'БИРЖА',
-                          value: exchange.toString(),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+            Positioned.fill(child: _SoftCardHighlight(radius: r)),
           ],
         ),
       ),
@@ -1508,147 +1380,27 @@ class _ChildHeroCard extends StatelessWidget {
   }
 }
 
-class _ChildHeroMetric extends StatelessWidget {
-  const _ChildHeroMetric({
-    required this.title,
-    required this.value,
-    this.onTap,
-  });
-
-  final String title;
-  final String value;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.85),
-              letterSpacing: 0.6,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          FittedBox(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (onTap == null) return card;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: card,
-      ),
-    );
-  }
-}
-
-class _ChildStatCard extends StatelessWidget {
-  const _ChildStatCard({
-    required this.icon,
-    required this.accentColor,
-    required this.title,
-    required this.value,
-    required this.caption,
-  });
-
-  final IconData icon;
-  final Color accentColor;
-  final String title;
-  final String value;
-  final String caption;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: accentColor, size: 26),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: kChildInk,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w900,
-              color: accentColor,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            caption,
-            style: const TextStyle(fontSize: 12, color: kChildInkMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChildSettingsSheet extends ConsumerStatefulWidget {
-  const _ChildSettingsSheet({required this.onSignOut});
+class _ChildAccountSheet extends ConsumerStatefulWidget {
+  const _ChildAccountSheet({required this.onSignOut});
 
   final VoidCallback onSignOut;
 
   @override
-  ConsumerState<_ChildSettingsSheet> createState() =>
-      _ChildSettingsSheetState();
+  ConsumerState<_ChildAccountSheet> createState() =>
+      _ChildAccountSheetState();
 }
 
-class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
+class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
   Future<String?>? _authCodeFuture;
   String? _authCodeToken;
 
-  Future<String?> _loadAuthCode(String accessToken) {
+  Future<String?> _authCode(String accessToken) {
     return ref
         .read(passwordlessChildRepositoryProvider)
         .getMyAuthCode(accessToken: accessToken);
   }
 
-  Future<void> _showTourAgain() async {
+  Future<void> _tourAgain() async {
     await showOnboardingTourDialog(
       context: context,
       title: childTourTitle,
@@ -1657,7 +1409,7 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
     await OnboardingStore.setChildTourSeen();
   }
 
-  Future<void> _setOrChangePin() async {
+  Future<void> _changePin() async {
     final pinCtl = TextEditingController();
     final confirmCtl = TextEditingController();
     final ok = await showDialog<bool>(
@@ -1710,21 +1462,21 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
     }
     if (pin != confirm) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('PIN-коды не совпадают')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PIN-коды не совпадают')),
+      );
       return;
     }
 
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('PIN сохранён')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('PIN сохранён')),
+    );
   }
 
-  Future<void> _clearPin() async {
+  Future<void> _dropPin() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1750,24 +1502,24 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
     await ChildPinStore.clear();
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('PIN удалён')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('PIN удалён')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
-    final accessToken = session?.accessToken ?? '';
-    if (accessToken.isNotEmpty && _authCodeToken != accessToken) {
-      _authCodeToken = accessToken;
-      _authCodeFuture = _loadAuthCode(accessToken);
+    final token = session?.accessToken ?? '';
+    if (token.isNotEmpty && _authCodeToken != token) {
+      _authCodeToken = token;
+      _authCodeFuture = _authCode(token);
     }
 
     return FutureBuilder<bool>(
       future: ChildPinStore.hasPin(),
-      builder: (context, snapshot) {
-        final hasPin = snapshot.data ?? false;
+      builder: (context, snap) {
+        final hasPin = snap.data ?? false;
         return SafeArea(
           top: false,
           child: Column(
@@ -1780,8 +1532,8 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
               ),
               FutureBuilder<String?>(
                 future: _authCodeFuture,
-                builder: (context, codeSnapshot) {
-                  final code = codeSnapshot.data ?? '------';
+                builder: (context, codeSnap) {
+                  final code = codeSnap.data ?? '------';
                   return ListTile(
                     leading: const Icon(Icons.vpn_key),
                     title: const Text('Код входа ребёнка'),
@@ -1796,18 +1548,18 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
                 leading: const Icon(Icons.pin),
                 title: Text(hasPin ? 'Сменить PIN-код' : 'Установить PIN-код'),
                 subtitle: const Text('6 цифр для быстрого входа ребёнка'),
-                onTap: _setOrChangePin,
+                onTap: _changePin,
               ),
               if (hasPin)
                 ListTile(
                   leading: const Icon(Icons.lock_reset),
                   title: const Text('Сбросить PIN-код'),
-                  onTap: _clearPin,
+                  onTap: _dropPin,
                 ),
               ListTile(
                 leading: const Icon(Icons.school),
                 title: const Text('Показать обучение снова'),
-                onTap: _showTourAgain,
+                onTap: _tourAgain,
               ),
               const Divider(height: 1),
               ListTile(

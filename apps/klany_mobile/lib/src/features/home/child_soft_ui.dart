@@ -1105,62 +1105,79 @@ class ChildBottomClanBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
+  /// Как у родительского нижнего бара: явная высота нижнего слота.
+  static const double _kCapsuleH = 102;
+  static const double _kOuterBottom = 16;
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return SizedBox(
+      height: _kCapsuleH + _kOuterBottom + bottomInset,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: kFigmaChildBottomBarMaxWidth,
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(45),
-                border: Border.all(color: kFigmaChildNavPillBorder, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.07),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
+        padding: EdgeInsets.fromLTRB(24, 0, 24, _kOuterBottom + bottomInset),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final navWidth = math.min(
+                constraints.maxWidth,
+                math.max(
+                  kFigmaChildBottomBarMaxWidth,
+                  math.min(460.0, constraints.maxWidth * 0.78),
+                ),
+              );
+              return SizedBox(
+                width: navWidth,
+                height: _kCapsuleH,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(45),
+                    border: Border.all(
+                      color: kFigmaChildNavPillBorder,
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.07),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _ChildHomeNavColumn(
+                          label: 'Дом',
+                          selected: currentIndex == 0,
+                          onTap: () => onSelected(0),
+                          home: true,
+                        ),
+                        _ChildHomeNavColumn(
+                          label: 'Биржа',
+                          selected: currentIndex == 1,
+                          onTap: () => onSelected(1),
+                          asset: 'assets/figma/nav_assignment.svg',
+                        ),
+                        _ChildHomeNavColumn(
+                          label: 'Магазин',
+                          selected: currentIndex == 2,
+                          onTap: () => onSelected(2),
+                          asset: 'assets/figma/nav_shop.svg',
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _ChildHomeNavColumn(
-                      label: 'Дом',
-                      selected: currentIndex == 0,
-                      onTap: () => onSelected(0),
-                      home: true,
-                    ),
-                    const SizedBox(width: 28),
-                    _ChildHomeNavColumn(
-                      label: 'Биржа',
-                      selected: currentIndex == 1,
-                      onTap: () => onSelected(1),
-                      asset: 'assets/figma/nav_assignment.svg',
-                    ),
-                    const SizedBox(width: 28),
-                    _ChildHomeNavColumn(
-                      label: 'Магазин',
-                      selected: currentIndex == 2,
-                      onTap: () => onSelected(2),
-                      asset: 'assets/figma/nav_shop.svg',
-                    ),
-                  ],
-                ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
