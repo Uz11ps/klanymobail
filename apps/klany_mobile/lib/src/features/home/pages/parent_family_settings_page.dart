@@ -604,8 +604,9 @@ class _ParentFamilySettingsPageState
                 return Center(
                   child: SizedBox(
                     width: pageWidth,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: ListView(
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(19, 0, 19, 40),
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(top: 34),
@@ -678,12 +679,6 @@ class _ParentFamilySettingsPageState
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: ListView(
-                            physics: const ClampingScrollPhysics(),
-                            padding:
-                                const EdgeInsets.fromLTRB(19, 20, 19, 40),
-                            children: [
                         const SizedBox(height: 20),
 
                         // ── Clan card (3 rows in one card) ───────────────────────────
@@ -1714,9 +1709,6 @@ class _ParentFamilySettingsPageState
                           ),
                           const SizedBox(height: 12),
                         ],
-                      ],
-                    ),
-                        ),
                       ],
                     ),
                   ),
