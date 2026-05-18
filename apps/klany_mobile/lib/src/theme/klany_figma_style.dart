@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'figma_auth_hero.dart';
+export 'figma_auth_hero.dart';
+
 /// Общие токены макетов Figma — подключай один раз и не дублируй «магические числа».
 ///
 /// - [node 0-81](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-81&m=dev) — главный экран родителя (капсула, аватары, инфо-панель)
@@ -143,34 +146,14 @@ const double kFigmaAuthScreenContentTop = 6;
 const double kFigmaAuthSquareHeroMaxHeightFraction = 0.54;
 const double kFigmaAuthSquareHeroMaxSidePx = 460;
 
-/// Скругление hero карточки (Figma 0-691): без тяжёлой «коробки».
-const double kFigmaAuthHeroCardRadius = 20;
-
-/// Макет «iPhone 17 - 11» (ввод ключа ребёнка): 390×844, hero 397×397, inset слева 18.
-const double kFigmaAuthChildKeyFrameWidth = 390;
-const double kFigmaAuthChildKeyFrameHeight = 844;
-const double kFigmaAuthChildKeyHeroSidePx = 397;
-const double kFigmaAuthChildKeyHeroInsetH = 18;
-
-/// Сторона квадратного hero: `397 × (ширина / 390)`, как в Figma; на низком слоте — по высоте.
-double figmaAuthChildKeyHeroSide({
-  required double maxWidth,
-  double? maxHeight,
-}) {
-  if (maxWidth < 8) return 0;
-  final wScale = maxWidth / kFigmaAuthChildKeyFrameWidth;
-  var side = kFigmaAuthChildKeyHeroSidePx * wScale;
-  if (maxHeight != null && maxHeight.isFinite && maxHeight > 0) {
-    side = math.min(side, maxHeight);
-  }
-  return side < 8 ? 0 : side;
-}
+/// Скругление hero (алиас — настройка в [figma_auth_hero.dart]).
+const double kFigmaAuthHeroCardRadius = kFigmaAuthHeroCornerRadius;
 
 // Отступы формы под макет 0-1215
-const double kFigmaAuthHeroToFormGap = 20;
+const double kFigmaAuthHeroToFormGap = kFigmaAuthHeroBelowGap;
 
-/// После hero на экране ввода ключа ребёнка.
-const double kFigmaAuthBleedHeroToFormGap = 20;
+/// После hero на auth-экранах (алиас).
+const double kFigmaAuthBleedHeroToFormGap = kFigmaAuthHeroBelowGap;
 const double kFigmaAuthLabelToFieldGap = 6;
 const double kFigmaAuthFieldStackGap = 16;
 const double kFigmaAuthBeforePrimaryCtaGap = 24;

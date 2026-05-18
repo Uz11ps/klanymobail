@@ -109,16 +109,16 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                           child: Padding(
                             padding: const EdgeInsets.only(
                               top: kFigmaAuthScreenContentTop,
+                              left: kFigmaAuthHeroInsetH,
+                              right: kFigmaAuthHeroInsetH,
                             ),
-                            child: const FigmaAuthHeroCarouselSlot(
+                            child: const FigmaAuthHero(
                               asset: 'assets/figma/hero_flag.png',
                               fallbackColor: kBrandSky,
-                              showDots: false,
-                              fullWidthBleedLanding: true,
                             ),
                           ),
                         ),
-                        const SizedBox(height: kFigmaAuthBleedHeroToFormGap),
+                        const SizedBox(height: kFigmaAuthHeroBelowGap),
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: kFigmaAuthScreenPaddingH,

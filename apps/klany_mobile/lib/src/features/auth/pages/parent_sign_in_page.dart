@@ -308,29 +308,38 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      kFigmaAuthScreenPaddingH,
-                      kFigmaAuthScreenContentTop,
-                      kFigmaAuthScreenPaddingH,
-                      16,
-                    ),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: ClampingScrollPhysics(),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FigmaAuthHeroCarouselSlot(
-                            asset: isEmailStep
-                                ? 'assets/figma/hero_birzha.png'
-                                : 'assets/figma/hero_economika.png',
-                            fallbackColor:
-                                isEmailStep ? kBrandLavender : kBrandSunny,
-                            dotCount: 3,
-                            activeDotIndex: _step.clamp(0, 2),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              top: kFigmaAuthScreenContentTop,
+                              left: kFigmaAuthHeroInsetH,
+                              right: kFigmaAuthHeroInsetH,
+                            ),
+                            child: FigmaAuthHero(
+                              asset: isEmailStep
+                                  ? 'assets/figma/hero_birzha.png'
+                                  : 'assets/figma/hero_economika.png',
+                              fallbackColor: isEmailStep
+                                  ? kBrandLavender
+                                  : kBrandSunny,
+                              showDots: true,
+                              dotCount: 3,
+                              activeDotIndex: _step.clamp(0, 2),
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                        ),
+                        const SizedBox(height: kFigmaAuthHeroBelowGap),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: kFigmaAuthScreenPaddingH,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
                           if (isEmailStep) ...[
                         const Padding(
                           padding:
@@ -438,8 +447,10 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                           ),
                         ),
                       ],
-                        ],
-                      ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

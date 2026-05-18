@@ -394,141 +394,6 @@ class FigmaAuthHeroCard extends StatelessWidget {
   }
 }
 
-/// Квадратный hero + точки в стиле лендинга.
-/// Для экранов с [Column] внутри [Expanded] надёжнее обернуть колонку в
-/// [SingleChildScrollView] и **не** класть слот в [Flexible] — иначе при низкой
-/// высоте или широком окне flex может дать ~0 px и картинка пропадёт.
-class FigmaAuthHeroCarouselSlot extends StatelessWidget {
-  const FigmaAuthHeroCarouselSlot({
-    super.key,
-    required this.asset,
-    required this.fallbackColor,
-    this.dotCount = 3,
-    this.activeDotIndex = 0,
-
-    /// `false`: одно изображение — без строки точек.
-    this.showDots = true,
-
-    /// Экран ввода ключа ребёнка: квадрат по макету 390×844 / hero 397, масштаб по ширине.
-    this.fullWidthBleedLanding = false,
-  });
-
-  final String asset;
-  final Color fallbackColor;
-  final int dotCount;
-  final int activeDotIndex;
-
-  /// Показывать индикатор слайдов под hero.
-  final bool showDots;
-
-  /// См. [fullWidthBleedLanding].
-  final bool fullWidthBleedLanding;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        if (fullWidthBleedLanding) {
-          final maxW = c.maxWidth;
-          final maxH =
-              c.maxHeight.isFinite && c.maxHeight > 0 ? c.maxHeight : null;
-          if (maxW < 8 || (maxH != null && maxH < 8)) {
-            return const SizedBox.shrink();
-          }
-          final side = figmaAuthChildKeyHeroSide(
-            maxWidth: maxW,
-            maxHeight: maxH,
-          );
-          if (side < 8) {
-            return const SizedBox.shrink();
-          }
-          final radius = BorderRadius.circular(kFigmaAuthHeroCardRadius);
-          final image = ClipRRect(
-            borderRadius: radius,
-            child: Image.asset(
-              asset,
-              width: side,
-              height: side,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.image_not_supported_outlined,
-                size: 42,
-                color: kChildInkMuted.withValues(alpha: 0.45),
-              ),
-            ),
-          );
-          final hero = Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(child: image),
-              if (showDots) ...[
-                SizedBox(height: kFigmaLandingSlideToDotsGap),
-                FigmaAuthCarouselDots(
-                  count: dotCount,
-                  activeIndex: activeDotIndex,
-                ),
-              ],
-            ],
-          );
-          return maxH != null ? Center(child: hero) : hero;
-        }
-
-        final dotsBlock = showDots
-            ? (kFigmaLandingSlideToDotsGap + kFigmaLandingDotsDiameter)
-            : 0.0;
-        final mq = MediaQuery.sizeOf(context);
-        final shortest = math.min(mq.width, mq.height);
-        final cap = figmaLandingSlideMaxSideFromScreenHeight(context);
-        // Нижняя грань стороны квадрата — иначе при «широко, но низко» flex даёт
-        // нулевую высоту слота и слайд схлопывается.
-        final minSide = (shortest * 0.30).clamp(120.0, 220.0);
-        final layoutAvail = c.maxHeight.isFinite
-            ? c.maxHeight - dotsBlock
-            : cap;
-        late final double heroSlotHeight;
-        var side = math.min(
-          c.maxWidth,
-          math.min(cap, math.max(layoutAvail, minSide)),
-        );
-        if (side < minSide && c.maxWidth >= minSide) {
-          side = math.min(minSide, math.min(c.maxWidth, cap));
-        }
-        heroSlotHeight = side;
-        if (heroSlotHeight < 8) {
-          return const SizedBox.shrink();
-        }
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: heroSlotHeight,
-              width: double.infinity,
-              child: FigmaAuthHeroCard(
-                asset: asset,
-                fallbackColor: fallbackColor,
-                landingSlideStyle: true,
-                landingSlideBypassScreenCap: false,
-                landingBleedLandscapeWidthOverHeight: null,
-              ),
-            ),
-            if (showDots) ...[
-              SizedBox(height: kFigmaLandingSlideToDotsGap),
-              FigmaAuthCarouselDots(
-                count: dotCount,
-                activeIndex: activeDotIndex,
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
 /// Тень-«объём» под кнопками (как в Figma) — жёсткая нижняя полоса.
 Color _darkenColor(Color c, [double amount = 0.18]) {
   final hsl = HSLColor.fromColor(c);
@@ -907,6 +772,99 @@ class FigmaAuthCarouselDots extends StatelessWidget {
     );
   }
 }
+
+/// Единый адаптивный hero на всех auth-экранах. Настройки — [figma_auth_hero.dart].
+class FigmaAuthHero extends StatelessWidget {
+  const FigmaAuthHero({
+    super.key,
+    required this.asset,
+    this.fallbackColor = Colors.transparent,
+    this.showDots = false,
+    this.dotCount = 3,
+    this.activeDotIndex = 0,
+    this.centerInSlot = true,
+  });
+
+  final String asset;
+  final Color fallbackColor;
+  final bool showDots;
+  final int dotCount;
+  final int activeDotIndex;
+  final bool centerInSlot;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        final maxH = constraints.maxHeight.isFinite &&
+                constraints.maxHeight > 0
+            ? constraints.maxHeight
+            : null;
+        if (maxW < 8) {
+          return const SizedBox.shrink();
+        }
+
+        final mq = MediaQuery.sizeOf(context);
+        final refShort = math.min(mq.width, mq.height);
+        final side = figmaAuthHeroSide(
+          maxWidth: maxW,
+          maxHeight: maxH,
+          referenceShortestSide: refShort,
+        );
+        if (side < 8) {
+          return const SizedBox.shrink();
+        }
+
+        final image = ClipRRect(
+          borderRadius:
+              BorderRadius.circular(kFigmaAuthHeroCornerRadius),
+          child: Image.asset(
+            asset,
+            width: side,
+            height: side,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+            errorBuilder: (context, error, stackTrace) => ColoredBox(
+              color: fallbackColor,
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                size: 42,
+                color: kChildInkMuted.withValues(alpha: 0.45),
+              ),
+            ),
+          ),
+        );
+
+        final column = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: image),
+            if (showDots) ...[
+              SizedBox(height: kFigmaLandingSlideToDotsGap),
+              FigmaAuthCarouselDots(
+                count: dotCount,
+                activeIndex: activeDotIndex,
+              ),
+            ],
+          ],
+        );
+
+        if (maxH != null && maxH > side + 8) {
+          return centerInSlot
+              ? Center(child: column)
+              : Align(alignment: Alignment.topCenter, child: column);
+        }
+        return column;
+      },
+    );
+  }
+}
+
+@Deprecated('Use FigmaAuthHero')
+typedef FigmaAuthHeroCarouselSlot = FigmaAuthHero;
 
 /// Фон экранов входа/регистрации — как на лендинге Figma (градиент, облака, боке).
 class FigmaAuthScreenBackground extends StatelessWidget {

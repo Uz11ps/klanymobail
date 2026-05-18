@@ -186,44 +186,17 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                       16,
                     ),
                     children: [
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final w = constraints.maxWidth;
-                          if (w <= 0) {
-                            return const SizedBox.shrink();
-                          }
-                          final screenH = MediaQuery.sizeOf(context).height;
-                          // В ListView высота не ограничена — задаём квадрат по ширине
-                          // колонки (как CTA), с мягким потолком по экрану.
-                          final side = math.min(
-                            w,
-                            (screenH * 0.52).clamp(220.0, 520.0),
-                          );
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SizedBox(
-                                width: w,
-                                height: side,
-                                child: const FigmaAuthHeroCard(
-                                  asset:
-                                      'assets/figma/hero_birzha.png',
-                                  fallbackColor: kBrandLavender,
-                                  landingSlideStyle: true,
-                                  landingSlideBypassScreenCap: true,
-                                ),
-                              ),
-                              SizedBox(
-                                height: kFigmaLandingSlideToDotsGap,
-                              ),
-                              const FigmaAuthCarouselDots(
-                                count: 2,
-                                activeIndex: 0,
-                              ),
-                            ],
-                          );
-                        },
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kFigmaAuthHeroInsetH,
+                        ),
+                        child: const FigmaAuthHero(
+                          asset: 'assets/figma/hero_birzha.png',
+                          fallbackColor: kBrandLavender,
+                          showDots: true,
+                          dotCount: 2,
+                          activeDotIndex: 0,
+                        ),
                       ),
                       const SizedBox(height: kFigmaAuthHeroToFormGap),
                       const Padding(
