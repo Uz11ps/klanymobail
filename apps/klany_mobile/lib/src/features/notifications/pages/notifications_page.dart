@@ -308,8 +308,9 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  'На кошелёк ребёнка будет начислено '
-                                  '+${q.rewardAmount} монет.',
+                                  'Монеты (${q.rewardAmount}) уже списаны с '
+                                  'счёта ребёнка при создании задачи. После '
+                                  'подтверждения повторно не начисляются.',
                                 ),
                                 const SizedBox(height: 16),
                                 FigmaDialogActionStack(
@@ -317,7 +318,7 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                                       Navigator.pop(ctx, false),
                                   onConfirm: () =>
                                       Navigator.pop(ctx, true),
-                                  confirmLabel: 'Закрыть и начислить',
+                                  confirmLabel: 'Сделано — закрыть',
                                 ),
                               ],
                             ),
@@ -333,8 +334,8 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                           context.showKlanySnackBar(
                             const SnackBar(
                               content: Text(
-                                'Задача от ребёнка закрыта, монеты начислены '
-                                'на кошелёк ребёнка',
+                                'Задача от ребёнка закрыта. Оплата уже была '
+                                'списана с счёта ребёнка при создании.',
                               ),
                             ),
                           );
@@ -585,7 +586,7 @@ class _ReverseQuestParentCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Награда на счёт ребёнка: +${quest.rewardAmount} монет',
+                'Оплата с счёта ребёнка: ${quest.rewardAmount} монет',
                 style: const TextStyle(
                   fontFamily: 'Nunito',
                   fontSize: 15,
@@ -595,7 +596,8 @@ class _ReverseQuestParentCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Сделали в жизни — нажимайте ниже: квест закроется и монеты уйдут ребёнку.',
+                'Сделали в жизни — нажмите ниже: квест закроется. Монеты '
+                'ребёнка уже списаны за эту просьбу.',
                 style: TextStyle(
                   fontFamily: 'Nunito',
                   fontSize: 13,
@@ -628,7 +630,7 @@ class _ReverseQuestParentCard extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Сделано мной — закрыть и начислить',
+                  'Сделано мной — закрыть',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'Nunito',

@@ -385,7 +385,8 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Поставь спец-цель с родителем. Когда соберёшь нужную сумму — родитель её исполнит.',
+              'Попроси родителя о задаче. Указанная сумма монет сразу '
+              'спишется с твоего счёта — родитель выполнит просьбу в жизни.',
               style: TextStyle(fontSize: 13, color: kChildInkMuted),
             ),
             const SizedBox(height: 14),
@@ -431,7 +432,9 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       if (!mounted) return;
       context.showKlanySnackBar(
         SnackBar(
-          content: Text('Цель «$title» на $amount монет отправлена родителю'),
+          content: Text(
+            'Задача «$title» отправлена родителю. Со счёта списано $amount монет.',
+          ),
         ),
       );
       _load();

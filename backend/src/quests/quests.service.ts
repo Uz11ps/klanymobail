@@ -473,7 +473,9 @@ export class QuestsService {
         });
       }
 
-      if (payReverseCompletion && reversePayoutAmount > 0 && reverseChildId) {
+      // Обратная задача: монеты уже списаны с ребёнка при создании — при закрытии
+      // родителем повторно на кошелёк ребёнка не начисляем.
+      if (payReverseCompletion && reverseChildId) {
         const childOwn = await tx.child.findFirst({
           where: { id: reverseChildId, familyId },
           select: { id: true },
@@ -481,26 +483,15 @@ export class QuestsService {
         if (!childOwn) {
           throw new ForbiddenException("Ребёнок не из вашей семьи");
         }
-        let wallet = await tx.wallet.findUnique({
-          where: { childId: reverseChildId },
-        });
-        if (!wallet) {
-          wallet = await tx.wallet.create({
-            data: { childId: reverseChildId, familyId, balance: 0 },
-          });
-        }
-        await tx.wallet.update({
-          where: { id: wallet.id },
-          data: { balance: wallet.balance + reversePayoutAmount },
-        });
+        const wallet = await this.ensureWallet(reverseChildId, familyId);
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: reversePayoutAmount,
+            amount: 0,
             txType: "reverse_quest_completed",
-            note: `Обратная задача выполнена: ${quest.title}`.slice(0, 500),
-            reason: "quest_reward",
-            meta: { questId, reverse: true },
+            note: `Родитель выполнил обратную задачу: ${quest.title}`.slice(0, 500),
+            reason: "reverse_quest_settled",
+            meta: { questId, reverse: true, settled: true },
           },
         });
       }
@@ -520,7 +511,37 @@ export class QuestsService {
     const quest = await this.prisma.quest.findUnique({ where: { id: questId } });
     if (!quest || quest.familyId !== familyId) throw new NotFoundException("Квест не найден");
 
+    const meta = this.parseMeta(quest.description);
+    const isActiveReverse =
+      meta.distributionType === "reverse" &&
+      quest.status === "active" &&
+      !!meta.reverseChildId;
+    const refundAmount = Math.max(0, Math.trunc(quest.reward));
+
     await this.prisma.$transaction(async (tx) => {
+      if (isActiveReverse && refundAmount > 0 && meta.reverseChildId) {
+        const childId = meta.reverseChildId;
+        let wallet = await tx.wallet.findUnique({ where: { childId } });
+        if (!wallet) {
+          wallet = await tx.wallet.create({
+            data: { childId, familyId, balance: 0 },
+          });
+        }
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: wallet.balance + refundAmount },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: refundAmount,
+            txType: "reverse_quest_refund",
+            note: `Возврат за отмену обратной задачи: ${quest.title}`.slice(0, 500),
+            reason: "reverse_quest_refund",
+            meta: { questId, reverse: true },
+          },
+        });
+      }
       await tx.questEvidence.deleteMany({ where: { questId } });
       await tx.questComment.deleteMany({ where: { questId } });
       await tx.questAssignee.deleteMany({ where: { questId } });
@@ -727,17 +748,40 @@ export class QuestsService {
       reverseChildId: childId,
     });
 
-    const quest = await this.prisma.quest.create({
-      data: {
-        familyId,
-        createdBy: parentProfile.userId,
-        title,
-        description,
-        reward: rewardAmount,
-        questType: "unique",
-        status: "active",
-        dueAt: null,
-      },
+    const wallet = await this.ensureWallet(childId, familyId);
+    if (wallet.balance < rewardAmount) {
+      throw new BadRequestException(
+        `Недостаточно монет: нужно ${rewardAmount}, на счёте ${wallet.balance}`,
+      );
+    }
+
+    const quest = await this.prisma.$transaction(async (tx) => {
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: wallet.balance - rewardAmount },
+      });
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          amount: -rewardAmount,
+          txType: "reverse_quest_escrow",
+          note: `Оплата обратной задачи для родителя: ${title}`.slice(0, 500),
+          reason: "reverse_quest_payment",
+          meta: { reverse: true, escrow: true },
+        },
+      });
+      return tx.quest.create({
+        data: {
+          familyId,
+          createdBy: parentProfile.userId,
+          title,
+          description,
+          reward: rewardAmount,
+          questType: "unique",
+          status: "active",
+          dueAt: null,
+        },
+      });
     });
 
     try {

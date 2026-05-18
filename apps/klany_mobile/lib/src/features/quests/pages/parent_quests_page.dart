@@ -1236,7 +1236,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
           q.distributionType) {
       'exchange' => 'Биржа',
       'reverse' =>
-        'Спеццель от ребёнка • исполняете вы — затем закройте квест',
+        'От ребёнка • монеты уже списаны с его счёта — закройте после выполнения',
       _ => 'Адресно',
     };
 

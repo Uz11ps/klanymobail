@@ -7,16 +7,16 @@ import 'package:flutter/material.dart';
 // HERO (лендинг + auth) — меняй ТОЛЬКО константы ниже, все экраны сами.
 // ═══════════════════════════════════════════════════════════════════════════
 /// Ширина кадра в Figma (iPhone 17), логические pt — **390**.
-const double kFigmaAuthHeroRefFrameWidth = 390;
-
+const double kFigmaAuthHeroRefFrameWidth = 360;
 /// Сторона квадрата hero на этом кадре (Figma Layout W = H) — **383**.
-const double kFigmaAuthHeroRefSidePx = 383;
+
+const double kFigmaAuthHeroRefSidePx = 360;
 
 /// Скругление углов PNG.
 const double kFigmaAuthHeroCornerRadius = 20;
 
 /// Горизонтальный отступ вокруг hero (`Padding` на [Expanded]).
-const double kFigmaAuthHeroInsetH = 3;
+const double kFigmaAuthHeroInsetH = 10;
 
 /// Минимальная сторона на очень узком экране.
 const double kFigmaAuthHeroMinSidePx = 120;
