@@ -150,11 +150,9 @@ class ShopRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(
-          Uri.parse(url),
-          headers: <String, String>{'Content-Type': 'image/jpeg'},
-          body: bytes,
-        );
+        // Presigned URL is signed with X-Amz-SignedHeaders=host only; omit
+        // Content-Type so the signature stays valid (and web CORS preflight is simpler).
+        await http.put(Uri.parse(url), body: bytes);
         imageKey = key;
       }
     }

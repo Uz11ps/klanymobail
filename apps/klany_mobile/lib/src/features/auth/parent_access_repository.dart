@@ -352,8 +352,6 @@ class ParentAccessRepository {
     final Uint8List bytes = await imageFile.readAsBytes();
     var ext = imageFile.path.split('.').last.toLowerCase();
     if (ext.length > 5) ext = 'jpg';
-    final contentType =
-        ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg';
     final key =
         'avatars/families/$familyId/members/$memberCodeId/${_uuid.v4()}.$ext';
 
@@ -368,11 +366,7 @@ class ParentAccessRepository {
     final url = presign['url']?.toString() ?? '';
     if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
-    final put = await http.put(
-      Uri.parse(url),
-      headers: <String, String>{'Content-Type': contentType},
-      body: bytes,
-    );
+    final put = await http.put(Uri.parse(url), body: bytes);
     if (put.statusCode < 200 || put.statusCode >= 300) {
       throw Exception('Загрузка файла: ${put.statusCode}');
     }
@@ -407,11 +401,7 @@ class ParentAccessRepository {
     final url = presign['url']?.toString() ?? '';
     if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
-    final put = await http.put(
-      Uri.parse(url),
-      headers: const <String, String>{'Content-Type': 'image/png'},
-      body: pngBytes,
-    );
+    final put = await http.put(Uri.parse(url), body: pngBytes);
     if (put.statusCode < 200 || put.statusCode >= 300) {
       throw Exception('Загрузка файла: ${put.statusCode}');
     }

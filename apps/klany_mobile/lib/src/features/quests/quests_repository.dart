@@ -365,11 +365,7 @@ class QuestsRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(
-          Uri.parse(url),
-          headers: <String, String>{'Content-Type': 'image/jpeg'},
-          body: bytes,
-        );
+        await http.put(Uri.parse(url), body: bytes);
         evidenceKey = key;
       }
     }
