@@ -41,7 +41,7 @@ const double kFigmaAuthHeroBelowGap = 20;
 const double kFigmaAuthHeroFormPaddingH = 16;
 
 /// Отступ сверху секции hero под шапкой.
-const double kFigmaAuthHeroSectionTop = 16;
+const double kFigmaAuthHeroSectionTop = 100;
 
 /// Зазор от картинки до точек (лендинг и auth).
 const double kFigmaHeroDotsGap = 8;
