@@ -15,6 +15,20 @@ const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
 const Color _kFigmaReviewSky = Color(0xFFBFD3FF);
 const Color _kFigmaReviewLavender = Color(0xFFD8CBF7);
 
+InputDecoration _questCreateDropdownDecoration({Widget? prefix}) {
+  return InputDecoration(
+    border: InputBorder.none,
+    enabledBorder: InputBorder.none,
+    focusedBorder: InputBorder.none,
+    errorBorder: InputBorder.none,
+    focusedErrorBorder: InputBorder.none,
+    filled: false,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    prefixIcon: prefix,
+  );
+}
+
 class ParentQuestsPage extends ConsumerStatefulWidget {
   const ParentQuestsPage({super.key});
 
@@ -487,32 +501,79 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                           TextButton(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) => Scaffold(
+                                builder: (routeCtx) => Scaffold(
                                   backgroundColor: Colors.transparent,
-                                  appBar: AppBar(
-                                    backgroundColor: Colors.transparent,
-                                    surfaceTintColor: Colors.transparent,
-                                    elevation: 0,
-                                    leading: IconButton(
-                                      icon: const Icon(
-                                        Icons.arrow_back,
-                                        color: kChildInk,
+                                  body: CloudBackground(
+                                    child: SafeArea(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                              4,
+                                              4,
+                                              4,
+                                              0,
+                                            ),
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 48,
+                                                    child: IconButton(
+                                                      padding: EdgeInsets.zero,
+                                                      constraints:
+                                                          const BoxConstraints
+                                                              .tightFor(
+                                                        width: 48,
+                                                        height: 48,
+                                                      ),
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .arrow_back_rounded,
+                                                        color: kChildInk,
+                                                        size: 28,
+                                                      ),
+                                                      onPressed: () =>
+                                                          Navigator.of(routeCtx)
+                                                              .maybePop(),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(
+                                                      'Создать задачу',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontFamily: 'Nunito',
+                                                        fontSize: 20,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        color: kChildInk,
+                                                        height: 1.15,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 48),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: _QuestCreateForm(
+                                              familyId: family.familyId,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      onPressed: () =>
-                                          Navigator.of(context).maybePop(),
                                     ),
-                                    centerTitle: true,
-                                    title: const Text(
-                                      'Создать задачу',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: kChildInk,
-                                      ),
-                                    ),
-                                  ),
-                                  body: _QuestCreateForm(
-                                    familyId: family.familyId,
                                   ),
                                 ),
                               ),
