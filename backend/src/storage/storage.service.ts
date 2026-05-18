@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from "@nestjs/common";
 import { Client } from "minio";
 
 type BucketName = "quest-evidence" | "shop-products" | "member-avatars";
@@ -9,11 +14,22 @@ function toBool(v: string | undefined, def: boolean): boolean {
 }
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleInit {
+  private readonly log = new Logger(StorageService.name);
   private internalClient: Client;
   private signerClient: Client;
   private ensuredBuckets = new Set<string>();
   private enabled: boolean;
+
+  onModuleInit() {
+    const publicBase = (process.env.MINIO_PUBLIC_BASE_URL ?? "").trim();
+    if (!this.enabled) return;
+    if (!publicBase) {
+      this.log.warn(
+        "MINIO_PUBLIC_BASE_URL не задан: presigned URL будут с хостом MINIO_ENDPOINT (часто minio:9000) — браузер их не откроет. Укажи публичный URL того же nginx, где проксируются /shop-products и т.д. (см. infra/nginx/default.conf).",
+      );
+    }
+  }
 
   constructor() {
     const endPoint = process.env.MINIO_ENDPOINT ?? "minio";

@@ -1266,6 +1266,8 @@ class _ParentFamilySettingsPageState
                                                 children: [
                                                   Text(
                                                     '${item.displayName} — ${item.code}',
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
                                                     style: const TextStyle(
                                                       fontSize: 14,
                                                       fontWeight:
@@ -1286,6 +1288,13 @@ class _ParentFamilySettingsPageState
                                               ),
                                             ),
                                             IconButton(
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(
+                                                minWidth: 36,
+                                                minHeight: 36,
+                                              ),
+                                              visualDensity:
+                                                  VisualDensity.compact,
                                               icon: const Icon(
                                                 Icons.share_outlined,
                                                 color: kChildBrandBlue,

@@ -61,17 +61,6 @@ export class ParentService {
     return parsed > 0 ? parsed : 10000;
   }
 
-  private async ensurePremiumFamily(familyId: string): Promise<void> {
-    const activeSub = await this.prisma.familySubscription.findFirst({
-      where: { familyId, status: "active" },
-      orderBy: { startedAt: "desc" },
-    });
-    const isPremium = (activeSub?.planCode ?? "basic").toLowerCase() !== "basic";
-    if (!isPremium) {
-      throw new ForbiddenException("Аналитика доступна только на premium");
-    }
-  }
-
   async getFamilyContext(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const family = await this.prisma.family.findUnique({ where: { id: familyId } });
@@ -404,7 +393,6 @@ export class ParentService {
 
   async getFamilyAnalytics(user: ParentUser, periodDaysRaw?: number) {
     const familyId = ensureFamilyId(user);
-    await this.ensurePremiumFamily(familyId);
     const periodDays = Math.max(1, Math.min(365, Math.trunc(Number(periodDaysRaw ?? 30))));
     const from = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 

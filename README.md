@@ -37,6 +37,13 @@ cd apps/klany_admin
 flutter run -d chrome
 ```
 
+## Flutter Web + свой API (типовые ошибки)
+
+1. **CORS** — приложение на `http://localhost:*`, API на другом домене: подними backend из этого репозитория; по умолчанию Nest отражает `Origin` запроса. Для жёсткого прод-режима задай `CORS_ORIGIN_ALLOWLIST=https://твой-домен.ru`.
+2. **Presigned URL с хостом `minio:9000`** — на сервере обязательно задай `MINIO_PUBLIC_BASE_URL` на публичный URL того же nginx, где проксируются bucket-пути (`infra/nginx/default.conf`: `/shop-products`, …). Иначе подпись считается для внутреннего имени Docker и браузер не откроет файл.
+3. **401** — протух или не передан JWT; войди заново.
+4. **403 на части методов** — проверь роли и бизнес-правила в конкретном endpoint.
+
 ## Edge Functions (Supabase)
 
 Деплой:

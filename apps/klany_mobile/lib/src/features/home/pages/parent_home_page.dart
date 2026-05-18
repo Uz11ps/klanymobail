@@ -218,11 +218,13 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
 // ─── Нижняя «капсула» Figma 0-81 ───────────────────────────────────────────
 
 /// Figma iPhone 17 - 45 (`0:1135`): капсула поверх контента.
-const double _kParentCapsuleMaxW = 278;
+const double _kParentCapsuleMaxW = 298;
 const double _kParentCapsuleH = 76;
 const double _kParentCapsuleRadius = 45;
 const double _kParentNavGap = 28;
 const double _kParentNavSlot = 64;
+/// Активная «Дом»: синий блок (stadium) шире круга боковых иконок на эту дельту по ширине.
+const double _kParentHomeSelectedExtraWidth = 20;
 
 class _ParentBottomBar extends StatelessWidget {
   const _ParentBottomBar({
@@ -381,18 +383,22 @@ class _ParentCapsuleHomeNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final h = _kParentNavSlot;
+    final w = selected ? _kParentNavSlot + _kParentHomeSelectedExtraWidth : h;
+    final shape =
+        selected ? const StadiumBorder() : const CircleBorder();
     return Material(
       color: selected ? kChildBrandBlue : Colors.white,
-      shape: const CircleBorder(),
+      shape: shape,
       clipBehavior: Clip.antiAlias,
       elevation: selected ? 6 : 0,
       shadowColor: kChildBrandBlue.withValues(alpha: 0.35),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
+        customBorder: shape,
         child: SizedBox(
-          width: _kParentNavSlot,
-          height: _kParentNavSlot,
+          width: w,
+          height: h,
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
