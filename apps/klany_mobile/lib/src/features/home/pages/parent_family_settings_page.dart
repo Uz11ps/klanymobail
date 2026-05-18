@@ -429,27 +429,6 @@ class _ParentFamilySettingsPageState
     }
   }
 
-  Future<void> _grantAdmin(String userId) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await ref.read(parentAccessRepositoryProvider).grantAdmin(userId);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Админ-роль передана')));
-        setState(() {});
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   Future<void> _revokeChild(String childId) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -1607,16 +1586,6 @@ class _ParentFamilySettingsPageState
                                             ],
                                           ),
                                         ),
-                                        if (p.role == 'parent')
-                                          TextButton(
-                                            onPressed: _busy
-                                                ? null
-                                                : () => _grantAdmin(p.userId),
-                                            child: const Text(
-                                              'Сделать админом',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
                                       ],
                                     ),
                                   ),
