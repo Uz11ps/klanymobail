@@ -121,9 +121,8 @@ class FigmaAuthHeroCard extends StatelessWidget {
     /// Не сжимать иллюстрацию через [figmaLandingSlideMaxSideFromScreenHeight] — по ширине родителя (экран ввода ключа ребёнка).
     this.landingSlideBypassScreenCap = false,
 
-    /// Вместе с [landingSlideBypassScreenCap]: hero по ширине родителя, высота — из ассета
-    /// ([BoxFit.fitWidth]); [fallbackColor] только в [Image.errorBuilder]. Число = плейсхолдер
-    /// AspectRatio при ошибке (обычно [kFigmaAuthBleedHeroWidthOverHeight]).
+    /// Вместе с [landingSlideBypassScreenCap]: hero в прямоугольнике [w × w/bleed]; [contain], без голубых полей.
+    /// [fallbackColor] только для [Image.errorBuilder]. Число = плейсхолдер AspectRatio при ошибке.
     this.landingBleedLandscapeWidthOverHeight,
 
     /// При `MediaQuery.width > height` + bleed: высота слота **только** это значение
@@ -235,17 +234,21 @@ class FigmaAuthHeroCard extends StatelessWidget {
         );
       }
 
-      // Портрет: высота задаётся ассетом ([BoxFit.fitWidth] по ширине [w]).
+      // Портрет (и вертикальное окно): фиксированное соотношение колонки; высота от ширины.
+      final portraitH = w / bleed;
       return Align(
         alignment: Alignment.topCenter,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(r),
           child: SizedBox(
             width: w,
+            height: portraitH,
             child: Image.asset(
               asset,
-              fit: BoxFit.fitWidth,
+              fit: BoxFit.contain,
               alignment: Alignment.bottomCenter,
+              width: w,
+              height: portraitH,
               filterQuality: FilterQuality.high,
               gaplessPlayback: true,
               errorBuilder: (context, error, stackTrace) => ColoredBox(
@@ -406,8 +409,7 @@ class FigmaAuthHeroCarouselSlot extends StatelessWidget {
     /// `false`: одно изображение — без строки точек.
     this.showDots = true,
 
-    /// Во всю ширину (портрет — коэффициент [kFigmaAuthBleedHeroPortraitWidthFactor]);
-    /// в окне широкее, чем выше — слот [kFigmaAuthBleedHeroLandscapeSlotHeight] px (не от высоты экрана).
+    /// Экран ввода ключа ребёнка: квадрат по макету 390×844 / hero 397, масштаб по ширине.
     this.fullWidthBleedLanding = false,
   });
 
@@ -427,34 +429,41 @@ class FigmaAuthHeroCarouselSlot extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         if (fullWidthBleedLanding) {
-          if (c.maxWidth < 8) {
+          final maxW = c.maxWidth;
+          final maxH =
+              c.maxHeight.isFinite && c.maxHeight > 0 ? c.maxHeight : null;
+          if (maxW < 8 || (maxH != null && maxH < 8)) {
             return const SizedBox.shrink();
           }
-          final mq = MediaQuery.sizeOf(context);
-          final wideLayout = mq.width > mq.height;
-          final bleedW = wideLayout
-              ? c.maxWidth
-              : c.maxWidth * kFigmaAuthBleedHeroPortraitWidthFactor;
-
-          return Column(
+          final side = figmaAuthChildKeyHeroSide(
+            maxWidth: maxW,
+            maxHeight: maxH,
+          );
+          if (side < 8) {
+            return const SizedBox.shrink();
+          }
+          final radius = BorderRadius.circular(kFigmaAuthHeroCardRadius);
+          final image = ClipRRect(
+            borderRadius: radius,
+            child: Image.asset(
+              asset,
+              width: side,
+              height: side,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+              errorBuilder: (context, error, stackTrace) => Icon(
+                Icons.image_not_supported_outlined,
+                size: 42,
+                color: kChildInkMuted.withValues(alpha: 0.45),
+              ),
+            ),
+          );
+          final hero = Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: SizedBox(
-                  width: bleedW,
-                  child: FigmaAuthHeroCard(
-                    asset: asset,
-                    fallbackColor: fallbackColor,
-                    landingSlideStyle: true,
-                    landingSlideBypassScreenCap: true,
-                    landingBleedLandscapeWidthOverHeight:
-                        kFigmaAuthBleedHeroWidthOverHeight,
-                    bleedWideLandscapeSlotHeight:
-                        kFigmaAuthBleedHeroLandscapeSlotHeight,
-                  ),
-                ),
-              ),
+              Center(child: image),
               if (showDots) ...[
                 SizedBox(height: kFigmaLandingSlideToDotsGap),
                 FigmaAuthCarouselDots(
@@ -464,6 +473,7 @@ class FigmaAuthHeroCarouselSlot extends StatelessWidget {
               ],
             ],
           );
+          return maxH != null ? Center(child: hero) : hero;
         }
 
         final dotsBlock = showDots

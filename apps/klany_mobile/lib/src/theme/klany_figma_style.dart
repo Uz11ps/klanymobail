@@ -146,21 +146,31 @@ const double kFigmaAuthSquareHeroMaxSidePx = 460;
 /// Скругление hero карточки (Figma 0-691): без тяжёлой «коробки».
 const double kFigmaAuthHeroCardRadius = 20;
 
-/// Ширина / высота блока карточки в макете (плейсхолдер при ошибке загрузки ассета).
-const double kFigmaAuthBleedHeroWidthOverHeight = 378 / 210;
+/// Макет «iPhone 17 - 11» (ввод ключа ребёнка): 390×844, hero 397×397, inset слева 18.
+const double kFigmaAuthChildKeyFrameWidth = 390;
+const double kFigmaAuthChildKeyFrameHeight = 844;
+const double kFigmaAuthChildKeyHeroSidePx = 397;
+const double kFigmaAuthChildKeyHeroInsetH = 18;
 
-/// Высота слота hero при **широком окне** (`shortestSide` не используется: только это число px).
-/// [BoxFit.contain] внутри `[w × height]` — не привязка к высоте экрана.
-const double kFigmaAuthBleedHeroLandscapeSlotHeight = 172;
-
-/// В портрете множитель **ширины** карточки (немного уже → компактнее, без давления на форму ниже).
-const double kFigmaAuthBleedHeroPortraitWidthFactor = 0.92;
+/// Сторона квадратного hero: `397 × (ширина / 390)`, как в Figma; на низком слоте — по высоте.
+double figmaAuthChildKeyHeroSide({
+  required double maxWidth,
+  double? maxHeight,
+}) {
+  if (maxWidth < 8) return 0;
+  final wScale = maxWidth / kFigmaAuthChildKeyFrameWidth;
+  var side = kFigmaAuthChildKeyHeroSidePx * wScale;
+  if (maxHeight != null && maxHeight.isFinite && maxHeight > 0) {
+    side = math.min(side, maxHeight);
+  }
+  return side < 8 ? 0 : side;
+}
 
 // Отступы формы под макет 0-1215
 const double kFigmaAuthHeroToFormGap = 20;
 
-/// После bleed-hero на экране ввода ключа ребёнка (чуть воздуха до формы).
-const double kFigmaAuthBleedHeroToFormGap = 28;
+/// После hero на экране ввода ключа ребёнка.
+const double kFigmaAuthBleedHeroToFormGap = 20;
 const double kFigmaAuthLabelToFieldGap = 6;
 const double kFigmaAuthFieldStackGap = 16;
 const double kFigmaAuthBeforePrimaryCtaGap = 24;
