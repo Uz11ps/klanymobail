@@ -149,8 +149,18 @@ const double kFigmaAuthHeroCardRadius = 20;
 /// Ширина / высота блока карточки в макете (плейсхолдер при ошибке загрузки ассета).
 const double kFigmaAuthBleedHeroWidthOverHeight = 378 / 210;
 
+/// Высота слота hero при **широком окне** (`shortestSide` не используется: только это число px).
+/// [BoxFit.contain] внутри `[w × height]` — не привязка к высоте экрана.
+const double kFigmaAuthBleedHeroLandscapeSlotHeight = 172;
+
+/// В портрете множитель **ширины** карточки (немного уже → компактнее, без давления на форму ниже).
+const double kFigmaAuthBleedHeroPortraitWidthFactor = 0.92;
+
 // Отступы формы под макет 0-1215
 const double kFigmaAuthHeroToFormGap = 20;
+
+/// После bleed-hero на экране ввода ключа ребёнка (чуть воздуха до формы).
+const double kFigmaAuthBleedHeroToFormGap = 28;
 const double kFigmaAuthLabelToFieldGap = 6;
 const double kFigmaAuthFieldStackGap = 16;
 const double kFigmaAuthBeforePrimaryCtaGap = 24;

@@ -123,7 +123,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                               fullWidthBleedLanding: true,
                             ),
                           ),
-                          const SizedBox(height: kFigmaAuthHeroToFormGap),
+                          const SizedBox(height: kFigmaAuthBleedHeroToFormGap),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: kFigmaAuthScreenPaddingH,
