@@ -1,24 +1,31 @@
 {
+  "comment": "node-id из URL: …node-id=118-1252 → \"118:1252\". Свой \"fileKey\" у строк для другого файла Figma. export: cd apps/klany_mobile && dart run tool/figma_export.dart export",
+
   "fileKey": "z72tmzXGfrKzFPQMqrL1ZB",
+
   "exports": [
-    { "comment": "Главная ребёнка iPhone 17 - 7 (нижняя панель + обновить)" },
-    { "nodeId": "0:129", "path": "assets/figma/nav_refresh.svg" },
-    { "nodeId": "0:132", "path": "assets/figma/nav_shop.svg" },
+
+    { "comment": "Экран ребёнка (iPhone 17 - 34) — файл kwVuEbSWPdrTEFsrIvZVB3" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1304", "path": "assets/figma/nav_refresh.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "146:189", "path": "assets/figma/child_nav_menu_dots.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1309", "path": "assets/figma/nav_home_filled.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "119:1349", "path": "assets/figma/nav_assignment.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1307", "path": "assets/figma/nav_shop.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "166:409", "path": "assets/figma/profile_coin_stack.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "166:409", "path": "assets/figma/profile_coin_stack.png", "format": "png", "scale": 3 },
+
+    { "comment": "Разделитель секций (линия как в фрейме, PNG @2×)" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "162:306", "path": "assets/figma/child_dashboard_divider.png", "format": "png", "scale": 2 },
+
+    { "comment": "В файле kwVu на макете выбран «Дом» — отдельной outline-ноды нет в фрейме; outline из legacy z72 или найти: dart run … suggest 118:1305 --file=kwVuEbSWPdrTEFsrIvZVB3" },
     { "nodeId": "0:134", "path": "assets/figma/nav_home_outline.svg" },
+
+    { "comment": "Файл z72tmzXGfrKzFPQMqrL1ZB (родитель / прочее)" },
     { "nodeId": "0:136", "path": "assets/figma/nav_tune.svg" },
-
-    { "comment": "Экран квестов iPhone 17 - 39 — выбран «Дом», иконка заданий" },
-    { "nodeId": "0:340", "path": "assets/figma/nav_home_filled.svg" },
-    { "nodeId": "0:342", "path": "assets/figma/nav_assignment.svg" },
-
-    { "comment": "Родительский магазин iPhone 17 - 16 — нижняя капсула (list / + / bag)" },
     { "nodeId": "0:852", "path": "assets/figma/shop_nav_list.svg" },
     { "nodeId": "0:854", "path": "assets/figma/shop_nav_plus.svg" },
     { "nodeId": "0:856", "path": "assets/figma/shop_nav_bag.svg" },
-
-    { "comment": "Онбординг карточка 0-1766 — fi-br-sign-out-alt, fi-br-angle-right" },
     { "nodeId": "0:1781", "path": "assets/figma/onboarding_sign_out.svg" },
     { "nodeId": "0:1783", "path": "assets/figma/onboarding_chevron_right.svg" }
-
   ]
 }

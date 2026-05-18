@@ -81,16 +81,52 @@ export class StorageService implements OnModuleInit {
     this.ensuredBuckets.add(bucket);
   }
 
-  resolveBucket(name: BucketName): string {
-    if (name === "quest-evidence") return process.env.MINIO_BUCKET_QUEST_EVIDENCE ?? "quest-evidence";
-    if (name === "shop-products") return process.env.MINIO_BUCKET_SHOP_PRODUCTS ?? "shop-products";
-    if (name === "member-avatars") return process.env.MINIO_BUCKET_MEMBER_AVATARS ?? "member-avatars";
-    throw new BadRequestException("Unknown bucket");
+  /**
+   * Распознаёт логическое имя корзины из тела запроса (camelCase из Flutter).
+   */
+  normalizeLogicalBucket(raw: unknown): BucketName | null {
+    if (raw === undefined || raw === null) return null;
+    const s =
+      typeof raw === "string"
+        ? raw.trim().toLowerCase()
+        : String(raw).trim().toLowerCase();
+    if (!s) return null;
+    if (s === "quest-evidence" || s === "questevidence") return "quest-evidence";
+    if (s === "shop-products" || s === "shopproducts") return "shop-products";
+    if (
+      s === "member-avatars" ||
+      s === "memberavatars" ||
+      s === "member_avatars" ||
+      s === "avatars"
+    ) {
+      return "member-avatars";
+    }
+    return null;
   }
 
-  async presignUpload(bucketName: BucketName, objectKey: string, expiresSeconds: number) {
+  logicalBucketToPhysical(name: BucketName): string {
+    if (name === "quest-evidence") return process.env.MINIO_BUCKET_QUEST_EVIDENCE ?? "quest-evidence";
+    if (name === "shop-products") return process.env.MINIO_BUCKET_SHOP_PRODUCTS ?? "shop-products";
+    return process.env.MINIO_BUCKET_MEMBER_AVATARS ?? "member-avatars";
+  }
+
+  requireLogicalBucket(raw: unknown): BucketName {
+    const logical = this.normalizeLogicalBucket(raw);
+    if (logical != null) return logical;
+    if (raw === undefined || raw === null || (typeof raw === "string" && !raw.trim())) {
+      throw new BadRequestException(
+        "Не указано поле bucket. Для аватаров используйте member-avatars (поле объекта bucket в JSON).",
+      );
+    }
+    throw new BadRequestException(
+      `Неизвестная корзина: ${JSON.stringify(String(raw))}. Разрешены: quest-evidence, shop-products, member-avatars.`,
+    );
+  }
+
+  async presignUpload(bucketName: unknown, objectKey: string, expiresSeconds: number) {
     this.assertEnabled();
-    const bucket = this.resolveBucket(bucketName);
+    const logical = this.requireLogicalBucket(bucketName);
+    const bucket = this.logicalBucketToPhysical(logical);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");
     await this.ensureBucket(bucket);
@@ -99,9 +135,10 @@ export class StorageService implements OnModuleInit {
     return { bucket, objectKey: key, url, expiresSeconds: exp };
   }
 
-  async presignDownload(bucketName: BucketName, objectKey: string, expiresSeconds: number) {
+  async presignDownload(bucketName: unknown, objectKey: string, expiresSeconds: number) {
     this.assertEnabled();
-    const bucket = this.resolveBucket(bucketName);
+    const logical = this.requireLogicalBucket(bucketName);
+    const bucket = this.logicalBucketToPhysical(logical);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");
     await this.ensureBucket(bucket);
@@ -110,9 +147,10 @@ export class StorageService implements OnModuleInit {
     return { bucket, objectKey: key, url, expiresSeconds: exp };
   }
 
-  async uploadBuffer(bucketName: BucketName, objectKey: string, buffer: Buffer, contentType: string) {
+  async uploadBuffer(bucketName: unknown, objectKey: string, buffer: Buffer, contentType: string) {
     this.assertEnabled();
-    const bucket = this.resolveBucket(bucketName);
+    const logical = this.requireLogicalBucket(bucketName);
+    const bucket = this.logicalBucketToPhysical(logical);
     const key = objectKey.trim();
     if (!key) throw new BadRequestException("objectKey обязателен");
     await this.ensureBucket(bucket);

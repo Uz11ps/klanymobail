@@ -922,8 +922,11 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
     var status = q.status.isEmpty ? 'active' : q.status;
     if (!statuses.contains(status)) statuses.add(status);
     var type = q.questType.isEmpty ? 'one_time' : q.questType;
-    var distributionType =
-        q.distributionType == 'exchange' ? 'exchange' : 'assigned';
+    var distributionType = q.distributionType == 'exchange'
+        ? 'exchange'
+        : q.distributionType == 'reverse'
+            ? 'reverse'
+            : 'assigned';
     var autoApprove = q.autoApprove;
     var hasTimeLimit = q.timeLimitMinutes != null;
     var scheduleType = q.scheduleType == 'daily' ||
@@ -1009,18 +1012,28 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: distributionType,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'assigned',
-                        child: Text('Адресное назначение'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'exchange',
-                        child: Text('Биржа задач'),
-                      ),
-                    ],
-                    onChanged: (v) =>
-                        setLocalState(() => distributionType = v ?? 'assigned'),
+                    items: distributionType == 'reverse'
+                        ? const [
+                            DropdownMenuItem(
+                              value: 'reverse',
+                              child: Text('От ребёнка (обратная)'),
+                            ),
+                          ]
+                        : const [
+                            DropdownMenuItem(
+                              value: 'assigned',
+                              child: Text('Адресное назначение'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'exchange',
+                              child: Text('Биржа задач'),
+                            ),
+                          ],
+                    onChanged: distributionType == 'reverse'
+                        ? null
+                        : (v) => setLocalState(
+                            () => distributionType = v ?? 'assigned',
+                          ),
                     decoration: const InputDecoration(
                       labelText: 'Распределение',
                     ),
@@ -1304,7 +1317,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${typeLabel(q.questType)} • ${q.distributionType == 'exchange' ? 'Биржа' : 'Адресно'}',
+                                  '${typeLabel(q.questType)} • ${q.distributionType == 'exchange' ? 'Биржа' : q.distributionType == 'reverse' ? 'От ребёнка' : 'Адресно'}',
                                   style: TextStyle(
                                     fontFamily: 'Nunito',
                                     fontSize: 13,

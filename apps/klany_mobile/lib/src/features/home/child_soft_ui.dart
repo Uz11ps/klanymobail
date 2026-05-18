@@ -1105,31 +1105,55 @@ class ChildBottomClanBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onSelected;
 
-  /// Как у родительского нижнего бара: явная высота нижнего слота.
-  static const double _kCapsuleH = 102;
-  static const double _kOuterBottom = 16;
+  /// Высота белой «капсулы» навигации (видимый pill).
+  static const double capsuleHeight = 96;
+
+  /// Отступ от низа слота scaffold до нижней границы экрана (под системный бар).
+  static const double capsuleSlotBottomPadding = 14;
+
+  /// Зона экрана, закрытая нижней навигацией — нужен такой же отступ в скролле контента,
+  /// чтобы карточки (напр. «Обратная задача») можно было дороллить над плашкой.
+  static double scrollBottomClearance(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final bottomInset = math.max(mq.viewPadding.bottom, mq.padding.bottom);
+    return capsuleHeight + capsuleSlotBottomPadding + bottomInset;
+  }
+
+  /// Ширина плашки в макете 311 px; не больше доступной области.
+  static double pillWidthForConstraints(double maxWidth) {
+    return math.min(
+      maxWidth,
+      math.max(
+        kFigmaChildBottomBarMaxWidth.toDouble(),
+        math.min(460.0, maxWidth * 0.78),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final mq = MediaQuery.of(context);
+    final bottomInset =
+        math.max(mq.viewPadding.bottom, mq.padding.bottom);
     return SizedBox(
-      height: _kCapsuleH + _kOuterBottom + bottomInset,
+      height:
+          capsuleHeight + capsuleSlotBottomPadding + bottomInset,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, _kOuterBottom + bottomInset),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          capsuleSlotBottomPadding + bottomInset,
+        ),
         child: Align(
           alignment: Alignment.topCenter,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final navWidth = math.min(
-                constraints.maxWidth,
-                math.max(
-                  kFigmaChildBottomBarMaxWidth,
-                  math.min(460.0, constraints.maxWidth * 0.78),
-                ),
-              );
+              final navWidth =
+                  pillWidthForConstraints(constraints.maxWidth);
               return SizedBox(
                 width: navWidth,
-                height: _kCapsuleH,
+                height: capsuleHeight,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -1138,41 +1162,39 @@ class ChildBottomClanBar extends StatelessWidget {
                       color: kFigmaChildNavPillBorder,
                       width: 1,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.07),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 10,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _ChildHomeNavColumn(
-                          label: 'Дом',
-                          selected: currentIndex == 0,
-                          onTap: () => onSelected(0),
-                          home: true,
-                        ),
-                        _ChildHomeNavColumn(
-                          label: 'Биржа',
-                          selected: currentIndex == 1,
-                          onTap: () => onSelected(1),
-                          asset: 'assets/figma/nav_assignment.svg',
-                        ),
-                        _ChildHomeNavColumn(
-                          label: 'Магазин',
-                          selected: currentIndex == 2,
-                          onTap: () => onSelected(2),
-                          asset: 'assets/figma/nav_shop.svg',
-                        ),
-                      ],
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ChildHomeNavColumn(
+                            label: 'Дом',
+                            selected: currentIndex == 0,
+                            onTap: () => onSelected(0),
+                            home: true,
+                          ),
+                          const SizedBox(width: 28),
+                          _ChildHomeNavColumn(
+                            label: 'Биржа',
+                            selected: currentIndex == 1,
+                            onTap: () => onSelected(1),
+                            asset: 'assets/figma/nav_assignment.svg',
+                          ),
+                          const SizedBox(width: 28),
+                          _ChildHomeNavColumn(
+                            label: 'Магазин',
+                            selected: currentIndex == 2,
+                            onTap: () => onSelected(2),
+                            asset: 'assets/figma/nav_shop.svg',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1200,8 +1222,8 @@ class _ChildHomeNavColumn extends StatelessWidget {
   final bool home;
   final String? asset;
 
-  static const double _kCircle = 57;
-  static const double _kIcon = 29;
+  static const double _kCircle = 52;
+  static const double _kIcon = 26;
 
   @override
   Widget build(BuildContext context) {
@@ -1270,7 +1292,7 @@ class _ChildHomeNavColumn extends StatelessWidget {
               Text(
                 label,
                 style: GoogleFonts.nunito(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: selected ? blue : muted,
                   height: 1.1,

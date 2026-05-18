@@ -15,6 +15,17 @@ type ChildUser = {
   childId: string;
 };
 
+type ParsedQuestMeta = {
+  plainDescription: string | null;
+  distributionType: "assigned" | "exchange" | "reverse";
+  autoApprove: boolean;
+  timeLimitMinutes: number | null;
+  scheduleType: "none" | "daily" | "weekly" | "custom_days";
+  scheduleDays: string[];
+  activateAtIso: string | null;
+  reverseChildId: string | null;
+};
+
 function ensureFamilyId(user: { familyId?: string | null }): string {
   const familyId = user.familyId ?? null;
   if (!familyId) throw new ForbiddenException("Нет семьи");
@@ -36,7 +47,7 @@ export class QuestsService {
     return this.prisma.wallet.create({ data: { childId, familyId, balance: 0 } });
   }
 
-  private parseMeta(description: string | null | undefined) {
+  private parseMeta(description: string | null | undefined): ParsedQuestMeta {
     const raw = (description ?? "").trim();
     const idx = raw.lastIndexOf(QuestsService.META_PREFIX);
     if (idx < 0) {
@@ -44,10 +55,11 @@ export class QuestsService {
         plainDescription: raw || null,
         distributionType: "assigned",
         autoApprove: false,
-        timeLimitMinutes: null as number | null,
+        timeLimitMinutes: null,
         scheduleType: "none",
-        scheduleDays: [] as string[],
-        activateAtIso: null as string | null,
+        scheduleDays: [],
+        activateAtIso: null,
+        reverseChildId: null,
       };
     }
     const plain = raw.slice(0, idx).trim() || null;
@@ -55,14 +67,23 @@ export class QuestsService {
     try {
       const meta = JSON.parse(payload) as {
         distributionType?: string;
+        reverseChildId?: string;
         autoApprove?: boolean;
         timeLimitMinutes?: number | null;
         scheduleType?: string;
         scheduleDays?: string[];
       };
+      const distributionType: ParsedQuestMeta["distributionType"] =
+        meta.distributionType === "exchange"
+          ? "exchange"
+          : meta.distributionType === "reverse"
+            ? "reverse"
+            : "assigned";
+      const reverseChildIdRaw =
+        typeof meta.reverseChildId === "string" ? meta.reverseChildId.trim() : "";
       return {
         plainDescription: plain,
-        distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
+        distributionType,
         autoApprove: meta.autoApprove === true,
         timeLimitMinutes:
           meta.timeLimitMinutes != null
@@ -81,16 +102,18 @@ export class QuestsService {
           typeof (meta as { activateAtIso?: unknown }).activateAtIso === "string"
             ? ((meta as { activateAtIso?: string }).activateAtIso ?? null)
             : null,
+        reverseChildId: reverseChildIdRaw || null,
       };
     } catch {
       return {
         plainDescription: raw,
         distributionType: "assigned",
         autoApprove: false,
-        timeLimitMinutes: null as number | null,
+        timeLimitMinutes: null,
         scheduleType: "none",
-        scheduleDays: [] as string[],
-        activateAtIso: null as string | null,
+        scheduleDays: [],
+        activateAtIso: null,
+        reverseChildId: null,
       };
     }
   }
@@ -98,18 +121,56 @@ export class QuestsService {
   private buildDescription(
     description: string | null | undefined,
     meta: {
-      distributionType: "assigned" | "exchange";
+      distributionType: "assigned" | "exchange" | "reverse";
       autoApprove: boolean;
       timeLimitMinutes: number | null;
       scheduleType: "none" | "daily" | "weekly" | "custom_days";
       scheduleDays: string[];
       activateAtIso?: string | null;
+      reverseChildId?: string | null;
     },
   ) {
     const plain = (description ?? "").trim();
-    const payload = JSON.stringify(meta);
+    const payload: Record<string, unknown> = {
+      distributionType: meta.distributionType,
+      autoApprove: meta.autoApprove,
+      timeLimitMinutes: meta.timeLimitMinutes,
+      scheduleType: meta.scheduleType,
+      scheduleDays: meta.scheduleDays,
+    };
+    if (meta.activateAtIso) payload.activateAtIso = meta.activateAtIso;
+    if (meta.distributionType === "reverse" && meta.reverseChildId) {
+      payload.reverseChildId = meta.reverseChildId;
+    }
     const prefix = plain ? `${plain}\n` : "";
-    return `${prefix}${QuestsService.META_PREFIX}${payload}`;
+    return `${prefix}${QuestsService.META_PREFIX}${JSON.stringify(payload)}`;
+  }
+
+  /** Восстанавливает аргументы buildDescription из сохранённого квеста. */
+  private metaToDescriptionPayload(
+    meta: ParsedQuestMeta,
+    overrides?: Partial<{
+      activateAtIso: string | null;
+    }>,
+  ): {
+    distributionType: "assigned" | "exchange" | "reverse";
+    autoApprove: boolean;
+    timeLimitMinutes: number | null;
+    scheduleType: "none" | "daily" | "weekly" | "custom_days";
+    scheduleDays: string[];
+    activateAtIso?: string | null;
+    reverseChildId?: string | null;
+  } {
+    return {
+      distributionType: meta.distributionType,
+      autoApprove: meta.autoApprove,
+      timeLimitMinutes: meta.timeLimitMinutes,
+      scheduleType: meta.scheduleType,
+      scheduleDays: meta.scheduleDays,
+      activateAtIso:
+        overrides && "activateAtIso" in overrides ? overrides.activateAtIso : meta.activateAtIso,
+      reverseChildId: meta.reverseChildId ?? undefined,
+    };
   }
 
   private computeNextRecurringDate(
@@ -274,7 +335,7 @@ export class QuestsService {
       questType?: string;
       dueAt?: string | null;
       childIds?: string[];
-      distributionType?: "assigned" | "exchange";
+      distributionType?: "assigned" | "exchange" | "reverse";
       autoApprove?: boolean;
       timeLimitMinutes?: number | null;
       scheduleType?: "none" | "daily" | "weekly" | "custom_days";
@@ -295,17 +356,6 @@ export class QuestsService {
       if (!title) throw new BadRequestException("title обязателен");
       next.title = title;
     }
-    if (input.description !== undefined) {
-      const plain = (input.description ?? "").trim() || null;
-      next.description = this.buildDescription(plain, {
-        distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-        autoApprove: meta.autoApprove,
-        timeLimitMinutes: meta.timeLimitMinutes,
-        scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-        scheduleDays: meta.scheduleDays,
-        activateAtIso: meta.activateAtIso,
-      });
-    }
     if (input.rewardAmount !== undefined) {
       const reward = Math.max(0, Math.trunc(Number(input.rewardAmount)));
       next.reward = reward;
@@ -323,10 +373,14 @@ export class QuestsService {
       next.dueAt = input.dueAt ? new Date(input.dueAt) : null;
     }
 
-    const distributionType =
-      input.distributionType !== undefined
-        ? (input.distributionType === "exchange" ? "exchange" : "assigned")
-        : (meta.distributionType === "exchange" ? "exchange" : "assigned");
+    const isReverseQuest = meta.distributionType === "reverse";
+    const distributionType: ParsedQuestMeta["distributionType"] = isReverseQuest
+      ? "reverse"
+      : input.distributionType !== undefined
+        ? input.distributionType === "exchange"
+          ? "exchange"
+          : "assigned"
+        : meta.distributionType;
     const autoApprove = input.autoApprove !== undefined ? input.autoApprove === true : meta.autoApprove;
     const timeLimitMinutes =
       input.timeLimitMinutes !== undefined
@@ -349,14 +403,17 @@ export class QuestsService {
 
     const nextDescriptionPlain =
       input.description !== undefined ? ((input.description ?? "").trim() || null) : meta.plainDescription;
-    next.description = this.buildDescription(nextDescriptionPlain, {
-      distributionType,
-      autoApprove,
-      timeLimitMinutes,
-      scheduleType,
-      scheduleDays,
-      activateAtIso: meta.activateAtIso,
-    });
+    next.description = this.buildDescription(
+      nextDescriptionPlain,
+      this.metaToDescriptionPayload({
+        ...meta,
+        distributionType,
+        autoApprove,
+        timeLimitMinutes,
+        scheduleType,
+        scheduleDays,
+      }),
+    );
 
     const childIds = (input.childIds ?? []).map((x) => x.trim()).filter(Boolean);
     if (distributionType === "assigned") {
@@ -438,6 +495,10 @@ export class QuestsService {
     return {
       items: rows.map((q) => {
         const meta = this.parseMeta(q.description);
+        const childIds =
+          meta.distributionType === "reverse" && meta.reverseChildId
+            ? [meta.reverseChildId]
+            : q.assignees.map((a) => a.childId);
         return {
           ...q,
           description: meta.plainDescription,
@@ -446,7 +507,7 @@ export class QuestsService {
           timeLimitMinutes: meta.timeLimitMinutes,
           scheduleType: meta.scheduleType,
           scheduleDays: meta.scheduleDays,
-          childIds: q.assignees.map((a) => a.childId),
+          childIds,
         };
       }),
     };
@@ -489,6 +550,11 @@ export class QuestsService {
             deadlineMs != null &&
             nowMs > deadlineMs &&
             (a.status === "assigned" || a.status === "in_progress");
+          // Дедлайн для UI: календарный dueAt квеста или конец окна по timeLimitMinutes
+          // (статус overdue считается по тому же deadlineMs — иначе «Просрочено» + «Без дедлайна»).
+          const dueAtFromTimeLimit =
+            deadlineMs != null ? new Date(deadlineMs) : null;
+          const displayDueAt = a.quest.dueAt ?? dueAtFromTimeLimit;
           return {
             questId: a.questId,
             assignmentId: a.id,
@@ -496,7 +562,7 @@ export class QuestsService {
             status: isOverdue ? "overdue" : a.status,
             rewardAmount: a.rewardAmount,
             comment: a.comment,
-            dueAt: a.quest.dueAt,
+            dueAt: displayDueAt,
             createdAt: a.createdAt,
             // У ребёнка строки из QuestAssignee — это уже «мои задачи»; иначе взятый с биржи
             // квест остаётся с distributionType exchange и зависает во вкладке «Биржа».
@@ -517,6 +583,12 @@ export class QuestsService {
           if (activateAt && activateAt.getTime() > Date.now()) {
             return null;
           }
+          const marketDeadlineMs =
+            meta.timeLimitMinutes != null
+              ? new Date(q.createdAt).getTime() + meta.timeLimitMinutes * 60_000
+              : null;
+          const marketDisplayDueAt =
+            q.dueAt ?? (marketDeadlineMs != null ? new Date(marketDeadlineMs) : null);
           return {
             questId: q.id,
             assignmentId: "",
@@ -524,7 +596,7 @@ export class QuestsService {
             status: "market",
             rewardAmount: q.reward,
             comment: meta.plainDescription,
-            dueAt: q.dueAt,
+            dueAt: marketDisplayDueAt,
             createdAt: q.createdAt,
             distributionType: meta.distributionType,
             autoApprove: meta.autoApprove,
@@ -535,6 +607,102 @@ export class QuestsService {
         }).filter(Boolean),
       ],
     };
+  }
+
+  async getReverseQuestForChild(user: ChildUser) {
+    const rows = await this.prisma.quest.findMany({
+      where: { familyId: user.familyId, status: "active" },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    for (const q of rows) {
+      const meta = this.parseMeta(q.description);
+      if (meta.distributionType === "reverse" && meta.reverseChildId === user.childId) {
+        return {
+          item: {
+            questId: q.id,
+            title: q.title,
+            rewardAmount: q.reward,
+            description: meta.plainDescription ?? "",
+            createdAt: q.createdAt,
+          },
+        };
+      }
+    }
+    return { item: null };
+  }
+
+  async createReverseQuest(
+    user: ChildUser,
+    input: { title: string; rewardAmount: number; description?: string },
+  ) {
+    const familyId = user.familyId;
+    const childId = user.childId;
+    const title = (input.title ?? "").trim();
+    if (!title) throw new BadRequestException("title обязателен");
+    const rewardRaw = Math.trunc(Number(input.rewardAmount));
+    if (!Number.isFinite(rewardRaw) || rewardRaw < 1) {
+      throw new BadRequestException("rewardAmount должна быть положительным числом");
+    }
+    const rewardAmount = rewardRaw;
+
+    const parentProfile = await this.prisma.profile.findFirst({
+      where: { familyId, role: { in: ["parent", "admin"] } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!parentProfile?.userId) {
+      throw new BadRequestException("В семье нет аккаунта родителя — создать задачу нельзя");
+    }
+
+    const activeQuests = await this.prisma.quest.findMany({
+      where: { familyId, status: "active" },
+      select: { description: true },
+      take: 200,
+    });
+    for (const q of activeQuests) {
+      const m = this.parseMeta(q.description);
+      if (m.distributionType === "reverse" && m.reverseChildId === childId) {
+        throw new BadRequestException(
+          "Уже есть активная обратная задача — дождитесь, когда родитель закроет её",
+        );
+      }
+    }
+
+    const plainNote = (input.description ?? "").trim() || null;
+    const description = this.buildDescription(plainNote, {
+      distributionType: "reverse",
+      autoApprove: false,
+      timeLimitMinutes: null,
+      scheduleType: "none",
+      scheduleDays: [],
+      reverseChildId: childId,
+    });
+
+    const quest = await this.prisma.quest.create({
+      data: {
+        familyId,
+        createdBy: parentProfile.userId,
+        title,
+        description,
+        reward: rewardAmount,
+        questType: "unique",
+        status: "active",
+        dueAt: null,
+      },
+    });
+
+    try {
+      await this.notifications.notifyFamilyPush(
+        familyId,
+        "Обратная задача от ребёнка",
+        `«${title}» — цель ${rewardAmount} монет`,
+        "child_reverse_quest",
+      );
+    } catch {
+      // push optional
+    }
+
+    return { questId: quest.id };
   }
 
   async takeFromMarket(user: ChildUser, questIdRaw: string) {
@@ -619,14 +787,10 @@ export class QuestsService {
             meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
             meta.scheduleDays,
           );
-          const nextDescription = this.buildDescription(meta.plainDescription, {
-            distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-            autoApprove: meta.autoApprove,
-            timeLimitMinutes: meta.timeLimitMinutes,
-            scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-            scheduleDays: meta.scheduleDays,
-            activateAtIso: nextAt.toISOString(),
-          });
+          const nextDescription = this.buildDescription(
+            meta.plainDescription,
+            this.metaToDescriptionPayload(meta, { activateAtIso: nextAt.toISOString() }),
+          );
           const recreated = await tx.quest.create({
             data: {
               familyId: assignment.quest.familyId,
@@ -782,14 +946,10 @@ export class QuestsService {
             meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
             meta.scheduleDays,
           );
-          const nextDescription = this.buildDescription(meta.plainDescription, {
-            distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-            autoApprove: meta.autoApprove,
-            timeLimitMinutes: meta.timeLimitMinutes,
-            scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-            scheduleDays: meta.scheduleDays,
-            activateAtIso: nextAt.toISOString(),
-          });
+          const nextDescription = this.buildDescription(
+            meta.plainDescription,
+            this.metaToDescriptionPayload(meta, { activateAtIso: nextAt.toISOString() }),
+          );
           const recreated = await tx.quest.create({
             data: {
               familyId: assignment.quest.familyId,

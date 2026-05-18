@@ -1,12 +1,12 @@
-// Скачивание SVG из Figma по официальному API (не «наугад»).
+// Скачивание SVG и растровых ассетов из Figma по официальному API.
 //
 // 1) Figma → Settings → Security → Generate new token (Personal access token)
-// 2) Скопируй в `.env`: FIGMA_TOKEN=figd_...
-//    или в PowerShell: $env:FIGMA_TOKEN="figd_..."
-// 3) Скопируй `tool/figma_export_config.example.json` → `tool/figma_export_config.json`
-//    и подставь реальные nodeId (из URL node-id=12-34 → в JSON "12:34")
+// 2) `.env`: FIGMA_TOKEN=figd_... (корень репо или apps/klany_mobile)
+// 3) Конфиг: `tool/figma_export_config.json` (`fileKey` по умолчанию + необязательный
+//    `fileKey` у каждой строки `exports`, см. ниже).
 // 4) Из каталога apps/klany_mobile:
-//    dart run tool/figma_export.dart tree 0:81
+//    dart run tool/figma_export.dart tree 118:1257 --file=kwVuEbSWPdrTEFsrIvZVB3
+//    dart run tool/figma_export.dart suggest 118:1305 --file=kwVuEbSWPdrTEFsrIvZVB3
 //    dart run tool/figma_export.dart export
 //
 // Документация: https://www.figma.com/developers/api#get-images-endpoint
@@ -23,13 +23,49 @@ Directory get _packageRoot => File(Platform.script.toFilePath()).parent.parent;
 
 Directory get _repoRoot => _packageRoot.parent.parent;
 
+class _ExportJob {
+  _ExportJob({
+    required this.fileKey,
+    required this.nodeId,
+    required this.path,
+    required this.format,
+    required this.scale,
+  });
+
+  final String fileKey;
+  final String nodeId;
+  final String path;
+  final String format;
+  /// Для raster (png/jpeg/webp), 1..4 где поддерживается API.
+  final double scale;
+
+  String batchKey() => '$fileKey\x1f$format\x1f$scale';
+}
+
+/// Возвращает map args без флагов и опционально fileKey после `--file=`.
+(Map<String, String> flags, List<String> pos) _parseFlags(List<String> args) {
+  final pos = <String>[];
+  final flags = <String, String>{};
+  for (final a in args) {
+    if (a.startsWith('--file=')) {
+      flags['file'] = a.substring('--file='.length).trim();
+    } else {
+      pos.add(a);
+    }
+  }
+  return (flags, pos);
+}
+
 Future<void> main(List<String> args) async {
   if (args.isEmpty) {
     stderr.writeln(
       'Использование:\n'
-      '  dart run tool/figma_export.dart tree <nodeId>    — дерево нод (id как 0:81)\n'
-      '  dart run tool/figma_export.dart suggest <nodeId> — кандидаты иконок (VECTOR / по имени)\n'
-      '  dart run tool/figma_export.dart export           — SVG по tool/figma_export_config.json\n',
+      '  dart run tool/figma_export.dart tree <nodeId> [--file=<fileKey>]  — дерево нод\n'
+      '  dart run tool/figma_export.dart suggest <nodeId> [--file=<fileKey>]\n'
+      '  dart run tool/figma_export.dart export                             — экспорт из $_configFile\n'
+      '\n'
+      'В $_configFile у каждой записи экспорта можно указать свой "fileKey" (иначе общий ключ файла).\n'
+      'Опционально: "format": "png"|"jpg"|"webp" (по умолчанию svg), для растра — "scale": 2.\n',
     );
     exitCode = 64;
     return;
@@ -47,19 +83,21 @@ Future<void> main(List<String> args) async {
 
   switch (args.first) {
     case 'tree':
-      if (args.length < 2) {
-        stderr.writeln('Укажи nodeId, например: dart run tool/figma_export.dart tree 0:81');
+      final (flags, pos) = _parseFlags(args.sublist(1));
+      if (pos.isEmpty) {
+        stderr.writeln('Укажи nodeId, например: dart run tool/figma_export.dart tree 118:1257 --file=kwVuEbSWPdrTEFsrIvZVB3');
         exitCode = 64;
         return;
       }
-      await _tree(token, args[1]);
+      await _tree(token, pos.first, flags['file']);
     case 'suggest':
-      if (args.length < 2) {
-        stderr.writeln('Укажи nodeId фрейма, например: dart run tool/figma_export.dart suggest 0:81');
+      final (flags, pos) = _parseFlags(args.sublist(1));
+      if (pos.isEmpty) {
+        stderr.writeln('Укажи nodeId фрейма.');
         exitCode = 64;
         return;
       }
-      await _suggest(token, args[1]);
+      await _suggest(token, pos.first, flags['file']);
     case 'export':
       await _export(token);
     default:
@@ -89,10 +127,13 @@ String _readToken() {
   return '';
 }
 
-Future<void> _tree(String token, String nodeId) async {
+Future<void> _tree(String token, String nodeId, String? overrideFileKey) async {
   final cfg = _loadConfig();
   final normalized = nodeId.replaceAll('-', ':');
-  final fileKey = cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
+  final fileKey =
+      overrideFileKey?.trim().isEmpty == false
+          ? overrideFileKey!.trim()
+          : cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
   final url = Uri.parse(
     '$_api/files/$fileKey/nodes?ids=${Uri.encodeQueryComponent(normalized)}&depth=4',
   );
@@ -105,22 +146,26 @@ Future<void> _tree(String token, String nodeId) async {
   final data = jsonDecode(res.body) as Map<String, dynamic>;
   final nodes = data['nodes'] as Map<String, dynamic>?;
   if (nodes == null || nodes.isEmpty) {
-    stderr.writeln('Нода не найдена. Проверь id (формат 12:34, не 12-34).');
+    stderr.writeln('Нода не найдена. Проверь id и fileKey (--file=...). Формат id: 12:34.');
     exitCode = 1;
     return;
   }
   for (final entry in nodes.entries) {
     final doc = (entry.value as Map)['document'] as Map<String, dynamic>?;
     if (doc != null) {
+      stdout.writeln('fileKey=$fileKey\n');
       _printNode(doc, 0);
     }
   }
 }
 
-Future<void> _suggest(String token, String nodeId) async {
+Future<void> _suggest(String token, String nodeId, String? overrideFileKey) async {
   final cfg = _loadConfig();
   final normalized = nodeId.replaceAll('-', ':');
-  final fileKey = cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
+  final fileKey =
+      overrideFileKey?.trim().isEmpty == false
+          ? overrideFileKey!.trim()
+          : cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
   final url = Uri.parse(
     '$_api/files/$fileKey/nodes?ids=${Uri.encodeQueryComponent(normalized)}&depth=8',
   );
@@ -138,10 +183,11 @@ Future<void> _suggest(String token, String nodeId) async {
     return;
   }
   final hint = RegExp(
-    r'bag|shop|магаз|home|house|дом|tune|slider|фильтр|настрой|settings|nav|tab|icon|ico',
+    r'bag|shop|магаз|home|house|дом|tune|slider|refresh|refresh|dots|меню|checkbox|exchange|birz|зац|coin|divider|line|стрел|svg|fi-br',
     caseSensitive: false,
   );
   final types = {'VECTOR', 'BOOLEAN_OPERATION', 'STAR', 'ELLIPSE', 'LINE'};
+  stdout.writeln('fileKey=$fileKey\n');
   for (final entry in nodes.entries) {
     final doc = (entry.value as Map)['document'] as Map<String, dynamic>?;
     if (doc != null) {
@@ -184,7 +230,7 @@ void _printNode(Map<String, dynamic> node, int depth) {
 }
 
 Map<String, dynamic> _loadConfig() {
-  final f = File(_configFile);
+  final f = File(_joinPath(_packageRoot.path, _configFile));
   if (!f.existsSync()) {
     return {'fileKey': 'z72tmzXGfrKzFPQMqrL1ZB'};
   }
@@ -193,7 +239,7 @@ Map<String, dynamic> _loadConfig() {
 
 Future<void> _export(String token) async {
   final cfg = _loadConfig();
-  final fileKey = cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
+  final defaultFileKey = cfg['fileKey'] as String? ?? 'z72tmzXGfrKzFPQMqrL1ZB';
   final exports = cfg['exports'];
   if (exports is! List) {
     stderr.writeln('В $_configFile нет массива "exports".');
@@ -201,7 +247,7 @@ Future<void> _export(String token) async {
     return;
   }
 
-  final jobs = <({String nodeId, String path})>[];
+  final jobs = <_ExportJob>[];
   for (final raw in exports) {
     if (raw is! Map) continue;
     final m = Map<String, dynamic>.from(raw);
@@ -209,7 +255,20 @@ Future<void> _export(String token) async {
     final id = (m['nodeId'] ?? m['node_id'])?.toString().trim().replaceAll('-', ':') ?? '';
     final path = (m['path'] ?? '').toString().trim();
     if (id.isEmpty || path.isEmpty) continue;
-    jobs.add((nodeId: id, path: path));
+    final fk = (m['fileKey'] ?? m['file_key'] ?? '').toString().trim();
+    final fileKey = fk.isEmpty ? defaultFileKey : fk;
+    final format = ((m['format'] ?? 'svg') as Object).toString().toLowerCase().trim();
+    final scaleRaw = m['scale'];
+    final scale = scaleRaw is num ? scaleRaw.toDouble().clamp(0.01, 4).toDouble() : 1.0;
+    jobs.add(
+      _ExportJob(
+        fileKey: fileKey,
+        nodeId: id,
+        path: path,
+        format: format,
+        scale: scale,
+      ),
+    );
   }
   if (jobs.isEmpty) {
     stderr.writeln('Нет валидных записей export. Заполни nodeId в $_configFile');
@@ -217,18 +276,42 @@ Future<void> _export(String token) async {
     return;
   }
 
+  final batches = <String, List<_ExportJob>>{};
+  for (final j in jobs) {
+    batches.putIfAbsent(j.batchKey(), () => []).add(j);
+  }
+
+  for (final list in batches.values) {
+    await _exportBatch(token, list);
+  }
+}
+
+Future<void> _exportBatch(String token, List<_ExportJob> jobs) async {
+  if (jobs.isEmpty) return;
+  final fk = jobs.first.fileKey;
+  final format = jobs.first.format;
+  final scale = jobs.first.scale;
+
   final ids = jobs.map((e) => e.nodeId).join(',');
-  final imgUrl = Uri.parse('$_api/images/$fileKey').replace(
-    queryParameters: {
-      'ids': ids,
-      'format': 'svg',
-      'svg_outline_text': 'true',
-      'svg_simplify_stroke': 'true',
-    },
-  );
+  final qp = <String, String>{
+    'ids': ids,
+    'format': format,
+  };
+  if (format == 'svg') {
+    qp['svg_outline_text'] = 'true';
+    qp['svg_simplify_stroke'] = 'true';
+  } else {
+    final s =
+        scale == scale.roundToDouble()
+            ? scale.round().clamp(1, 4).toInt().toString()
+            : scale.toString();
+    qp['scale'] = s;
+  }
+
+  final imgUrl = Uri.parse('$_api/images/$fk').replace(queryParameters: qp);
   final imgRes = await http.get(imgUrl, headers: {'X-Figma-Token': token});
   if (imgRes.statusCode != 200) {
-    stderr.writeln('images API ${imgRes.statusCode}: ${imgRes.body}');
+    stderr.writeln('images API ($fk ${format}s${format == 'svg' ? '' : '@${qp['scale']}'}) ${imgRes.statusCode}: ${imgRes.body}');
     exitCode = 1;
     return;
   }
@@ -240,11 +323,10 @@ Future<void> _export(String token) async {
     return;
   }
 
-  final root = Directory.current;
   for (final job in jobs) {
     final url = images[job.nodeId]?.toString();
     if (url == null || url.isEmpty) {
-      stderr.writeln('Нет URL для ${job.nodeId}');
+      stderr.writeln('Нет URL для ${job.nodeId} (file=$fk)');
       continue;
     }
     final svgRes = await http.get(Uri.parse(url));
@@ -252,11 +334,26 @@ Future<void> _export(String token) async {
       stderr.writeln('Скачивание ${job.path}: ${svgRes.statusCode}');
       continue;
     }
-    final out = File(_joinPath(root.path, job.path));
+    final out = File(_resolveOutputPath(job.path));
     await out.parent.create(recursive: true);
     await out.writeAsBytes(svgRes.bodyBytes);
-    stdout.writeln('OK ${job.path} <- ${job.nodeId}');
+    stdout.writeln('OK ${job.path} <- ${job.nodeId} ($fk ${job.format}${job.format != 'svg' ? ' @${job.scale}' : ''})');
   }
+}
+
+/// Путь записи всегда относительно [apps/klany_mobile].
+String _resolveOutputPath(String publishPath) {
+  final cwd = Directory.current.path;
+  if (publishPath.startsWith('assets${Platform.pathSeparator}') ||
+      publishPath.startsWith('assets/')) {
+    return _joinPath(_packageRoot.path, publishPath.replaceAll('/', Platform.pathSeparator));
+  }
+  if (publishPath.startsWith('/') ||
+      (publishPath.length >= 2 &&
+          publishPath[1] == ':')) {
+    return publishPath;
+  }
+  return _joinPath(cwd, publishPath);
 }
 
 String _joinPath(String a, String b) {

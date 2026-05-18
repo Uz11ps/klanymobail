@@ -1,10 +1,21 @@
 {
-  "fileKey": "z72tmzXGfrKzFPQMqrL1ZB",
+  "comment": "Скопируй в figma_export_config.json. Необязательные поля: fileKey у строкы, format (svg|png|jpg), scale для raster.",
+
+  "fileKey": "YOUR_LEGACY_FILE_KEY",
+
   "exports": [
-    { "nodeId": "12:345", "path": "assets/figma/nav_shop.svg" },
-    { "nodeId": "12:346", "path": "assets/figma/nav_home_outline.svg" },
-    { "nodeId": "12:347", "path": "assets/figma/nav_home_filled.svg" },
-    { "nodeId": "12:348", "path": "assets/figma/nav_tune.svg" },
-    { "nodeId": "12:349", "path": "assets/figma/nav_assignment.svg" }
+    {
+      "fileKey": "YOUR_CHILD_HOME_FILE_KEY",
+      "nodeId": "118:1304",
+      "path": "assets/figma/nav_refresh.svg"
+    },
+    {
+      "fileKey": "YOUR_CHILD_HOME_FILE_KEY",
+      "nodeId": "162:306",
+      "path": "assets/figma/child_dashboard_divider.png",
+      "format": "png",
+      "scale": 2
+    },
+    { "nodeId": "0:129", "path": "assets/figma/other_from_default_file.svg" }
   ]
 }

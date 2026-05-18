@@ -51,6 +51,14 @@ class ApiException implements Exception {
     if (lower.contains('forbidden') || statusCode == 403) {
       return 'Доступ запрещён.';
     }
+    if (lower.contains('unknown bucket') ||
+        lower.contains('неизвестная корзина')) {
+      return 'Сервер не принял хранилище (bucket): обновите backend и проверьте MinIO в .env '
+          '(MINIO_ACCESS_KEY / MINIO_SECRET_KEY). Для аватаров нужен тип bucket member-avatars.';
+    }
+    if (lower.contains('minio') && lower.contains('настроен')) {
+      return 'Хранилище файлов не настроено на сервере — аватары не загрузятся, пока не заданы ключи MinIO.';
+    }
     if (lower.contains('validation') || lower.contains('bad request')) {
       return raw.isEmpty ? 'Проверьте введённые данные.' : raw;
     }

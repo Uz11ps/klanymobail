@@ -46,60 +46,46 @@ TextStyle _nunito({
       letterSpacing: letterSpacing,
     );
 
-const List<BoxShadow> _mintTileShadows = [
-  BoxShadow(
-    color: Color.fromRGBO(222, 247, 203, 0.35),
-    blurRadius: 50,
-    offset: Offset(0, 20),
-  ),
-  BoxShadow(
-    color: Color.fromRGBO(173, 211, 165, 0.35),
-    blurRadius: 20,
-    offset: Offset(0, 13),
-  ),
-];
-
-const List<BoxShadow> _lavenderTileShadows = [
-  BoxShadow(
-    color: Color.fromRGBO(216, 203, 247, 0.35),
-    blurRadius: 50,
-    offset: Offset(0, 20),
-  ),
-  BoxShadow(
-    color: Color.fromRGBO(179, 165, 211, 0.35),
-    blurRadius: 20,
-    offset: Offset(0, 13),
-  ),
-];
-
-class _SoftCardHighlight extends StatelessWidget {
-  const _SoftCardHighlight({required this.radius});
-
-  final BorderRadius radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ClipRRect(
-        borderRadius: radius,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.08),
-                Colors.transparent,
-                Colors.white.withValues(alpha: 0.52),
-              ],
-              stops: const [0.0, 0.48, 1.0],
-            ),
-          ),
-        ),
+/// Цветные «облака» под плитками — без избыточной грязи (Flutter blur ≠ CSS).
+List<BoxShadow> _scaledMintStatShadows(double scale) => [
+      BoxShadow(
+        color: const Color.fromRGBO(222, 247, 203, 0.26),
+        blurRadius: 40 * scale,
+        offset: Offset(0, 16 * scale),
       ),
-    );
-  }
-}
+      BoxShadow(
+        color: const Color.fromRGBO(173, 211, 165, 0.22),
+        blurRadius: 16 * scale,
+        offset: Offset(0, 10 * scale),
+      ),
+    ];
+
+List<BoxShadow> _scaledLavenderStatShadows(double scale) => [
+      BoxShadow(
+        color: const Color.fromRGBO(216, 203, 247, 0.26),
+        blurRadius: 40 * scale,
+        offset: Offset(0, 16 * scale),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(179, 165, 211, 0.22),
+        blurRadius: 16 * scale,
+        offset: Offset(0, 10 * scale),
+      ),
+    ];
+
+/// Figma CTA «Создать»: `0px_20px_50px rgba(230,247,217,0.35)`, `0px_13px_20px rgba(212,255,179,0.35)`.
+List<BoxShadow> _scaledMintCtaGlow(double scale) => [
+      BoxShadow(
+        color: const Color.fromRGBO(230, 247, 217, 0.35),
+        blurRadius: 50 * scale,
+        offset: Offset(0, 20 * scale),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(212, 255, 179, 0.35),
+        blurRadius: 20 * scale,
+        offset: Offset(0, 13 * scale),
+      ),
+    ];
 
 Widget _dividerLine() {
   return LayoutBuilder(
@@ -266,14 +252,19 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
   Object? _loadError;
   _OverviewModel? _model;
 
+  /// Колонка макета Figma — 353 px при ширине фрейма 393.
   static double _targetContentWidth(double screenWidth) {
-    if (screenWidth < 430) return math.max(0.0, screenWidth - 40);
+    const designCol = 353.0;
+    if (screenWidth < 430) {
+      return math.min(designCol, math.max(0.0, screenWidth - 40));
+    }
     if (screenWidth < 700) return math.min(screenWidth - 56, 430);
     return math.min(screenWidth * 0.56, 560);
   }
 
+  /// Чуть компактнее эталона Figma: меньший верхний предел scale на широких экранах.
   static double _layoutScale(double contentWidth) =>
-      (contentWidth / 353).clamp(0.88, 1.22).toDouble();
+      ((contentWidth / 353) * 0.87).clamp(0.74, 1.0).toDouble();
 
   @override
   void initState() {
@@ -593,8 +584,9 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
     final cw = _targetContentWidth(screenW);
     final s = _layoutScale(cw);
     final hPad = ((screenW - cw) / 2).clamp(16.0, 400.0).toDouble();
-    final bottomPad = 24 + MediaQuery.viewPaddingOf(context).bottom + 8;
-    final gap = 20.0 * s;
+    final gap = 14.0 * s;
+    final footerNavSpacerHeight =
+        ChildBottomClanBar.scrollBottomClearance(context) + 80 + 48 * s;
     final name = session.childDisplayName.trim().isEmpty
         ? 'Привет!'
         : session.childDisplayName;
@@ -608,7 +600,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
           onReload: () => _load(),
           onMenu: _openAccountSheet,
         ),
-        SizedBox(height: 25 * s),
+        SizedBox(height: gap),
         SizedBox(
           height: math.max(320, MediaQuery.sizeOf(context).height * 0.35),
           child: Center(
@@ -679,17 +671,14 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
           const SizedBox(height: 8),
         ],
         SizedBox(height: gap),
-        SizedBox(
-          width: double.infinity,
-          child: _DashboardProfileCard(
-            scale: s,
-            session: session,
-            displayName: name,
-            completedLine: '$done ${_taskWordRu(done)} выполнено',
-            balance: m.walletBalance,
-            formatInt: _formatBalance,
-            onAvatar: () => _avatarFlow(context),
-          ),
+        _DashboardProfileCard(
+          scale: s,
+          session: session,
+          displayName: name,
+          completedLine: '$done ${_taskWordRu(done)} выполнено',
+          balance: m.walletBalance,
+          formatInt: _formatBalance,
+          onAvatar: () => _avatarFlow(context),
         ),
         SizedBox(height: gap),
         _dividerLine(),
@@ -702,7 +691,8 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
                 label: 'Мои задачи',
                 value: '${m.activeAssignments}',
                 background: kFigmaChildStatMint,
-                outerShadows: _mintTileShadows,
+                verticalPaddingPx: 34,
+                outerShadows: _scaledMintStatShadows(s),
               ),
             ),
             SizedBox(width: 7 * s),
@@ -712,7 +702,8 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
                 label: 'Биржа',
                 value: '${m.exchangeCount}',
                 background: kFigmaChildStatLavender,
-                outerShadows: _lavenderTileShadows,
+                verticalPaddingPx: 30,
+                outerShadows: _scaledLavenderStatShadows(s),
               ),
             ),
           ],
@@ -761,8 +752,11 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
-              padding: EdgeInsets.fromLTRB(hPad, 8, hPad, bottomPad),
-              children: body,
+              padding: EdgeInsets.fromLTRB(hPad, 26 * s, hPad, 12),
+              children: [
+                ...body,
+                SizedBox(height: footerNavSpacerHeight),
+              ],
             ),
           ),
         ),
@@ -804,53 +798,59 @@ class _DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Figma layer 118:1258–1259: колонка `items-start`, заголовок с `shrink-0`
+    // без `w-full` — текст «CLAN CAPITAL» слева; круги аппаратных действий —
+    // отдельный блок справа (node 146:183).
     return SizedBox(
-      height: 48 * scale,
-      child: Stack(
-        alignment: Alignment.center,
+      height: 42 * scale,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            'CLAN CAPITAL',
-            textAlign: TextAlign.center,
-            style: _nunito(
-              fontSize: 32 * scale,
-              fontWeight: FontWeight.w800,
-              color: kFigmaChildScreenBlue,
-              height: 1.05,
+          Expanded(
+            child: Text(
+              'CLAN CAPITAL',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.left,
+              style: _nunito(
+                fontSize: 27 * scale,
+                fontWeight: FontWeight.w800,
+                color: kFigmaChildScreenBlue,
+                height: 1.0,
+              ),
             ),
           ),
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Row(
-              children: [
-                _RoundWhiteButton(
-                  onTap: onReload,
-                  child: SvgPicture.asset(
-                    'assets/figma/nav_refresh.svg',
-                    width: 24 * scale,
-                    height: 24 * scale,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.black,
-                      BlendMode.srcIn,
-                    ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RoundWhiteButton(
+                scale: scale,
+                onTap: onReload,
+                child: SvgPicture.asset(
+                  'assets/figma/nav_refresh.svg',
+                  width: 22 * scale,
+                  height: 22 * scale,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black,
+                    BlendMode.srcIn,
                   ),
                 ),
-                SizedBox(width: 10 * scale),
-                _RoundWhiteButton(
-                  onTap: onMenu,
-                  child: SvgPicture.asset(
-                    'assets/figma/child_nav_menu_dots.svg',
-                    width: 24 * scale,
-                    height: 24 * scale,
-                    colorFilter: const ColorFilter.mode(
-                      Colors.black,
-                      BlendMode.srcIn,
-                    ),
+              ),
+              SizedBox(width: 10 * scale),
+              _RoundWhiteButton(
+                scale: scale,
+                onTap: onMenu,
+                child: SvgPicture.asset(
+                  'assets/figma/child_nav_menu_dots.svg',
+                  width: 22 * scale,
+                  height: 22 * scale,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black,
+                    BlendMode.srcIn,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -859,14 +859,19 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 class _RoundWhiteButton extends StatelessWidget {
-  const _RoundWhiteButton({required this.onTap, required this.child});
+  const _RoundWhiteButton({
+    required this.onTap,
+    required this.child,
+    this.scale = 1,
+  });
 
   final VoidCallback onTap;
   final Widget child;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    const r = 41.0;
+    final r = 36 * scale;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -875,7 +880,7 @@ class _RoundWhiteButton extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 2,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4 * scale),
           ),
         ],
       ),
@@ -884,9 +889,36 @@ class _RoundWhiteButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(r),
           onTap: onTap,
-          child: Padding(padding: const EdgeInsets.all(10), child: child),
+          child: Padding(
+            padding: EdgeInsets.all(8 * scale),
+            child: child,
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Иконка монет в профиле: экспорт из Figma как PNG (`profile_coin_stack.png`).
+/// SVG из API — растровый паттерн внутри `<pattern>`; `flutter_svg` его не рисует.
+class _DashboardCoinImage extends StatelessWidget {
+  const _DashboardCoinImage({required this.scale});
+
+  final double scale;
+
+  static const String _asset = 'assets/figma/profile_coin_stack.png';
+
+  @override
+  Widget build(BuildContext context) {
+    final w = 18 * scale;
+    final h = 17 * scale;
+    return Image.asset(
+      _asset,
+      width: w,
+      height: h,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
     );
   }
 }
@@ -912,137 +944,143 @@ class _DashboardProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final r = BorderRadius.circular(20 * scale);
-    final size = 107 * scale;
+    final r = BorderRadius.circular(18 * scale);
+    final size = 92 * scale;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: r,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 20 * scale,
-            offset: Offset(0, 10 * scale),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 18 * scale,
+            offset: Offset(0, 8 * scale),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: r,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: ColoredBox(color: Colors.white)),
-            Padding(
-              padding: EdgeInsets.all(20 * scale),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: onAvatar,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Builder(
-                          builder: (context) {
-                            final key = session.avatarObjectKey;
-                            if (key == null || key.isEmpty) {
-                              return UserAvatar(
-                                userKey: 'child:${session.childId}',
-                                size: size,
-                                fallbackText: displayName.isEmpty
-                                    ? '?'
-                                    : displayName.characters.first
-                                        .toUpperCase(),
-                              );
-                            }
-                            return FutureBuilder<String?>(
-                              key: ValueKey(key),
-                              future: presignStorageDownload(
-                                accessToken: session.accessToken,
-                                bucket: 'member-avatars',
-                                objectKey: key,
-                              ),
-                              builder: (context, snap) => UserAvatar(
-                                userKey: 'child:${session.childId}',
-                                size: size,
-                                fallbackText: displayName.isEmpty
-                                    ? '?'
-                                    : displayName.characters.first
-                                        .toUpperCase(),
-                                remoteImageUrl: snap.data,
-                              ),
+        child: ColoredBox(
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.all(14 * scale),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: onAvatar,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Builder(
+                        builder: (context) {
+                          final key = session.avatarObjectKey;
+                          if (key == null || key.isEmpty) {
+                            return UserAvatar(
+                              userKey: 'child:${session.childId}',
+                              size: size,
+                              fallbackText: displayName.isEmpty
+                                  ? '?'
+                                  : displayName.characters.first
+                                      .toUpperCase(),
                             );
-                          },
-                        ),
-                        Positioned(
-                          right: 2 * scale,
-                          bottom: 2 * scale,
-                          child: Container(
-                            width: 28 * scale,
-                            height: 28 * scale,
-                            decoration: BoxDecoration(
-                              color: kFigmaChildScreenBlue,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2 * scale,
-                              ),
+                          }
+                          return FutureBuilder<String?>(
+                            key: ValueKey(key),
+                            future: presignStorageDownload(
+                              accessToken: session.accessToken,
+                              bucket: 'member-avatars',
+                              objectKey: key,
                             ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              Icons.edit,
-                              size: 14 * scale,
+                            builder: (context, snap) => UserAvatar(
+                              userKey: 'child:${session.childId}',
+                              size: size,
+                              fallbackText: displayName.isEmpty
+                                  ? '?'
+                                  : displayName.characters.first
+                                      .toUpperCase(),
+                              remoteImageUrl: snap.data,
+                            ),
+                          );
+                        },
+                      ),
+                      Positioned(
+                        right: 2 * scale,
+                        bottom: 2 * scale,
+                        child: Container(
+                          width: 24 * scale,
+                          height: 24 * scale,
+                          decoration: BoxDecoration(
+                            color: kFigmaChildScreenBlue,
+                            shape: BoxShape.circle,
+                            border: Border.all(
                               color: Colors.white,
+                              width: 1.5 * scale,
                             ),
                           ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.edit,
+                            size: 12 * scale,
+                            color: Colors.white,
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 10 * scale),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _nunito(
-                            fontSize: 24 * scale,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
+                ),
+                SizedBox(width: 8 * scale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _nunito(
+                          fontSize: 21 * scale,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
                         ),
-                        SizedBox(height: 10 * scale),
-                        Text(
-                          completedLine,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _nunito(
-                            fontSize: 16 * scale,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.black.withValues(alpha: 0.5),
-                          ),
+                      ),
+                      SizedBox(height: 6 * scale),
+                      Text(
+                        completedLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _nunito(
+                          fontSize: 14 * scale,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black.withValues(alpha: 0.5),
                         ),
-                        SizedBox(height: 10 * scale),
-                        Container(
-                          height: 29 * scale,
-                          padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                      ),
+                      SizedBox(height: 6 * scale),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: 118 * scale,
+                          minHeight: 26 * scale,
+                        ),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 10 * scale,
+                            vertical: 4 * scale,
+                          ),
                           decoration: BoxDecoration(
                             color: kFigmaChildBalancePill,
-                            borderRadius: BorderRadius.circular(25 * scale),
+                            borderRadius: BorderRadius.circular(22 * scale),
                           ),
+                          alignment: Alignment.centerLeft,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              CoinStackIcon(
-                                size: 18 * scale,
-                                color: kFigmaChildScreenBlue,
-                              ),
-                              SizedBox(width: 3 * scale),
+                              _DashboardCoinImage(scale: scale),
+                              SizedBox(width: 6 * scale),
                               Text(
                                 formatInt(balance),
                                 style: _nunito(
-                                  fontSize: 24 * scale,
+                                  fontSize: 20 * scale,
                                   fontWeight: FontWeight.w800,
                                   color: kFigmaChildScreenBlue,
                                 ),
@@ -1050,14 +1088,13 @@ class _DashboardProfileCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Positioned.fill(child: _SoftCardHighlight(radius: r)),
-          ],
+          ),
         ),
       ),
     );
@@ -1071,6 +1108,7 @@ class _StatTile extends StatelessWidget {
     required this.value,
     required this.background,
     required this.outerShadows,
+    required this.verticalPaddingPx,
   });
 
   final double scale;
@@ -1078,13 +1116,15 @@ class _StatTile extends StatelessWidget {
   final String value;
   final Color background;
   final List<BoxShadow> outerShadows;
+  /// Вертикальный padding колонки внутри плитки (мы используем компактные значения).
+  final double verticalPaddingPx;
 
   @override
   Widget build(BuildContext context) {
-    final r = 25.0 * scale;
+    final r = 22.0 * scale;
     final borderRadius = BorderRadius.circular(r);
-    return AspectRatio(
-      aspectRatio: 173 / 165,
+    return SizedBox(
+      height: 142 * scale,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: borderRadius,
@@ -1093,42 +1133,39 @@ class _StatTile extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: background),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10 * scale),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: _nunito(
-                        fontSize: 20 * scale,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.black,
-                      ),
-                    ),
-                    SizedBox(height: 15 * scale),
-                    Text(
-                      value,
-                      textAlign: TextAlign.center,
-                      style: _nunito(
-                        fontSize: 40 * scale,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        height: 1,
-                      ),
-                    ),
-                  ],
-                ),
+          child: ColoredBox(
+            color: background,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 8 * scale,
+                vertical: verticalPaddingPx * scale,
               ),
-              Positioned.fill(
-                child: _SoftCardHighlight(radius: borderRadius),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 17 * scale,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 11 * scale),
+                  Text(
+                    value,
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 34 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1149,21 +1186,21 @@ class _DashboardGoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final r = BorderRadius.circular(25 * scale);
+    final r = BorderRadius.circular(22 * scale);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: r,
         border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: const Color.fromRGBO(249, 232, 165, 0.35),
-            blurRadius: 25 * scale,
-            offset: Offset(0, 20 * scale),
+            color: const Color.fromRGBO(249, 232, 165, 0.26),
+            blurRadius: 22 * scale,
+            offset: Offset(0, 16 * scale),
           ),
           BoxShadow(
-            color: const Color.fromRGBO(249, 232, 165, 0.35),
+            color: const Color.fromRGBO(249, 232, 165, 0.20),
             blurRadius: 10 * scale,
-            offset: Offset(0, 10 * scale),
+            offset: Offset(0, 8 * scale),
           ),
         ],
       ),
@@ -1171,42 +1208,48 @@ class _DashboardGoalCard extends StatelessWidget {
         borderRadius: r,
         child: Stack(
           children: [
-            const Positioned.fill(child: ColoredBox(color: Color(0xFFF9E8A5))),
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 10 * scale,
-                vertical: 38 * scale,
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Текущая цель',
-                    textAlign: TextAlign.center,
-                    style: _nunito(
-                      fontSize: 20 * scale,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
+            Positioned.fill(
+              child: ColoredBox(color: kFigmaChildGoalCard),
+            ),
+            SizedBox(
+              height: 126 * scale,
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8 * scale),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Текущая цель',
+                      textAlign: TextAlign.center,
+                      style: _nunito(
+                        fontSize: 17 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 15 * scale),
-                  FractionallySizedBox(
-                    widthFactor: 294 / 333,
-                    child: _GoalProgressTrack(progress: progress),
-                  ),
-                  SizedBox(height: 15 * scale),
-                  Text(
-                    caption,
-                    textAlign: TextAlign.center,
-                    style: _nunito(
-                      fontSize: 13 * scale,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF515151),
+                    SizedBox(height: 11 * scale),
+                    FractionallySizedBox(
+                      widthFactor: 294 / 333,
+                      child: _GoalProgressTrack(
+                        progress: progress,
+                        scale: scale,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: 11 * scale),
+                    Text(
+                      caption,
+                      textAlign: TextAlign.center,
+                      style: _nunito(
+                        fontSize: 12 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF515151),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            Positioned.fill(child: _SoftCardHighlight(radius: r)),
           ],
         ),
       ),
@@ -1215,18 +1258,20 @@ class _DashboardGoalCard extends StatelessWidget {
 }
 
 class _GoalProgressTrack extends StatelessWidget {
-  const _GoalProgressTrack({required this.progress});
+  const _GoalProgressTrack({required this.progress, required this.scale});
 
   final double progress;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        const trackH = 27.0;
-        const thumbW = 30.0;
-        const thumbH = 28.0;
+        final trackH = 23 * scale;
+        final thumbW = 26 * scale;
+        final thumbH = 24 * scale;
+        final borderW = math.max(0.5, 0.5 * scale);
         final clamped = progress.clamp(0.0, 1.0);
         final thumbX = ((w - thumbW) * clamped)
             .clamp(0.0, math.max(0.0, w - thumbW))
@@ -1243,8 +1288,9 @@ class _GoalProgressTrack extends StatelessWidget {
                 height: trackH,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(19 * scale),
                   border: Border.all(
+                    width: borderW,
                     color: Colors.black.withValues(alpha: 0.31),
                   ),
                 ),
@@ -1257,16 +1303,16 @@ class _GoalProgressTrack extends StatelessWidget {
                   height: thumbH,
                   decoration: BoxDecoration(
                     color: kFigmaChildGoalThumb,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12 * scale),
                     border: Border.all(
-                      width: 0.5,
+                      width: borderW,
                       color: Colors.black.withValues(alpha: 0.31),
                     ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.14),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+                        blurRadius: 8 * scale,
+                        offset: Offset(0, 3 * scale),
                       ),
                     ],
                   ),
@@ -1291,89 +1337,73 @@ class _DashboardReverseTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final r = BorderRadius.circular(25 * scale);
+    final r = BorderRadius.circular(22 * scale);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: r,
         border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10 * scale,
-            offset: Offset(0, 10 * scale),
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 7 * scale,
+            offset: Offset(0, 5 * scale),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: r,
-        child: Stack(
-          children: [
-            const Positioned.fill(child: ColoredBox(color: Colors.white)),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                10 * scale,
-                20 * scale,
-                10 * scale,
-                20 * scale,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Обратная задача',
-                    style: _nunito(
-                      fontSize: 20 * scale,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                    ),
-                  ),
-                  SizedBox(height: 20 * scale),
-                  Text(
-                    'Поставь одну спец-цель с родителем. Собранное идет в цель.',
-                    style: _nunito(
-                      fontSize: 16 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                      height: 1.35,
-                    ),
-                  ),
-                  SizedBox(height: 20 * scale),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(28 * scale),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SoftButton(
-                          onTap: onCreate,
-                          label: 'Создать',
-                          bg: kFigmaChildStatMint,
-                          fg: Colors.black,
-                          height: 56 * scale,
-                          fontSize: 20 * scale,
-                          fontWeight: FontWeight.w700,
-                          boxShadow: kFigmaMintCtaGlow,
-                          border: Border.all(
-                            color: Colors.black.withValues(alpha: 0.08),
-                          ),
-                          labelStyle: _nunito(
-                            fontSize: 20 * scale,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        Positioned.fill(
-                          child: _SoftCardHighlight(
-                            radius: BorderRadius.circular(28 * scale),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+        child: ColoredBox(
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              8 * scale,
+              14 * scale,
+              8 * scale,
+              14 * scale,
             ),
-            Positioned.fill(child: _SoftCardHighlight(radius: r)),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Обратная задача',
+                  style: _nunito(
+                    fontSize: 17 * scale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 12 * scale),
+                Text(
+                  'Поставь одну спец-цель с родителем. Собранное идет в цель.',
+                  style: _nunito(
+                    fontSize: 14 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    height: 1.32,
+                  ),
+                ),
+                SizedBox(height: 12 * scale),
+                SoftButton(
+                  onTap: onCreate,
+                  label: 'Создать',
+                  bg: kFigmaChildStatMint,
+                  fg: Colors.black,
+                  height: 48 * scale,
+                  fontSize: 17 * scale,
+                  fontWeight: FontWeight.w700,
+                  boxShadow: _scaledMintCtaGlow(scale),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                  labelStyle: _nunito(
+                    fontSize: 17 * scale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

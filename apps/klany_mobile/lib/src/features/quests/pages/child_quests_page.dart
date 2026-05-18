@@ -388,6 +388,14 @@ class _ChildStatTile extends StatelessWidget {
   }
 }
 
+/// Календарный [ChildQuestAssignmentItem.dueAt] или дедлайн по лимиту времени с [ChildQuestAssignmentItem.createdAt].
+DateTime? _effectiveDueAtForChildItem(ChildQuestAssignmentItem q) {
+  if (q.dueAt != null) return q.dueAt;
+  final m = q.timeLimitMinutes;
+  if (m == null) return null;
+  return q.createdAt.add(Duration(minutes: m));
+}
+
 class _ChildQuestCard extends ConsumerStatefulWidget {
   const _ChildQuestCard({
     required this.item,
@@ -598,8 +606,9 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
   }
 
   String _daysLabel(ChildQuestAssignmentItem q) {
-    if (q.dueAt == null) return 'Без дедлайна';
-    final left = q.dueAt!.difference(DateTime.now()).inDays;
+    final at = _effectiveDueAtForChildItem(q);
+    if (at == null) return 'Без дедлайна';
+    final left = at.difference(DateTime.now()).inDays;
     if (left <= 0) return 'Срочно';
     final mod10 = left % 10;
     final mod100 = left % 100;
