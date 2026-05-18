@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
 import 'child_session.dart';
 
@@ -35,6 +36,7 @@ Future<void> uploadChildAvatarXFile(WidgetRef ref, XFile imageFile) async {
   if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
   final put = await http.put(Uri.parse(url), body: bytes);
+  ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
   if (put.statusCode < 200 || put.statusCode >= 300) {
     throw Exception('Загрузка файла: ${put.statusCode}');
   }
@@ -69,6 +71,7 @@ Future<void> uploadChildAvatarPngBytes(WidgetRef ref, Uint8List pngBytes) async 
   if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
   final put = await http.put(Uri.parse(url), body: pngBytes);
+  ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
   if (put.statusCode < 200 || put.statusCode >= 300) {
     throw Exception('Загрузка файла: ${put.statusCode}');
   }

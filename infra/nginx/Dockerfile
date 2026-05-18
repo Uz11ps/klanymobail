@@ -1,5 +1,6 @@
 FROM nginx:1.27-alpine
 
+COPY infra/nginx/00-map.conf /etc/nginx/conf.d/00-map.conf
 COPY infra/nginx/default.conf /etc/nginx/conf.d/default.conf
 # Static bundles are built locally when available. admin_web is intentionally
 # gitignored, so clean server checkouts must still produce a valid nginx image.

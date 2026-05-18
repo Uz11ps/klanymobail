@@ -122,6 +122,74 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _ParentPremiumAnalyticsSection extends ConsumerStatefulWidget {
+  const _ParentPremiumAnalyticsSection();
+
+  @override
+  ConsumerState<_ParentPremiumAnalyticsSection> createState() =>
+      _ParentPremiumAnalyticsSectionState();
+}
+
+class _ParentPremiumAnalyticsSectionState
+    extends ConsumerState<_ParentPremiumAnalyticsSection> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = ref
+        .read(parentAccessRepositoryProvider)
+        .getPremiumAnalytics(periodDays: 30);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _future,
+      builder: (context, analyticsSnap) {
+        final data = analyticsSnap.data;
+        if (analyticsSnap.hasError || data == null || data.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          children: [
+            _SCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionTitle('Premium-аналитика'),
+                  Text(
+                    'Дети: ${data['childrenCount'] ?? 0}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: kChildInk,
+                    ),
+                  ),
+                  Text(
+                    'Квесты: ${data['questsCompleted'] ?? 0}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: kChildInk,
+                    ),
+                  ),
+                  Text(
+                    'Транзакции: ${data['walletTxCount'] ?? 0}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: kChildInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ParentFamilySettingsPage extends ConsumerStatefulWidget {
@@ -1532,54 +1600,7 @@ class _ParentFamilySettingsPageState
                         const SizedBox(height: 12),
 
                         // ── Analytics ────────────────────────────────────────────────
-                        FutureBuilder<Map<String, dynamic>>(
-                          future: ref
-                              .read(parentAccessRepositoryProvider)
-                              .getPremiumAnalytics(periodDays: 30),
-                          builder: (context, analyticsSnap) {
-                            final data = analyticsSnap.data;
-                            if (analyticsSnap.hasError ||
-                                data == null ||
-                                data.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return Column(
-                              children: [
-                                _SCard(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const _SectionTitle('Premium-аналитика'),
-                                      Text(
-                                        'Дети: ${data['childrenCount'] ?? 0}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: kChildInk,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Квесты: ${data['questsCompleted'] ?? 0}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: kChildInk,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Транзакции: ${data['walletTxCount'] ?? 0}',
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: kChildInk,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            );
-                          },
-                        ),
+                        const _ParentPremiumAnalyticsSection(),
 
                         // ── Parents ──────────────────────────────────────────────────
                         if (parents.isNotEmpty) ...[

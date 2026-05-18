@@ -64,11 +64,41 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+typedef ApiUnauthorizedCallback = Future<void> Function();
+
 class ApiClient {
   ApiClient(this.baseUrl);
 
   final String baseUrl;
   static const Duration _timeout = Duration(seconds: 4);
+
+  /// Реакция на 401: разлогин и переход на лендинг. Ставится из корня приложения.
+  static ApiUnauthorizedCallback? onUnauthorized;
+
+  static bool _unauthorizedBusy = false;
+
+  /// Запросы вне ApiClient (presigned PUT и т.п.): при 401 — та же реакция.
+  static void notifyUnauthorizedFromStatusCode(int statusCode) {
+    if (statusCode == 401) {
+      _scheduleUnauthorized();
+    }
+  }
+
+  static void _scheduleUnauthorized() {
+    final cb = onUnauthorized;
+    if (cb == null || _unauthorizedBusy) return;
+    _unauthorizedBusy = true;
+    scheduleMicrotask(() async {
+      try {
+        await cb();
+      } catch (_) {
+      } finally {
+        Future<void>.delayed(const Duration(milliseconds: 400), () {
+          _unauthorizedBusy = false;
+        });
+      }
+    });
+  }
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final p = path.startsWith('/') ? path : '/$path';
@@ -179,6 +209,9 @@ class ApiClient {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       if (parsed is Map<String, dynamic>) return parsed;
       return <String, dynamic>{'data': parsed};
+    }
+    if (res.statusCode == 401) {
+      _scheduleUnauthorized();
     }
     throw ApiException(res.statusCode, parsed);
   }

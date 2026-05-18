@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/api_client.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
+import 'features/auth/auth_actions.dart';
 import 'features/home/child_soft_ui.dart';
 
 // Remove iOS bouncing scroll — use Android-style clamping everywhere.
@@ -15,11 +17,34 @@ class _AppScrollBehavior extends MaterialScrollBehavior {
       const ClampingScrollPhysics();
 }
 
-class App extends ConsumerWidget {
+class App extends ConsumerStatefulWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<App> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ApiClient.onUnauthorized = () async {
+        await ref.read(authActionsProvider).signOut();
+        ref.read(routerProvider).go('/auth');
+      };
+    });
+  }
+
+  @override
+  void dispose() {
+    ApiClient.onUnauthorized = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
@@ -64,4 +89,3 @@ class App extends ConsumerWidget {
     );
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
 import '../../core/storage_presign.dart';
 import 'parent_session.dart';
@@ -242,11 +243,16 @@ class ParentAccessRepository {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) return <String, dynamic>{};
-    return api.getJson(
-      '/parent/analytics',
-      accessToken: token,
-      query: <String, String>{'periodDays': periodDays.toString()},
-    );
+    try {
+      return await api.getJson(
+        '/parent/analytics',
+        accessToken: token,
+        query: <String, String>{'periodDays': periodDays.toString()},
+      );
+    } catch (_) {
+      // Опциональный блок UI (403 без роли parent/admin, сеть, таймаут).
+      return <String, dynamic>{};
+    }
   }
 
   Future<String> createParentInvite(String email) async {
@@ -367,6 +373,7 @@ class ParentAccessRepository {
     if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
     final put = await http.put(Uri.parse(url), body: bytes);
+    ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
     if (put.statusCode < 200 || put.statusCode >= 300) {
       throw Exception('Загрузка файла: ${put.statusCode}');
     }
@@ -402,6 +409,7 @@ class ParentAccessRepository {
     if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
 
     final put = await http.put(Uri.parse(url), body: pngBytes);
+    ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
     if (put.statusCode < 200 || put.statusCode >= 300) {
       throw Exception('Загрузка файла: ${put.statusCode}');
     }

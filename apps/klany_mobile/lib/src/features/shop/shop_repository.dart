@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
@@ -152,7 +153,11 @@ class ShopRepository {
       if (url.isNotEmpty) {
         // Presigned URL is signed with X-Amz-SignedHeaders=host only; omit
         // Content-Type so the signature stays valid (and web CORS preflight is simpler).
-        await http.put(Uri.parse(url), body: bytes);
+        final put = await http.put(Uri.parse(url), body: bytes);
+        ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
+        if (put.statusCode < 200 || put.statusCode >= 300) {
+          throw Exception('Загрузка файла: ${put.statusCode}');
+        }
         imageKey = key;
       }
     }
