@@ -1,7 +1,10 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
+# Долгие «тишины» при npm ci на слабом канале часто просто качка/registry; см. сборку с --progress=plain
+ENV NPM_CONFIG_FETCH_TIMEOUT=600000 NPM_CONFIG_FETCH_RETRIES=15 NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 FROM node:20-alpine AS build
 WORKDIR /app

@@ -264,6 +264,17 @@ class QuestsRepository {
     );
   }
 
+  Future<void> closeQuest({required String questId}) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.patchJson(
+      '/quests/$questId',
+      accessToken: token,
+      body: <String, dynamic>{'status': 'closed'},
+    );
+  }
+
   Future<void> deleteQuest(String questId) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken;

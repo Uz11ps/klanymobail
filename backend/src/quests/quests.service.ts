@@ -433,6 +433,23 @@ export class QuestsService {
     const shouldReassign =
       input.childIds !== undefined || input.distributionType !== undefined;
 
+    const trimmedStatus =
+      typeof input.status === "string" ? input.status.trim() : "";
+    const payReverseCompletion =
+      trimmedStatus === "closed" &&
+      quest.status === "active" &&
+      meta.distributionType === "reverse" &&
+      !!meta.reverseChildId;
+    const reversePayoutAmount = payReverseCompletion
+      ? Math.max(
+          0,
+          Math.trunc(
+            typeof next.reward === "number" ? (next.reward as number) : currentReward,
+          ),
+        )
+      : 0;
+    const reverseChildId = meta.reverseChildId ?? "";
+
     if (Object.keys(next).length === 0 && !shouldReassign) return { ok: true };
     await this.prisma.$transaction(async (tx) => {
       if (shouldReassign) {
@@ -453,6 +470,38 @@ export class QuestsService {
         await tx.questAssignee.updateMany({
           where: { questId },
           data: { rewardAmount: rewardForAssignees },
+        });
+      }
+
+      if (payReverseCompletion && reversePayoutAmount > 0 && reverseChildId) {
+        const childOwn = await tx.child.findFirst({
+          where: { id: reverseChildId, familyId },
+          select: { id: true },
+        });
+        if (!childOwn) {
+          throw new ForbiddenException("Ребёнок не из вашей семьи");
+        }
+        let wallet = await tx.wallet.findUnique({
+          where: { childId: reverseChildId },
+        });
+        if (!wallet) {
+          wallet = await tx.wallet.create({
+            data: { childId: reverseChildId, familyId, balance: 0 },
+          });
+        }
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: wallet.balance + reversePayoutAmount },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: reversePayoutAmount,
+            txType: "reverse_quest_completed",
+            note: `Обратная задача выполнена: ${quest.title}`.slice(0, 500),
+            reason: "quest_reward",
+            meta: { questId, reverse: true },
+          },
         });
       }
 

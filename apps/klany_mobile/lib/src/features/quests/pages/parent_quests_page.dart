@@ -1233,11 +1233,24 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
           _ => 'Разовая',
         };
 
+    String distributionSubtitle(ParentQuestItem q) => switch (
+          q.distributionType) {
+      'exchange' => 'Биржа',
+      'reverse' =>
+        'Спеццель от ребёнка • исполняете вы — затем закройте квест',
+      _ => 'Адресно',
+    };
+
     return FutureBuilder<List<ParentQuestItem>>(
       future: _future ??
           ref.read(questsRepositoryProvider).getParentQuests(widget.familyId),
       builder: (context, snapshot) {
         final list = snapshot.data ?? const <ParentQuestItem>[];
+        final shown = list
+            .where((q) => q.distributionType != 'reverse')
+            .toList();
+        final onlyReverseQueued = shown.isEmpty &&
+            list.any((q) => q.distributionType == 'reverse');
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -1248,18 +1261,21 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
             if (snapshot.hasError)
               Text('Ошибка: ${snapshot.error}',
                   style: const TextStyle(color: Colors.red)),
-            if (list.isEmpty &&
+            if (shown.isEmpty &&
                 snapshot.connectionState != ConnectionState.waiting)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
-                    'Нет задач',
-                    style: TextStyle(color: kChildInkMuted),
+                    onlyReverseQueued
+                        ? 'Задачи к вам от ребёнка — в колокольчике уведомлений «К вам от ребёнка»'
+                        : 'Нет задач',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kChildInkMuted),
                   ),
                 ),
               ),
-            ...list.asMap().entries.map(
+            ...shown.asMap().entries.map(
               (e) {
                 final q = e.value;
                 final colors = _reviewCardColors;
@@ -1317,7 +1333,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  '${typeLabel(q.questType)} • ${q.distributionType == 'exchange' ? 'Биржа' : q.distributionType == 'reverse' ? 'От ребёнка' : 'Адресно'}',
+                                  '${typeLabel(q.questType)} • ${distributionSubtitle(q)}',
                                   style: TextStyle(
                                     fontFamily: 'Nunito',
                                     fontSize: 13,
@@ -1375,12 +1391,12 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                         }
                       }
                     },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
                         value: 'edit',
                         child: Text('Редактировать'),
                       ),
-                      PopupMenuItem(
+                      const PopupMenuItem(
                         value: 'delete',
                         child: Text('Удалить'),
                       ),

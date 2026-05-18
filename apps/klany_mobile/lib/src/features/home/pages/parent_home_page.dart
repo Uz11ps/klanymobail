@@ -19,6 +19,7 @@ import '../../quests/quests_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
+import '../../notifications/pages/notifications_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'parent_family_settings_page.dart';
@@ -726,6 +727,9 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      // Иначе M3 добавляет свой drag-handle — визуально «двоится» с полоской в _ChildDetailsPanel.
+      showDragHandle: false,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) => DraggableScrollableSheet(
         initialChildSize: 0.72,
@@ -751,7 +755,19 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
     );
   }
 
-  Widget _dashboardHeader() {
+  int _bellBadgeCount() {
+    final reverse = _quests
+        .where(
+          (q) => q.status == 'active' && q.distributionType == 'reverse',
+        )
+        .length;
+    final unread = _notifications.where((n) => n.status != 'read').length;
+    final n = unread + reverse;
+    return n > 99 ? 99 : n;
+  }
+
+  Widget _dashboardHeader(BuildContext context) {
+    final bellBadge = _bellBadgeCount();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -768,6 +784,68 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
             ),
           ),
         ),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          elevation: 4,
+          shadowColor: Colors.black.withValues(alpha: 0.14),
+          child: Tooltip(
+            message:
+                'Уведомления: лента семьи и задачи от ребёнка к родителю',
+            waitDuration: const Duration(milliseconds: 500),
+            child: InkWell(
+            onTap: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => const NotificationsPage(),
+                ),
+              );
+            },
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  const Icon(Icons.notifications_none_rounded,
+                      color: kChildInk, size: 24),
+                  if (bellBadge > 0)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 17,
+                          minHeight: 17,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD83A3A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          bellBadge > 9 ? '9+' : '$bellBadge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          ),
+        ),
+        const SizedBox(width: 8),
         Material(
           color: Colors.white,
           shape: const CircleBorder(),
@@ -805,7 +883,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
     late final List<Widget> listChildren;
     if (_initialLoading && _family == null) {
       listChildren = [
-        _dashboardHeader(),
+        _dashboardHeader(context),
         const SizedBox(height: 25),
         const _SkeletonBlock(height: 80),
         const SizedBox(height: 10),
@@ -820,7 +898,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
           session.role == 'admin' &&
           session.familyId.trim().isEmpty;
       listChildren = [
-        _dashboardHeader(),
+        _dashboardHeader(context),
         const SizedBox(height: 25),
         if (isAdminNoFamily)
           _AdminNoFamilyCard(
@@ -837,7 +915,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
       final activeQuests = _quests.where((q) => q.status == 'active').toList();
       final totalCoins = _wallets.fold<int>(0, (s, w) => s + w.balance);
       listChildren = [
-        _dashboardHeader(),
+        _dashboardHeader(context),
         const SizedBox(height: 25),
         if (_refreshing) ...[
           const LinearProgressIndicator(
