@@ -146,6 +146,9 @@ const double kFigmaAuthSquareHeroMaxSidePx = 460;
 /// Скругление hero карточки (Figma 0-691): без тяжёлой «коробки».
 const double kFigmaAuthHeroCardRadius = 20;
 
+/// Ширина / высота блока карточки в макете (плейсхолдер при ошибке загрузки ассета).
+const double kFigmaAuthBleedHeroWidthOverHeight = 378 / 210;
+
 // Отступы формы под макет 0-1215
 const double kFigmaAuthHeroToFormGap = 20;
 const double kFigmaAuthLabelToFieldGap = 6;

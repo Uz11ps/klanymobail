@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'child_soft_ui.dart';
+import '../../core/app_snackbar.dart';
 
 /// Глобальный notifier — все UserAvatar пере-загружаются когда что-то меняется.
 final ValueNotifier<int> avatarVersion = ValueNotifier<int>(0);
@@ -166,7 +167,7 @@ Future<bool> showAvatarPicker({
                       if (p != null && ctx.mounted) {
                         Navigator.pop(ctx, 'file');
                       } else if (ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
+                        ctx.showKlanySnackBar(
                           const SnackBar(
                             content: Text('Не удалось выбрать фото'),
                           ),
@@ -174,7 +175,7 @@ Future<bool> showAvatarPicker({
                       }
                     } catch (e) {
                       if (ctx.mounted) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
+                        ctx.showKlanySnackBar(
                           SnackBar(content: Text('Ошибка загрузки: $e')),
                         );
                       }

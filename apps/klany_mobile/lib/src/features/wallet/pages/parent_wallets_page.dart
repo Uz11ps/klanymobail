@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 class ParentWalletsPage extends ConsumerStatefulWidget {
   const ParentWalletsPage({super.key});
@@ -190,7 +191,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage> {
                             await _loadWallets();
                           } catch (e) {
                             if (!dialogCtx.mounted) return;
-                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                            dialogCtx.showKlanySnackBar(
                               SnackBar(content: Text('Ошибка: $e')),
                             );
                           }

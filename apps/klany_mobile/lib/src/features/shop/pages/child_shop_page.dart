@@ -13,6 +13,7 @@ import '../../wallet/wallet_repository.dart';
 import '../../../core/api_client.dart';
 import '../shop_product_icon.dart';
 import '../shop_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 /// Те же заливки карточек, что у квестов/биржи ([Figma]).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -159,13 +160,13 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
     try {
       await ref.read(shopRepositoryProvider).requestPurchase(p.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Запрос отправлен, средства заморожены')),
       );
     } catch (e) {
       if (!mounted) return;
       final msg = e is ApiException ? e.message : '$e';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      context.showKlanySnackBar(SnackBar(content: Text(msg)));
     }
   }
 
@@ -326,7 +327,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
                                 ? () {
                                     if (balance < e.value.price) {
                                       if (!context.mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      context.showKlanySnackBar(
                                         SnackBar(
                                           content: Text(
                                             'Нужно ${e.value.price} монет, у вас $balance.',
@@ -339,7 +340,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
                                   }
                                 : () {
                                     if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    context.showKlanySnackBar(
                                       const SnackBar(
                                         content: Text(
                                           'Этот товар сейчас недоступен',

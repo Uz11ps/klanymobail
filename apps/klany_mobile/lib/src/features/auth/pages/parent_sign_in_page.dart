@@ -12,6 +12,7 @@ import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../phone_utils.dart';
+import '../../../core/app_snackbar.dart';
 
 // ─── APK-matching "СМЫСЛ" feature card ──────────────────────────────────────
 
@@ -143,7 +144,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   Future<void> _proceed() async {
     final err = validateParentLoginIdentifier(_email.text);
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      context.showKlanySnackBar(SnackBar(content: Text(err)));
       return;
     }
     setState(() => _step = 1);
@@ -190,18 +191,18 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
 
   Future<void> _submit() async {
     if (_password.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Введите пароль')),
       );
       return;
     }
     final loginErr = validateParentLoginIdentifier(_email.text);
     if (loginErr != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loginErr)));
+      context.showKlanySnackBar(SnackBar(content: Text(loginErr)));
       return;
     }
     if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы войти')),
       );
       return;
@@ -233,7 +234,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
         if (mounted) context.go('/parent');
       } catch (signUpError) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           SnackBar(content: Text('Ошибка: $signUpError')),
         );
       }
@@ -259,7 +260,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('Ошибка биометрии: $e')),
       );
     } finally {

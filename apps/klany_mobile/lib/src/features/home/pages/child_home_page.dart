@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 import '../../auth/child_self_avatar.dart';
 import '../../auth/child_session.dart';
@@ -418,18 +419,17 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
     final title = titleCtl.text.trim();
     final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
     if (title.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите название и сумму')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите название и сумму')),
+      );
       return;
     }
-    final msgr = ScaffoldMessenger.of(context);
     try {
       await ref
           .read(questsRepositoryProvider)
           .createReverseQuest(title: title, rewardAmount: amount);
       if (!mounted) return;
-      msgr.showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(
           content: Text('Цель «$title» на $amount монет отправлена родителю'),
         ),
@@ -437,12 +437,11 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       _load();
     } catch (e) {
       if (!mounted) return;
-      msgr.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
   Future<void> _avatarFlow(BuildContext origin) async {
-    final msgr = ScaffoldMessenger.of(origin);
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
 
@@ -561,7 +560,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       await AvatarStore.setIndex('child:${session.childId}', selected);
     } catch (e) {
       if (origin.mounted) {
-        msgr.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        origin.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     }
   }
@@ -1459,25 +1458,25 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     final confirm = confirmCtl.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('PIN должен состоять из 6 цифр')),
       );
       return;
     }
     if (pin != confirm) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('PIN-коды не совпадают')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('PIN-коды не совпадают')),
+      );
       return;
     }
 
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('PIN сохранён')));
+    context.showKlanySnackBar(
+      const SnackBar(content: Text('PIN сохранён')),
+    );
   }
 
   Future<void> _dropPin() async {
@@ -1506,9 +1505,9 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     await ChildPinStore.clear();
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('PIN удалён')));
+    context.showKlanySnackBar(
+      const SnackBar(content: Text('PIN удалён')),
+    );
   }
 
   @override

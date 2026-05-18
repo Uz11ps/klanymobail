@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
+import '../../../core/app_snackbar.dart';
 
 class RecoverAccessPage extends ConsumerStatefulWidget {
   const RecoverAccessPage({super.key});
@@ -25,23 +26,22 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   }
 
   Future<void> _submit() async {
-    final messenger = ScaffoldMessenger.of(context);
     final phone = _phone.text.trim();
     if (phone.isEmpty && _email.text.trim().isEmpty) return;
     if (!Env.hasApiConfig) {
-      messenger.showSnackBar(const SnackBar(content: Text('API не настроен')));
+      context.showKlanySnackBar(const SnackBar(content: Text('API не настроен')));
       return;
     }
     setState(() => _busy = true);
     try {
       await ref.read(authActionsProvider).requestRecovery(phone: phone);
       if (!mounted) return;
-      messenger.showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Запрос на восстановление отправлен')),
       );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

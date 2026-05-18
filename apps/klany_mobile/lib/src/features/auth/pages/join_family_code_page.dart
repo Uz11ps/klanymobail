@@ -7,6 +7,7 @@ import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
+import '../../../core/app_snackbar.dart';
 
 class JoinFamilyCodePage extends ConsumerStatefulWidget {
   const JoinFamilyCodePage({super.key, required this.role});
@@ -33,13 +34,13 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
     if (_busy) return;
     final code = _code.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Введите 6-значный код')),
       );
       return;
     }
     if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Заполните .env (API_BASE_URL)')),
       );
       return;
@@ -70,9 +71,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
       context.go('/child');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Не удалось войти: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Не удалось войти: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

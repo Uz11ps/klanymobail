@@ -6,6 +6,7 @@ import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
+import '../../../core/app_snackbar.dart';
 
 enum _AccessLookupType { familyId, parentEmail, parentPhone }
 
@@ -54,7 +55,7 @@ class _ChildRequestAccessPageState
     if (_lookupType == _AccessLookupType.familyId) {
       final value = _familyCode.text.trim().toUpperCase();
       if (value.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректный Family ID')),
         );
         return;
@@ -63,7 +64,7 @@ class _ChildRequestAccessPageState
     } else if (_lookupType == _AccessLookupType.parentEmail) {
       final value = _parentContact.text.trim().toLowerCase();
       if (!value.contains('@')) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректную почту родителя')),
         );
         return;
@@ -73,7 +74,7 @@ class _ChildRequestAccessPageState
       final value = _parentContact.text.trim();
       final digits = value.replaceAll(RegExp(r'\D'), '');
       if (digits.length < 10) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректный телефон родителя')),
         );
         return;
@@ -84,7 +85,7 @@ class _ChildRequestAccessPageState
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(
           content: Text('Заполните .env (API_BASE_URL) чтобы отправить заявку'),
         ),
@@ -110,7 +111,7 @@ class _ChildRequestAccessPageState
       context.go('/auth/child/wait?requestId=$requestId');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('Не удалось отправить заявку: $e')),
       );
     } finally {

@@ -7,6 +7,7 @@ import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../shop_repository.dart';
 import '../shop_product_icon.dart';
+import '../../../core/app_snackbar.dart';
 
 class ParentShopPage extends ConsumerStatefulWidget {
   const ParentShopPage({super.key});
@@ -124,9 +125,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
     final price = int.tryParse(priceCtl.text.trim());
     if (price == null || price <= 0) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Цена должна быть > 0')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Цена должна быть > 0')));
       return;
     }
     final storedDescription = composeShopProductDescription(
@@ -144,9 +143,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
         );
     if (!mounted) return;
     _reload();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Товар обновлён')));
+    context.showKlanySnackBar(const SnackBar(content: Text('Товар обновлён')));
   }
 
   Future<void> _deleteProduct(ShopProductItem p) async {
@@ -175,9 +172,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
     await ref.read(shopRepositoryProvider).deleteProduct(p.id);
     if (!mounted) return;
     _reload();
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Товар удалён')));
+    context.showKlanySnackBar(const SnackBar(content: Text('Товар удалён')));
   }
 
   Future<void> _showProductActions(ShopProductItem p) async {
@@ -222,9 +217,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
       await ref.read(shopRepositoryProvider).toggleProduct(p.id, !p.isActive);
       if (!mounted) return;
       _reload();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Статус товара обновлён')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Статус товара обновлён')));
     } else if (action == 'delete') {
       await _deleteProduct(p);
     }
@@ -488,9 +481,7 @@ class _ParentCreateProductFormState
   Future<void> _save() async {
     final price = int.tryParse(_price.text.trim());
     if (price == null || price <= 0 || _title.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите название и цену')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Введите название и цену')));
       return;
     }
 
@@ -510,9 +501,7 @@ class _ParentCreateProductFormState
             imageFile: _file,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Товар добавлен')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Товар добавлен')));
       _title.clear();
       _description.clear();
       _price.text = '100';
@@ -522,9 +511,7 @@ class _ParentCreateProductFormState
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка добавления: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка добавления: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -974,7 +961,7 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
                           .decidePurchase(p.id, approve);
                       if (mounted) await _reload();
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        context.showKlanySnackBar(
                           SnackBar(
                             content: Text(
                               approve

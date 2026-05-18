@@ -18,6 +18,7 @@ import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'document_page.dart';
 import 'tech_support_page.dart';
+import '../../../core/app_snackbar.dart';
 
 InputDecoration _settingsField(String hint, {Widget? prefixIcon}) {
   return InputDecoration(
@@ -229,9 +230,7 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final name = _memberName.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите имя участника')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Введите имя участника')));
       return;
     }
     setState(() => _busy = true);
@@ -240,16 +239,14 @@ class _ParentFamilySettingsPageState
           .read(parentAccessRepositoryProvider)
           .createFamilyMemberCode(memberType: _memberRole, displayName: name);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('Код для ${code.displayName}: ${code.code}')),
       );
       _memberName.clear();
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка создания кода: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка создания кода: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -259,9 +256,7 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final email = _inviteEmail.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите валидный email')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Введите валидный email')));
       return;
     }
     setState(() => _busy = true);
@@ -274,15 +269,13 @@ class _ParentFamilySettingsPageState
           'Токен: $token';
       await SharePlus.instance.share(ShareParams(text: text));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Инвайт создан и отправлен')),
       );
       _inviteEmail.clear();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка приглашения: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка приглашения: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -292,9 +285,7 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final parsed = int.tryParse(_goalAmount.text.trim());
     if (parsed == null || parsed <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите сумму цели')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Введите сумму цели')));
       return;
     }
     setState(() => _busy = true);
@@ -302,15 +293,11 @@ class _ParentFamilySettingsPageState
       await ref.read(parentAccessRepositoryProvider).setFamilyGoal(parsed);
       ref.invalidate(parentFamilyContextProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Цель обновлена')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Цель обновлена')));
       _goalAmount.clear();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -324,16 +311,12 @@ class _ParentFamilySettingsPageState
           .read(subscriptionRepositoryProvider)
           .activatePromo(_promoCode.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Промокод активирован')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Промокод активирован')));
       _promoCode.clear();
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка промокода: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка промокода: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -358,9 +341,7 @@ class _ParentFamilySettingsPageState
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка создания платежа: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка создания платежа: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -371,7 +352,6 @@ class _ParentFamilySettingsPageState
     FamilyMemberCodeItem code,
   ) async {
     if (_busy) return;
-    final messenger = ScaffoldMessenger.of(context);
     final pick = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -417,7 +397,7 @@ class _ParentFamilySettingsPageState
         if (mounted) setState(() {});
       } catch (e) {
         if (mounted)
-          messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+          context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -513,7 +493,7 @@ class _ParentFamilySettingsPageState
         if (mounted) setState(() {});
       } catch (e) {
         if (mounted)
-          messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+          context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -528,16 +508,14 @@ class _ParentFamilySettingsPageState
           .read(parentAccessRepositoryProvider)
           .revokeChildDevices(childId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Устройства ребёнка отключены')),
         );
         setState(() {});
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -549,16 +527,14 @@ class _ParentFamilySettingsPageState
     try {
       await ref.read(parentAccessRepositoryProvider).deactivateChild(childId);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Ребёнок деактивирован')));
+        context.showKlanySnackBar(
+          const SnackBar(content: Text('Ребёнок деактивирован')),
+        );
         setState(() {});
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -592,16 +568,14 @@ class _ParentFamilySettingsPageState
     try {
       await ref.read(parentAccessRepositoryProvider).deleteChild(childId);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Ребёнок удалён')));
+        context.showKlanySnackBar(
+          const SnackBar(content: Text('Ребёнок удалён')),
+        );
         setState(() {});
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -616,9 +590,7 @@ class _ParentFamilySettingsPageState
     );
     await OnboardingStore.setParentTourSeen();
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Обучение показано повторно')));
+    context.showKlanySnackBar(const SnackBar(content: Text('Обучение показано повторно')));
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────

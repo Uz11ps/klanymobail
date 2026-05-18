@@ -9,6 +9,7 @@ import '../../wallet/wallet_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 const Color _kEconomyTitleBlue = Color(0xFF4563B1);
 const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
@@ -155,8 +156,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
       await _loadWallets();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -1173,7 +1173,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
 
     final reward = int.tryParse(rewardCtl.text.trim());
     if (reward == null || reward < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Награда должна быть >= 0')),
       );
       return;
@@ -1182,13 +1182,13 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
         (int.tryParse(hoursCtl.text.trim()) ?? 0) * 60 +
         (int.tryParse(minutesCtl.text.trim()) ?? 0);
     if (hasTimeLimit && totalMinutes <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Укажите лимит времени больше 0')),
       );
       return;
     }
     if (distributionType == 'assigned' && selectedChildren.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Выберите хотя бы одного ребёнка')),
       );
       return;
@@ -1196,7 +1196,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
     if (type == 'recurring' &&
         scheduleType == 'custom_days' &&
         scheduleDays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Выберите хотя бы один день повторения')),
       );
       return;
@@ -1221,8 +1221,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
     );
     if (!mounted) return;
     _reload();
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Квест обновлён')));
+    context.showKlanySnackBar(const SnackBar(content: Text('Квест обновлён')));
   }
 
   @override
@@ -1385,7 +1384,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                               .deleteQuest(q.id);
                           if (!context.mounted) return;
                           _reload();
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          context.showKlanySnackBar(
                             const SnackBar(content: Text('Квест удалён')),
                           );
                         }
@@ -2075,10 +2074,9 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                     if (!(_formKey.currentState?.validate() ?? false)) {
                       return;
                     }
-                    final messenger = ScaffoldMessenger.of(context);
                     if (_distributionType == 'assigned' &&
                         _selectedChildren.isEmpty) {
-                      messenger.showSnackBar(
+                      context.showKlanySnackBar(
                         const SnackBar(
                           content: Text('Выберите хотя бы одного ребёнка'),
                         ),
@@ -2089,7 +2087,7 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                     final minutes = int.tryParse(_minutes.text.trim()) ?? 0;
                     final totalMinutes = hours * 60 + minutes;
                     if (_hasTimeLimit && totalMinutes <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      context.showKlanySnackBar(
                         const SnackBar(
                           content: Text('Укажите лимит времени больше 0'),
                         ),
@@ -2099,7 +2097,7 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                     if (_type == 'recurring' &&
                         _scheduleType == 'custom_days' &&
                         _scheduleDays.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      context.showKlanySnackBar(
                         const SnackBar(
                           content: Text('Выберите хотя бы один день повторения'),
                         ),
@@ -2128,8 +2126,8 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                                 ? _scheduleDays.toList()
                                 : const [],
                           );
-                      if (!mounted) return;
-                      messenger.showSnackBar(
+                      if (!context.mounted) return;
+                      context.showKlanySnackBar(
                         const SnackBar(content: Text('Квест создан')),
                       );
                       _title.clear();
@@ -2149,8 +2147,8 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
                         _scheduleType = 'none';
                       });
                     } catch (e) {
-                      if (!mounted) return;
-                      messenger.showSnackBar(
+                      if (!context.mounted) return;
+                      context.showKlanySnackBar(
                         SnackBar(content: Text('Ошибка создания: $e')),
                       );
                     } finally {
@@ -2256,7 +2254,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
             comment: comment,
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(
           content:
               Text(approve ? 'Задание подтверждено' : 'Задание отклонено'),
@@ -2264,8 +2262,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$e')));
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -33,9 +33,8 @@ ThemeData _build(ColorScheme colorScheme) {
       bodyColor: inkDark,
       displayColor: inkDark,
     ),
-    // Floating snackbars clash with tall custom bottomNavigationBar (parent/child
-    // pill bars): layout asserts on Web when the bar + safe area leave no room.
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.fixed),
+    // По умолчанию плавающие; точный нижний отступ — в [KlanySnackBarOnContext].
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     // Make Scaffold transparent so the global cloud background shows through.
     scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(

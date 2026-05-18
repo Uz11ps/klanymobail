@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/app_snackbar.dart';
 import '../../home/child_soft_ui.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
@@ -34,7 +35,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
   Future<void> _codeSignIn() async {
     final authCode = _authCode.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(authCode)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Введите 6-значный код участника')),
       );
       return;
@@ -46,7 +47,9 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
           .read(passwordlessChildRepositoryProvider)
           .signInWithAuthCode(authCode: authCode, device: device);
       if (!mounted) return;
-      await ref.read(childSessionProvider.notifier).activateFromApproval(
+      await ref
+          .read(childSessionProvider.notifier)
+          .activateFromApproval(
             childId: result.childId,
             familyId: result.familyId,
             childDisplayName: result.childDisplayName,
@@ -56,7 +59,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
       if (mounted) context.go('/child');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -98,120 +101,141 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      kFigmaAuthScreenPaddingH,
-                      kFigmaAuthScreenContentTop,
-                      kFigmaAuthScreenPaddingH,
-                      16,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Flexible(
-                          flex: 1,
-                          fit: FlexFit.loose,
-                          child: FigmaAuthHeroCarouselSlot(
-                            asset: 'assets/figma/hero_flag.png',
-                            fallbackColor: kBrandSky,
-                            dotCount: 3,
-                            activeDotIndex: 0,
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 6),
-                          child: Text('Ввод ключа', style: kFigmaAuthFieldLabelStyle),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            '6 цифр — персональный код от Главы Клана',
-                            style: TextStyle(
-                              fontFamily: 'Nunito',
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: kChildInkMuted,
-                              height: 1.3,
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: SingleChildScrollView(
+                      clipBehavior: Clip.none,
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: kFigmaAuthScreenContentTop,
+                              left: 10,
+                              right: 10,
+                            ),
+                            child: const FigmaAuthHeroCarouselSlot(
+                              asset: 'assets/figma/hero_flag.png',
+                              fallbackColor: kBrandSky,
+                              showDots: false,
+                              fullWidthBleedLanding: true,
                             ),
                           ),
-                        ),
-                        FigmaAuthInputShell(
-                          child: TextField(
-                            controller: _authCode,
-                            keyboardType: TextInputType.number,
-                            maxLength: 6,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(6),
-                            ],
-                            obscureText: _obscure,
-                            decoration: _authInput(
-                              '000000',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscure
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: kChildInkMuted,
+                          const SizedBox(height: kFigmaAuthHeroToFormGap),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: kFigmaAuthScreenPaddingH,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    'Ввод ключа',
+                                    style: kFigmaAuthFieldLabelStyle,
+                                  ),
                                 ),
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
-                              ),
-                            ).copyWith(counterText: ''),
-                            style: kFigmaAuthInputTextStyle.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 6,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (_busy)
-                          const SizedBox(
-                            height: kFigmaAuthPrimaryCtaHeight,
-                            child: Center(
-                              child: SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF1F4F1B),
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    '6 цифр — персональный код от Главы Клана',
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: kChildInkMuted,
+                                      height: 1.3,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                FigmaAuthInputShell(
+                                  child: TextField(
+                                    controller: _authCode,
+                                    keyboardType: TextInputType.number,
+                                    maxLength: 6,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(6),
+                                    ],
+                                    obscureText: _obscure,
+                                    decoration: _authInput(
+                                      '000000',
+                                      suffixIcon: IconButton(
+                                        icon: Icon(
+                                          _obscure
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
+                                          color: kChildInkMuted,
+                                        ),
+                                        onPressed: () => setState(
+                                          () => _obscure = !_obscure,
+                                        ),
+                                      ),
+                                    ).copyWith(counterText: ''),
+                                    style: kFigmaAuthInputTextStyle.copyWith(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 6,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                if (_busy)
+                                  const SizedBox(
+                                    height: kFigmaAuthPrimaryCtaHeight,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Color(0xFF1F4F1B),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  FigmaGradientButton(
+                                    label: 'Продолжить',
+                                    gradient: FigmaGradientButton
+                                        .mintGradientVertical,
+                                    height: kFigmaAuthPrimaryCtaHeight,
+                                    labelStyle: kFigmaLandingCtaTextStyle,
+                                    boxShadow: kFigmaLandingCtaBoxShadows,
+                                    textHeightBehavior:
+                                        const TextHeightBehavior(
+                                          applyHeightToFirstAscent: false,
+                                          applyHeightToLastDescent: false,
+                                        ),
+                                    onTap: _busy ? null : _codeSignIn,
+                                  ),
+                                const SizedBox(height: 12),
+                                Center(
+                                  child: TextButton(
+                                    onPressed: () {},
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: kChildBrandBlue,
+                                    ),
+                                    child: const Text(
+                                      'Забыли ключ?',
+                                      style: TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                        else
-                          FigmaGradientButton(
-                            label: 'Продолжить',
-                            gradient: FigmaGradientButton.mintGradientVertical,
-                            height: kFigmaAuthPrimaryCtaHeight,
-                            labelStyle: kFigmaLandingCtaTextStyle,
-                            boxShadow: kFigmaLandingCtaBoxShadows,
-                            textHeightBehavior: const TextHeightBehavior(
-                              applyHeightToFirstAscent: false,
-                              applyHeightToLastDescent: false,
-                            ),
-                            onTap: _busy ? null : _codeSignIn,
                           ),
-                        const SizedBox(height: 12),
-                        Center(
-                          child: TextButton(
-                            onPressed: () {},
-                            style: TextButton.styleFrom(
-                              foregroundColor: kChildBrandBlue,
-                            ),
-                            child: const Text(
-                              'Забыли ключ?',
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

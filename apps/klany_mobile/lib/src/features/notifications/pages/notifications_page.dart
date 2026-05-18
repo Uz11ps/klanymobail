@@ -5,6 +5,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
 import '../notifications_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -260,10 +261,20 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                   ),
                 ),
               if (reverseQuests.isNotEmpty) ...[
-                const _GroupTitle(
-                  'К вам от ребёнка',
-                  subtitle:
-                      'Ваши задачи — ребёнок попросил, исполняете вы. Не смешивается с задачами на ребёнка.',
+                const _GroupTitle('К вам от ребёнка'),
+                const Padding(
+                  padding: EdgeInsets.only(left: 4, right: 4, bottom: 14),
+                  child: Text(
+                    'Ваши задачи — ребёнок попросил, исполняете вы. Это '
+                    'не задачи для ребёнка.',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: kChildInkMuted,
+                      height: 1.38,
+                    ),
+                  ),
                 ),
                 ...reverseQuests.map(
                   (q) => Padding(
@@ -319,7 +330,7 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                               .closeQuest(questId: q.id);
                           if (!context.mounted) return;
                           _reload();
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          context.showKlanySnackBar(
                             const SnackBar(
                               content: Text(
                                 'Задача от ребёнка закрыта, монеты начислены '
@@ -329,7 +340,7 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                           );
                         } catch (e) {
                           if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          context.showKlanySnackBar(
                             SnackBar(content: Text('Ошибка: $e')),
                           );
                         }
@@ -635,40 +646,21 @@ class _ReverseQuestParentCard extends StatelessWidget {
 }
 
 class _GroupTitle extends StatelessWidget {
-  const _GroupTitle(this.text, {this.subtitle});
+  const _GroupTitle(this.text);
   final String text;
-  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 6, bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            text,
-            style: const TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: kChildInk,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              subtitle!,
-              style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: kChildInkMuted,
-                height: 1.38,
-              ),
-            ),
-          ],
-        ],
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Nunito',
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          color: kChildInk,
+        ),
       ),
     );
   }

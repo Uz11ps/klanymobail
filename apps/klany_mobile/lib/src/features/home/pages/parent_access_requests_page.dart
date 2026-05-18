@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../auth/parent_access_repository.dart';
 import '../child_soft_ui.dart';
+import '../../../core/app_snackbar.dart';
 
 class ParentAccessRequestsPage extends ConsumerStatefulWidget {
   const ParentAccessRequestsPage({super.key});
@@ -53,7 +54,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('Ошибка подтверждения: $e')),
       );
     } finally {
@@ -69,7 +70,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('Ошибка отклонения: $e')),
       );
     } finally {

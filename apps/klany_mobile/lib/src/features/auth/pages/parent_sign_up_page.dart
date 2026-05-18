@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/app_snackbar.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
@@ -37,19 +38,19 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
 
   Future<void> _submit() async {
     if (_name.text.trim().isEmpty || _phone.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Заполните имя и телефон')),
       );
       return;
     }
     if (_password.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Пароль минимум 6 символов')),
       );
       return;
     }
     if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(content: Text('Заполните .env (API_BASE_URL)')),
       );
       return;
@@ -66,7 +67,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
       context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         SnackBar(content: Text('$e')),
       );
     } finally {
@@ -185,15 +186,44 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                       16,
                     ),
                     children: [
-                      const FigmaAuthHeroCard(
-                        asset: 'assets/figma/hero_birzha.png',
-                        fallbackColor: kBrandLavender,
-                        landingSlideStyle: true,
-                      ),
-                      SizedBox(height: kFigmaLandingSlideToDotsGap),
-                      const FigmaAuthCarouselDots(
-                        count: 3,
-                        activeIndex: 0,
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final w = constraints.maxWidth;
+                          if (w <= 0) {
+                            return const SizedBox.shrink();
+                          }
+                          final screenH = MediaQuery.sizeOf(context).height;
+                          // В ListView высота не ограничена — задаём квадрат по ширине
+                          // колонки (как CTA), с мягким потолком по экрану.
+                          final side = math.min(
+                            w,
+                            (screenH * 0.52).clamp(220.0, 520.0),
+                          );
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: w,
+                                height: side,
+                                child: const FigmaAuthHeroCard(
+                                  asset:
+                                      'assets/figma/hero_birzha.png',
+                                  fallbackColor: kBrandLavender,
+                                  landingSlideStyle: true,
+                                  landingSlideBypassScreenCap: true,
+                                ),
+                              ),
+                              SizedBox(
+                                height: kFigmaLandingSlideToDotsGap,
+                              ),
+                              const FigmaAuthCarouselDots(
+                                count: 2,
+                                activeIndex: 0,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: kFigmaAuthHeroToFormGap),
                       const Padding(

@@ -10,6 +10,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
 import '../wallet_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 /// Зелёный / красный сумм в ленте — как в Figma (node 0:522).
 const _kTxGreen = Color(0xFF6FFF00);
@@ -465,7 +466,7 @@ class _WithdrawFigmaCard extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(62),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    context.showKlanySnackBar(
                       const SnackBar(
                         content: Text(
                           'Вывод средств скоро будет доступен',

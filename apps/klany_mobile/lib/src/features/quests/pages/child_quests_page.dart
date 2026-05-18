@@ -11,6 +11,7 @@ import '../../auth/child_session.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
+import '../../../core/app_snackbar.dart';
 
 /// Фон карточек по [Figma «Биржа задач» node 0:305+](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-285).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -578,13 +579,11 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
       if (!mounted) return;
       setState(() => _takenLocally = true);
       widget.onClaimedFromMarket?.call();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Квест взят в работу')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Квест взят в работу')));
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -609,13 +608,11 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
           );
       if (!mounted) return;
       setState(() => _submittedLocally = true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Отправлено на проверку')));
+      context.showKlanySnackBar(const SnackBar(content: Text('Отправлено на проверку')));
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
