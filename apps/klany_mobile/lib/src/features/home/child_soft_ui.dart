@@ -45,6 +45,53 @@ const Color kFigmaChildGoalThumb = Color(0xFFEACC56);
 const Color kFigmaChildBalancePill = Color(0xFFF2F7FF);
 const double kFigmaChildBottomBarMaxWidth = 311;
 
+/// Центральная колонка дашборда ребёнка и экрана задач ([Figma] 393 → колонка 353).
+/// На больших экранах раньше упирались в 560 px — на вебе это выглядело узкой полосой.
+double kFigmaChildDashboardContentWidth(double screenWidth) {
+  const designCol = 353.0;
+  if (screenWidth < 430) {
+    return math.min(designCol, math.max(0.0, screenWidth - 40));
+  }
+  if (screenWidth < 700) return math.min(screenWidth - 56, 430);
+  // Десктоп и Flutter web — без жёсткого max 920 px.
+  final side = math.max(24.0, screenWidth * 0.02);
+  return math.max(designCol, screenWidth - 2 * side);
+}
+
+/// Горизонтальные отступы так, чтобы колонка [contentWidth] была по центру (без `clamp(..., 400)`).
+double kFigmaChildDashboardHorizontalPadding(
+  double screenWidth,
+  double contentWidth,
+) => math.max(16.0, (screenWidth - contentWidth) / 2);
+
+/// Растровый экспорт той же графики, что и в [`profile_coin_stack.svg`].
+/// На вебе `flutter_svg` не раскладывает паттерн с встроенным PNG — без этого ассета иконки в пилюле нет.
+const String kFigmaProfileCoinStackPng = 'assets/figma/profile_coin_stack.png';
+
+/// Иконка стопки монет в пилюле баланса.
+class FigmaProfileCoinStack extends StatelessWidget {
+  const FigmaProfileCoinStack({
+    super.key,
+    required this.width,
+    required this.height,
+  });
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      kFigmaProfileCoinStackPng,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
+    );
+  }
+}
+
 /// Форма hero на auth: вертикальная иллюстрация PNG или квадрат 1:1 (регистрация).
 enum FigmaAuthHeroShape { portraitRaster, square }
 
@@ -1133,11 +1180,9 @@ class ChildBottomClanBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final bottomInset =
-        math.max(mq.viewPadding.bottom, mq.padding.bottom);
+    final bottomInset = math.max(mq.viewPadding.bottom, mq.padding.bottom);
     return SizedBox(
-      height:
-          capsuleHeight + capsuleSlotBottomPadding + bottomInset,
+      height: capsuleHeight + capsuleSlotBottomPadding + bottomInset,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           20,
@@ -1149,8 +1194,7 @@ class ChildBottomClanBar extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final navWidth =
-                  pillWidthForConstraints(constraints.maxWidth);
+              final navWidth = pillWidthForConstraints(constraints.maxWidth);
               return SizedBox(
                 width: navWidth,
                 height: capsuleHeight,

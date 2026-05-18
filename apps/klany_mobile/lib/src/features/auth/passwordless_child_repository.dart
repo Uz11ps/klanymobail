@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
 import 'device_identity.dart';
 
@@ -97,21 +100,32 @@ class PasswordlessChildRepository {
     final api = Sdk.apiOrNull;
     if (api == null) return null;
 
-    final data = await api.postJson(
-      '/child/restore-session',
-      body: <String, dynamic>{
-        'deviceId': device.deviceId,
-        'deviceKey': device.deviceKey,
-      },
-    );
+    try {
+      final data = await api.postJson(
+        '/child/restore-session',
+        body: <String, dynamic>{
+          'deviceId': device.deviceId,
+          'deviceKey': device.deviceKey,
+        },
+      );
 
-    return ChildRestoreSessionResult(
-      childId: (data['childId'] ?? '').toString(),
-      familyId: (data['familyId'] ?? '').toString(),
-      childDisplayName: (data['childDisplayName'] ?? '').toString(),
-      accessToken: (data['accessToken'] ?? '').toString(),
-      avatarObjectKey: data['avatarObjectKey']?.toString(),
-    );
+      return ChildRestoreSessionResult(
+        childId: (data['childId'] ?? '').toString(),
+        familyId: (data['familyId'] ?? '').toString(),
+        childDisplayName: (data['childDisplayName'] ?? '').toString(),
+        accessToken: (data['accessToken'] ?? '').toString(),
+        avatarObjectKey: data['avatarObjectKey']?.toString(),
+      );
+    } on TimeoutException {
+      // Важно: [Future.timeout] на вызывающей стороне не отменяет HTTP — иначе позже
+      // вылетает необработанный TimeoutException в зоне JS (Chrome).
+      return null;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) rethrow;
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<ChildRestoreSessionResult> signInWithPassword({

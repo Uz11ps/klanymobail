@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api_client.dart';
 import '../home/avatar_store.dart';
 import 'device_identity.dart';
 import 'passwordless_child_repository.dart';
@@ -115,34 +116,42 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
 
   Future<bool> validateStillActive() async {
     final device = await DeviceIdentityStore.getOrCreate();
-    final restored = await ref
-        .read(passwordlessChildRepositoryProvider)
-        .restoreSession(device);
-    if (restored == null) {
-      await clear();
-      return false;
-    }
+    try {
+      final restored = await ref
+          .read(passwordlessChildRepositoryProvider)
+          .restoreSession(device);
+      // null = нет API, таймаут или сеть — сохранённую сессию не сбрасываем.
+      if (restored == null) {
+        return true;
+      }
 
-    final current = state.asData?.value;
-    if (current == null || current.childId != restored.childId) {
-      await activateFromApproval(
-        childId: restored.childId,
-        familyId: restored.familyId,
-        childDisplayName: restored.childDisplayName,
-        accessToken: restored.accessToken,
-        avatarObjectKey: restored.avatarObjectKey,
-      );
-    } else if (current.avatarObjectKey != restored.avatarObjectKey ||
-        current.accessToken != restored.accessToken) {
-      await activateFromApproval(
-        childId: restored.childId,
-        familyId: restored.familyId,
-        childDisplayName: restored.childDisplayName,
-        accessToken: restored.accessToken,
-        avatarObjectKey: restored.avatarObjectKey,
-      );
+      final current = state.asData?.value;
+      if (current == null || current.childId != restored.childId) {
+        await activateFromApproval(
+          childId: restored.childId,
+          familyId: restored.familyId,
+          childDisplayName: restored.childDisplayName,
+          accessToken: restored.accessToken,
+          avatarObjectKey: restored.avatarObjectKey,
+        );
+      } else if (current.avatarObjectKey != restored.avatarObjectKey ||
+          current.accessToken != restored.accessToken) {
+        await activateFromApproval(
+          childId: restored.childId,
+          familyId: restored.familyId,
+          childDisplayName: restored.childDisplayName,
+          accessToken: restored.accessToken,
+          avatarObjectKey: restored.avatarObjectKey,
+        );
+      }
+      return true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await clear();
+        return false;
+      }
+      return true;
     }
-    return true;
   }
 
   Future<void> setAvatarObjectKey(String? key) async {

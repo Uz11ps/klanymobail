@@ -37,55 +37,54 @@ TextStyle _nunito({
   Color? color,
   double height = 1.0,
   double letterSpacing = 0,
-}) =>
-    GoogleFonts.nunito(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color ?? kChildInk,
-      height: height,
-      letterSpacing: letterSpacing,
-    );
+}) => GoogleFonts.nunito(
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color ?? kChildInk,
+  height: height,
+  letterSpacing: letterSpacing,
+);
 
 /// Цветные «облака» под плитками — без избыточной грязи (Flutter blur ≠ CSS).
 List<BoxShadow> _scaledMintStatShadows(double scale) => [
-      BoxShadow(
-        color: const Color.fromRGBO(222, 247, 203, 0.26),
-        blurRadius: 40 * scale,
-        offset: Offset(0, 16 * scale),
-      ),
-      BoxShadow(
-        color: const Color.fromRGBO(173, 211, 165, 0.22),
-        blurRadius: 16 * scale,
-        offset: Offset(0, 10 * scale),
-      ),
-    ];
+  BoxShadow(
+    color: const Color.fromRGBO(222, 247, 203, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(173, 211, 165, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
 
 List<BoxShadow> _scaledLavenderStatShadows(double scale) => [
-      BoxShadow(
-        color: const Color.fromRGBO(216, 203, 247, 0.26),
-        blurRadius: 40 * scale,
-        offset: Offset(0, 16 * scale),
-      ),
-      BoxShadow(
-        color: const Color.fromRGBO(179, 165, 211, 0.22),
-        blurRadius: 16 * scale,
-        offset: Offset(0, 10 * scale),
-      ),
-    ];
+  BoxShadow(
+    color: const Color.fromRGBO(216, 203, 247, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(179, 165, 211, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
 
 /// Figma CTA «Создать»: `0px_20px_50px rgba(230,247,217,0.35)`, `0px_13px_20px rgba(212,255,179,0.35)`.
 List<BoxShadow> _scaledMintCtaGlow(double scale) => [
-      BoxShadow(
-        color: const Color.fromRGBO(230, 247, 217, 0.35),
-        blurRadius: 50 * scale,
-        offset: Offset(0, 20 * scale),
-      ),
-      BoxShadow(
-        color: const Color.fromRGBO(212, 255, 179, 0.35),
-        blurRadius: 20 * scale,
-        offset: Offset(0, 13 * scale),
-      ),
-    ];
+  BoxShadow(
+    color: const Color.fromRGBO(230, 247, 217, 0.35),
+    blurRadius: 50 * scale,
+    offset: Offset(0, 20 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(212, 255, 179, 0.35),
+    blurRadius: 20 * scale,
+    offset: Offset(0, 13 * scale),
+  ),
+];
 
 Widget _dividerLine() {
   return LayoutBuilder(
@@ -177,7 +176,9 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
       }
       return;
     }
-    await ref.read(notificationsRepositoryProvider).registerDevice(
+    await ref
+        .read(notificationsRepositoryProvider)
+        .registerDevice(
           platform: platform,
           pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
               ? pushToken
@@ -243,7 +244,8 @@ class _ChildHomeDashboard extends ConsumerStatefulWidget {
   const _ChildHomeDashboard();
 
   @override
-  ConsumerState<_ChildHomeDashboard> createState() => _ChildHomeDashboardState();
+  ConsumerState<_ChildHomeDashboard> createState() =>
+      _ChildHomeDashboardState();
 }
 
 class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
@@ -251,16 +253,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
   bool _refreshing = false;
   Object? _loadError;
   _OverviewModel? _model;
-
-  /// Колонка макета Figma — 353 px при ширине фрейма 393.
-  static double _targetContentWidth(double screenWidth) {
-    const designCol = 353.0;
-    if (screenWidth < 430) {
-      return math.min(designCol, math.max(0.0, screenWidth - 40));
-    }
-    if (screenWidth < 700) return math.min(screenWidth - 56, 430);
-    return math.min(screenWidth * 0.56, 560);
-  }
 
   /// Чуть компактнее эталона Figma: меньший верхний предел scale на широких экранах.
   static double _layoutScale(double contentWidth) =>
@@ -273,10 +265,12 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
   }
 
   Future<_OverviewModel> _fetch(String childId) async {
-    final wallet =
-        await ref.read(walletRepositoryProvider).getChildWallet(childId);
-    final list =
-        await ref.read(questsRepositoryProvider).getChildAssignments(childId);
+    final wallet = await ref
+        .read(walletRepositoryProvider)
+        .getChildWallet(childId);
+    final list = await ref
+        .read(questsRepositoryProvider)
+        .getChildAssignments(childId);
     final active = list
         .where(
           (a) =>
@@ -424,9 +418,9 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
     final title = titleCtl.text.trim();
     final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
     if (title.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите название и сумму')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите название и сумму')));
       return;
     }
     final msgr = ScaffoldMessenger.of(context);
@@ -505,10 +499,10 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
                     itemCount: AvatarStore.totalAvatars,
                     itemBuilder: (_, i) {
                       final idx = i + 1;
@@ -562,8 +556,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
         ),
       );
       if (presetOk != true || !origin.mounted) return;
-      final bytes =
-          await rootBundle.load(AvatarStore.assetForIndex(selected));
+      final bytes = await rootBundle.load(AvatarStore.assetForIndex(selected));
       await uploadChildAvatarPngBytes(ref, bytes.buffer.asUint8List());
       await AvatarStore.setIndex('child:${session.childId}', selected);
     } catch (e) {
@@ -581,12 +574,12 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
     }
 
     final screenW = MediaQuery.sizeOf(context).width;
-    final cw = _targetContentWidth(screenW);
+    final cw = kFigmaChildDashboardContentWidth(screenW);
     final s = _layoutScale(cw);
-    final hPad = ((screenW - cw) / 2).clamp(16.0, 400.0).toDouble();
-    final gap = 14.0 * s;
-    final footerNavSpacerHeight =
-        ChildBottomClanBar.scrollBottomClearance(context) + 80 + 48 * s;
+    final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+
+    /// Как у [ChildQuestsPage]: не выдумываем отдельный «хвост» скролла.
+    final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
     final name = session.childDisplayName.trim().isEmpty
         ? 'Привет!'
         : session.childDisplayName;
@@ -595,12 +588,15 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
 
     if (_initialLoading && _model == null) {
       body = [
-        _DashboardHeader(
-          scale: s,
-          onReload: () => _load(),
-          onMenu: _openAccountSheet,
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _load(),
+            onMenu: _openAccountSheet,
+          ),
         ),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         SizedBox(
           height: math.max(320, MediaQuery.sizeOf(context).height * 0.35),
           child: Center(
@@ -613,12 +609,15 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       ];
     } else if (_model == null) {
       body = [
-        _DashboardHeader(
-          scale: s,
-          onReload: () => _load(),
-          onMenu: _openAccountSheet,
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _load(),
+            onMenu: _openAccountSheet,
+          ),
         ),
-        SizedBox(height: 20 * s),
+        const SizedBox(height: 20),
         Text(
           'Не удалось загрузить данные',
           textAlign: TextAlign.center,
@@ -657,20 +656,26 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       final m = _model!;
       final done = m.completedCount;
       body = [
-        _DashboardHeader(
-          scale: s,
-          onReload: () => _load(),
-          onMenu: _openAccountSheet,
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _load(),
+            onMenu: _openAccountSheet,
+          ),
         ),
         if (_refreshing) ...[
           const SizedBox(height: 8),
-          const LinearProgressIndicator(
-            color: kFigmaChildScreenBlue,
-            backgroundColor: kChildOutline,
+          SizedBox(
+            width: cw,
+            child: const LinearProgressIndicator(
+              color: kFigmaChildScreenBlue,
+              backgroundColor: kChildOutline,
+            ),
           ),
           const SizedBox(height: 8),
         ],
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         _DashboardProfileCard(
           scale: s,
           session: session,
@@ -680,9 +685,9 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
           formatInt: _formatBalance,
           onAvatar: () => _avatarFlow(context),
         ),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         _dividerLine(),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
@@ -695,7 +700,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
                 outerShadows: _scaledMintStatShadows(s),
               ),
             ),
-            SizedBox(width: 7 * s),
+            const SizedBox(width: 10),
             Expanded(
               child: _StatTile(
                 scale: s,
@@ -708,22 +713,19 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
             ),
           ],
         ),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         _dividerLine(),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         _DashboardGoalCard(
           scale: s,
           progress: m.goalProgress.clamp(0.0, 1.0),
           caption:
               '${_formatBalance(m.goalCurrent)} / ${_formatBalance(m.goalTarget)} монет',
         ),
-        SizedBox(height: gap),
+        const SizedBox(height: 20),
         _dividerLine(),
-        SizedBox(height: gap),
-        _DashboardReverseTaskCard(
-          scale: s,
-          onCreate: _reverseTaskFlow,
-        ),
+        const SizedBox(height: 20),
+        _DashboardReverseTaskCard(scale: s, onCreate: _reverseTaskFlow),
       ];
     }
 
@@ -746,17 +748,17 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
           ),
         ),
         Positioned.fill(
-          child: RefreshIndicator(
-            onRefresh: () => _load(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
+          child: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: () => _load(),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                padding: EdgeInsets.fromLTRB(hPad, 26, hPad, bottomPad),
+                children: body,
               ),
-              padding: EdgeInsets.fromLTRB(hPad, 26 * s, hPad, 12),
-              children: [
-                ...body,
-                SizedBox(height: footerNavSpacerHeight),
-              ],
             ),
           ),
         ),
@@ -889,36 +891,9 @@ class _RoundWhiteButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(r),
           onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.all(8 * scale),
-            child: child,
-          ),
+          child: Padding(padding: EdgeInsets.all(8 * scale), child: child),
         ),
       ),
-    );
-  }
-}
-
-/// Иконка монет в профиле: экспорт из Figma как PNG (`profile_coin_stack.png`).
-/// SVG из API — растровый паттерн внутри `<pattern>`; `flutter_svg` его не рисует.
-class _DashboardCoinImage extends StatelessWidget {
-  const _DashboardCoinImage({required this.scale});
-
-  final double scale;
-
-  static const String _asset = 'assets/figma/profile_coin_stack.png';
-
-  @override
-  Widget build(BuildContext context) {
-    final w = 18 * scale;
-    final h = 17 * scale;
-    return Image.asset(
-      _asset,
-      width: w,
-      height: h,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-      gaplessPlayback: true,
     );
   }
 }
@@ -979,8 +954,7 @@ class _DashboardProfileCard extends StatelessWidget {
                               size: size,
                               fallbackText: displayName.isEmpty
                                   ? '?'
-                                  : displayName.characters.first
-                                      .toUpperCase(),
+                                  : displayName.characters.first.toUpperCase(),
                             );
                           }
                           return FutureBuilder<String?>(
@@ -995,8 +969,7 @@ class _DashboardProfileCard extends StatelessWidget {
                               size: size,
                               fallbackText: displayName.isEmpty
                                   ? '?'
-                                  : displayName.characters.first
-                                      .toUpperCase(),
+                                  : displayName.characters.first.toUpperCase(),
                               remoteImageUrl: snap.data,
                             ),
                           );
@@ -1075,7 +1048,10 @@ class _DashboardProfileCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.start,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              _DashboardCoinImage(scale: scale),
+                              FigmaProfileCoinStack(
+                                width: 18 * scale,
+                                height: 17 * scale,
+                              ),
                               SizedBox(width: 6 * scale),
                               Text(
                                 formatInt(balance),
@@ -1116,6 +1092,7 @@ class _StatTile extends StatelessWidget {
   final String value;
   final Color background;
   final List<BoxShadow> outerShadows;
+
   /// Вертикальный padding колонки внутри плитки (мы используем компактные значения).
   final double verticalPaddingPx;
 
@@ -1208,9 +1185,7 @@ class _DashboardGoalCard extends StatelessWidget {
         borderRadius: r,
         child: Stack(
           children: [
-            Positioned.fill(
-              child: ColoredBox(color: kFigmaChildGoalCard),
-            ),
+            Positioned.fill(child: ColoredBox(color: kFigmaChildGoalCard)),
             SizedBox(
               height: 126 * scale,
               width: double.infinity,
@@ -1416,8 +1391,7 @@ class _ChildAccountSheet extends ConsumerStatefulWidget {
   final VoidCallback onSignOut;
 
   @override
-  ConsumerState<_ChildAccountSheet> createState() =>
-      _ChildAccountSheetState();
+  ConsumerState<_ChildAccountSheet> createState() => _ChildAccountSheetState();
 }
 
 class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
@@ -1492,18 +1466,18 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     }
     if (pin != confirm) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN-коды не совпадают')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PIN-коды не совпадают')));
       return;
     }
 
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN сохранён')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('PIN сохранён')));
   }
 
   Future<void> _dropPin() async {
@@ -1532,9 +1506,9 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     await ChildPinStore.clear();
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN удалён')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('PIN удалён')));
   }
 
   @override

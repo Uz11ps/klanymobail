@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -59,6 +60,14 @@ class ApiException implements Exception {
     if (lower.contains('minio') && lower.contains('настроен')) {
       return 'Хранилище файлов не настроено на сервере — аватары не загрузятся, пока не заданы ключи MinIO.';
     }
+    if (lower.contains('недостаточно') &&
+        (lower.contains('средств') || lower.contains('монет'))) {
+      return 'Не хватает монет на этом счёте.';
+    }
+    if (lower.contains('insufficient') &&
+        (lower.contains('fund') || lower.contains('balance'))) {
+      return 'Не хватает монет на этом счёте.';
+    }
     if (lower.contains('validation') || lower.contains('bad request')) {
       return raw.isEmpty ? 'Проверьте введённые данные.' : raw;
     }
@@ -78,7 +87,11 @@ class ApiClient {
   ApiClient(this.baseUrl);
 
   final String baseUrl;
-  static const Duration _timeout = Duration(seconds: 4);
+
+  /// Веб: preflight CORS + DevTools часто «едят» десятки секунд при холодном сервере.
+  /// Мобильное: чуть дольше 4 с на нестабильных сетях.
+  static Duration get _timeout =>
+      kIsWeb ? const Duration(seconds: 30) : const Duration(seconds: 20);
 
   /// Реакция на 401: разлогин и переход на лендинг. Ставится из корня приложения.
   static ApiUnauthorizedCallback? onUnauthorized;

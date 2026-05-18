@@ -342,8 +342,14 @@ class QuestsRepository {
     final api = Sdk.apiOrNull;
     final token = _childToken;
     if (api == null || token == null) return null;
-    final data = await api.getJson('/quests/child/reverse', accessToken: token);
-    return data['item'] as Map<String, dynamic>?;
+    try {
+      final data = await api.getJson('/quests/child/reverse', accessToken: token);
+      return data['item'] as Map<String, dynamic>?;
+    } on ApiException catch (e) {
+      // Старый backend без маршрута или прокси — как «квеста нет».
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   Future<void> submitQuestWithEvidence({

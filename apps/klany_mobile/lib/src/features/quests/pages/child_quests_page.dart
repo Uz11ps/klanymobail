@@ -1,17 +1,92 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../auth/child_session.dart';
-import '../../home/avatar_store.dart';
+import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
-import '../../wallet/pages/child_wallet_page.dart';
-import '../../wallet/wallet_repository.dart';
 import '../quests_repository.dart';
 
-const _cardColors = <Color>[kBrandMint, kBrandLavender, kBrandSky];
+/// Фон карточек по [Figma «Биржа задач» node 0:305+](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-285).
+const _kMintCard = Color(0xFFD9F6C2);
+const _kLavenderCard = Color(0xFFD8CBF7);
+const _kSkyCard = Color(0xFFC1DCF5);
+
+const _cardColors = <Color>[_kMintCard, _kLavenderCard, _kSkyCard];
+
+List<BoxShadow> _questCardOuterShadows(Color bg) {
+  if (bg == _kMintCard) {
+    return [
+      BoxShadow(
+        color: const Color.fromRGBO(222, 247, 203, 0.35),
+        blurRadius: 50,
+        offset: const Offset(0, 20),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(173, 211, 165, 0.35),
+        blurRadius: 20,
+        offset: const Offset(0, 13),
+      ),
+    ];
+  }
+  if (bg == _kLavenderCard) {
+    return [
+      BoxShadow(
+        color: const Color.fromRGBO(216, 203, 247, 0.35),
+        blurRadius: 50,
+        offset: const Offset(0, 20),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(179, 165, 211, 0.35),
+        blurRadius: 20,
+        offset: const Offset(0, 13),
+      ),
+    ];
+  }
+  return [
+    BoxShadow(
+      color: const Color.fromRGBO(193, 220, 255, 0.35),
+      blurRadius: 50,
+      offset: const Offset(0, 20),
+    ),
+    BoxShadow(
+      color: const Color.fromRGBO(191, 219, 255, 0.35),
+      blurRadius: 20,
+      offset: const Offset(0, 10),
+    ),
+  ];
+}
+
+Widget _questsDividerLine() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final w = math.min(
+        constraints.maxWidth,
+        constraints.maxWidth * (311 / 353),
+      );
+      return Center(
+        child: SizedBox(
+          width: w,
+          height: 1,
+          child: Image.asset(
+            'assets/figma/child_dashboard_divider.png',
+            fit: BoxFit.fill,
+            errorBuilder: (_, _, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ChildQuestsPage extends ConsumerStatefulWidget {
   const ChildQuestsPage({super.key});
@@ -63,324 +138,320 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final exchange = all
             .where((a) => a.distributionType == 'exchange')
             .toList();
-        final completed = all.where((a) => a.status == 'completed').length;
+        final completed = all
+            .where(
+              (a) =>
+                  a.status == 'completed' ||
+                  a.status == 'done' ||
+                  a.status == 'approved',
+            )
+            .length;
         final current = _tab == 0 ? personal : exchange;
 
-        return Container(
-          color: Colors.transparent,
-          child: SafeArea(
-            bottom: false,
-            child: RefreshIndicator(
-              onRefresh: _reload,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+        final screenW = MediaQuery.sizeOf(context).width;
+        final cw = kFigmaChildDashboardContentWidth(screenW);
+        final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+        final bottomPad =
+            ChildBottomClanBar.scrollBottomClearance(context) + 28;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/figma/child_dashboard_bg.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, _, _) =>
+                    ColoredBox(color: kBgCloud.withValues(alpha: 0.35)),
+              ),
+            ),
+            Positioned.fill(
+              child: ColoredBox(
+                color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
+              ),
+            ),
+            Positioned.fill(
+              child: SafeArea(
+                bottom: false,
+                child: RefreshIndicator(
+                  onRefresh: _reload,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(hPad, 26, hPad, bottomPad),
                     children: [
-                      Expanded(
-                        child: Text(
-                          _tab == 0 ? 'Мои задачи' : 'Биржа задач',
-                          style: const TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: kChildInk,
-                          ),
+                      SizedBox(
+                        width: cw,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.center,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 48,
+                              ),
+                              child: Text(
+                                _tab == 0 ? 'Мои задачи' : 'Биржа задач',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.black,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.06,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    customBorder: const CircleBorder(),
+                                    onTap: _reload,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: SvgPicture.asset(
+                                        'assets/figma/nav_refresh.svg',
+                                        width: 24,
+                                        height: 24,
+                                        colorFilter: const ColorFilter.mode(
+                                          Colors.black,
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        clipBehavior: Clip.antiAlias,
-                        elevation: 4,
-                        shadowColor: Colors.black.withValues(alpha: 0.12),
-                        child: InkWell(
-                          onTap: _reload,
-                          customBorder: const CircleBorder(),
-                          child: const SizedBox(
-                            width: 44,
-                            height: 44,
-                            child: Icon(
-                              Icons.refresh_rounded,
-                              color: kChildInk,
-                              size: 22,
+                      const SizedBox(height: 20),
+                      ChildDashboardProfileCard(completedCount: completed),
+                      const SizedBox(height: 20),
+                      _questsDividerLine(),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ChildStatTile(
+                              label: 'Мои задачи',
+                              count: personal.length,
+                              selected: _tab == 0,
+                              activeVariant: _StatTileVariant.mint,
+                              onTap: () => setState(() => _tab = 0),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _ChildStatTile(
+                              label: 'Биржа',
+                              count: exchange.length,
+                              selected: _tab == 1,
+                              activeVariant: _StatTileVariant.lavender,
+                              onTap: () => setState(() => _tab = 1),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                      if (snapshot.hasError)
+                        ChildSoftCard(child: Text('Ошибка: ${snapshot.error}')),
+                      if (!snapshot.hasError &&
+                          snapshot.connectionState != ConnectionState.waiting &&
+                          current.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: Center(
+                            child: Text(
+                              _tab == 0
+                                  ? 'Личных задач пока нет'
+                                  : 'На бирже пока нет доступных задач',
+                              style: const TextStyle(color: kChildInkMuted),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _ChildProfileCard(completedCount: completed),
-                  const SizedBox(height: 18),
-                  Container(height: 1, color: kChildOutline),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ChildStatTile(
-                          label: 'Мои задачи',
-                          count: personal.length,
-                          selected: _tab == 0,
-                          selectedColor: kBrandMint,
-                          onTap: () => setState(() => _tab = 0),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: _ChildStatTile(
-                          label: 'Биржа',
-                          count: exchange.length,
-                          selected: _tab == 1,
-                          selectedColor: kBrandLavender,
-                          onTap: () => setState(() => _tab = 1),
+                      ...current.asMap().entries.map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _ChildQuestCard(
+                            item: e.value,
+                            bg: _cardColors[e.key % _cardColors.length],
+                            isExchange: _tab == 1,
+                            onChanged: _reload,
+                            onClaimedFromMarket: () {
+                              if (mounted) setState(() => _tab = 0);
+                            },
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  if (snapshot.hasError)
-                    ChildSoftCard(child: Text('Ошибка: ${snapshot.error}')),
-                  if (!snapshot.hasError &&
-                      snapshot.connectionState != ConnectionState.waiting &&
-                      current.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Center(
-                        child: Text(
-                          _tab == 0
-                              ? 'Личных задач пока нет'
-                              : 'На бирже пока нет доступных задач',
-                          style: const TextStyle(color: kChildInkMuted),
-                        ),
-                      ),
-                    ),
-                  ...current.asMap().entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _ChildQuestCard(
-                        item: e.value,
-                        bg: _cardColors[e.key % _cardColors.length],
-                        isExchange: _tab == 1,
-                        onChanged: _reload,
-                        onClaimedFromMarket: () {
-                          if (mounted) setState(() => _tab = 0);
-                        },
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         );
       },
     );
   }
 }
 
-class _ChildProfileCard extends ConsumerWidget {
-  const _ChildProfileCard({required this.completedCount});
-  final int completedCount;
+enum _StatTileVariant { mint, lavender }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(childSessionProvider).asData?.value;
-    final name = session?.childDisplayName.trim().isNotEmpty == true
-        ? session!.childDisplayName.trim()
-        : 'Участник';
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final userKey = session != null
-        ? 'child:${session.childId}'
-        : 'child:guest';
+List<BoxShadow> _statTileMintShadows() => [
+  BoxShadow(
+    color: const Color.fromRGBO(222, 247, 203, 0.26),
+    blurRadius: 40,
+    offset: const Offset(0, 16),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(173, 211, 165, 0.22),
+    blurRadius: 16,
+    offset: const Offset(0, 10),
+  ),
+];
 
-    return FutureBuilder<WalletSummary?>(
-      future: session == null
-          ? Future.value(null)
-          : ref.read(walletRepositoryProvider).getChildWallet(session.childId),
-      builder: (context, walletSnap) {
-        final balance = walletSnap.data?.balance ?? 0;
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(24),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ChildWalletPage()),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  ClipOval(
-                    child: UserAvatar(
-                      userKey: userKey,
-                      size: 60,
-                      fallbackText: initial,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            color: kChildInk,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$completedCount ${_taskWord(completedCount)} выполнено',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: kChildInkMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF2F8),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const CoinStackIcon(size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                _formatBalance(balance),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  color: kChildBrandBlue,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  static String _formatBalance(int n) {
-    final s = n.toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
-
-  static String _taskWord(int n) {
-    final mod10 = n % 10;
-    final mod100 = n % 100;
-    if (mod10 == 1 && mod100 != 11) return 'задача';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
-      return 'задачи';
-    return 'задач';
-  }
-}
+List<BoxShadow> _statTileLavenderShadows() => [
+  BoxShadow(
+    color: const Color.fromRGBO(216, 203, 247, 0.26),
+    blurRadius: 40,
+    offset: const Offset(0, 16),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(179, 165, 211, 0.22),
+    blurRadius: 16,
+    offset: const Offset(0, 10),
+  ),
+];
 
 class _ChildStatTile extends StatelessWidget {
   const _ChildStatTile({
     required this.label,
     required this.count,
     required this.selected,
-    required this.selectedColor,
+    required this.activeVariant,
     required this.onTap,
   });
 
   final String label;
   final int count;
   final bool selected;
-  final Color selectedColor;
+  final _StatTileVariant activeVariant;
   final VoidCallback onTap;
+
+  Color _activeFill() {
+    switch (activeVariant) {
+      case _StatTileVariant.mint:
+        return kFigmaChildStatMint;
+      case _StatTileVariant.lavender:
+        return kFigmaChildStatLavender;
+    }
+  }
+
+  List<BoxShadow> _activeOuterShadows() {
+    switch (activeVariant) {
+      case _StatTileVariant.mint:
+        return _statTileMintShadows();
+      case _StatTileVariant.lavender:
+        return _statTileLavenderShadows();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? selectedColor : Colors.white;
-    final fg = selected ? const Color(0xFF000000) : kChildInkMuted;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          height: 130,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(24),
-            border: selected
-                ? null
-                : Border.all(color: kChildOutline, width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: selected ? 0.10 : 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+    const r = 25.0;
+    final borderRadius = BorderRadius.circular(r);
+    final surface = selected
+        ? _activeFill()
+        : Colors.white.withValues(alpha: 0.58);
+    final borderAlpha = selected ? 0.08 : 0.34;
+
+    return SizedBox(
+      height: 177,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              border: Border.all(
+                color: Colors.black.withValues(alpha: borderAlpha),
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? const Color(0xFF000000) : kChildInk,
+              boxShadow: selected ? _activeOuterShadows() : const [],
+            ),
+            child: ClipRRect(
+              borderRadius: borderRadius,
+              child: ColoredBox(
+                color: surface,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 28,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black.withValues(
+                            alpha: selected ? 1.0 : 0.55,
+                          ),
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        '$count',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.nunito(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black.withValues(
+                            alpha: selected ? 1.0 : 0.42,
+                          ),
+                          height: 1,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  color: fg,
-                  height: 1.0,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -394,6 +465,69 @@ DateTime? _effectiveDueAtForChildItem(ChildQuestAssignmentItem q) {
   final m = q.timeLimitMinutes;
   if (m == null) return null;
   return q.createdAt.add(Duration(minutes: m));
+}
+
+String _ruDayWord(int n) {
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod10 == 1 && mod100 != 11) return 'день';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
+  return 'дней';
+}
+
+String _ruHourWord(int n) {
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod10 == 1 && mod100 != 11) return 'час';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'часа';
+  return 'часов';
+}
+
+String _ruMinuteWord(int n) {
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod10 == 1 && mod100 != 11) return 'минута';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'минуты';
+  return 'минут';
+}
+
+String _ruSecondWord(int n) {
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod10 == 1 && mod100 != 11) return 'секунда';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
+    return 'секунды';
+  return 'секунд';
+}
+
+/// Остаток времени или «Просрочено на …» — без заглушки «Срочно» (она появлялась при `< 24 ч` из‑за `.inDays == 0`).
+String _childQuestDeadlineLine(DateTime? at) {
+  if (at == null) return 'Без дедлайна';
+  final diff = at.difference(DateTime.now());
+  if (diff.isNegative) {
+    return 'Просрочено на ${_formatPositiveDurationRu(-diff)}';
+  }
+  return 'Осталось ${_formatPositiveDurationRu(diff)}';
+}
+
+String _formatPositiveDurationRu(Duration d) {
+  if (d < const Duration(minutes: 1)) {
+    final s = d.inSeconds.clamp(0, 59);
+    return s <= 0 ? 'меньше минуты' : '$s ${_ruSecondWord(s)}';
+  }
+
+  final days = d.inDays;
+  var rest = d - Duration(days: days);
+  final hours = rest.inHours;
+  rest -= Duration(hours: hours);
+  final minutes = rest.inMinutes;
+
+  final parts = <String>[];
+  if (days > 0) parts.add('$days ${_ruDayWord(days)}');
+  if (hours > 0) parts.add('$hours ${_ruHourWord(hours)}');
+  if (minutes > 0) parts.add('$minutes ${_ruMinuteWord(minutes)}');
+  if (parts.isEmpty) return 'меньше минуты';
+  return parts.join(' ');
 }
 
 class _ChildQuestCard extends ConsumerStatefulWidget {
@@ -522,7 +656,9 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
     final photoLabel = widget.item.autoApprove
         ? 'Без фото-отчёта'
         : 'Фото-отчёт';
-    final days = _daysLabel(widget.item);
+    final deadlineLine = _childQuestDeadlineLine(
+      _effectiveDueAtForChildItem(widget.item),
+    );
     final btnLabel = () {
       if (_busy) return 'Подождите…';
       if (_effectiveStatus == 'overdue') return 'Просрочено';
@@ -540,61 +676,71 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
     }();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      padding: const EdgeInsets.fromLTRB(15, 15, 15, 20),
       decoration: BoxDecoration(
         color: widget.bg,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: _questCardOuterShadows(widget.bg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             widget.item.title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
+            style: GoogleFonts.nunito(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
               color: kChildInk,
               height: 1.15,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             '+$reward монет',
-            style: const TextStyle(
-              fontSize: 14,
+            style: GoogleFonts.nunito(
+              fontSize: 16,
               fontWeight: FontWeight.w700,
               color: kChildInk,
             ),
           ),
           Text(
             photoLabel,
-            style: const TextStyle(fontSize: 14, color: kChildInk),
+            style: GoogleFonts.nunito(fontSize: 16, color: kChildInk),
           ),
-          Text(days, style: const TextStyle(fontSize: 14, color: kChildInk)),
-          const SizedBox(height: 14),
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            elevation: 0,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(28),
-              onTap: (_busy || (!_canTake && !_canSubmit)) ? null : _openFlow,
-              child: Container(
-                height: 44,
-                alignment: Alignment.center,
-                child: Text(
-                  btnLabel,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: kChildInk,
+          Text(
+            deadlineLine,
+            style: GoogleFonts.nunito(fontSize: 16, color: kChildInk),
+          ),
+          const SizedBox(height: 16),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.07),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: (_busy || (!_canTake && !_canSubmit)) ? null : _openFlow,
+                child: SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: Text(
+                      btnLabel,
+                      style: GoogleFonts.nunito(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: kChildInk,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -603,23 +749,5 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
         ],
       ),
     );
-  }
-
-  String _daysLabel(ChildQuestAssignmentItem q) {
-    final at = _effectiveDueAtForChildItem(q);
-    if (at == null) return 'Без дедлайна';
-    final left = at.difference(DateTime.now()).inDays;
-    if (left <= 0) return 'Срочно';
-    final mod10 = left % 10;
-    final mod100 = left % 100;
-    String word;
-    if (mod10 == 1 && mod100 != 11) {
-      word = 'день';
-    } else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-      word = 'дня';
-    } else {
-      word = 'дней';
-    }
-    return '$left $word';
   }
 }
