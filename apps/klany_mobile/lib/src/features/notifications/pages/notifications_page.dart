@@ -135,54 +135,27 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
         }
         return Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: kChildInk),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            centerTitle: true,
-            title: const Text(
-              'Уведомления',
-              style: TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: kChildInk,
-              ),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Material(
-                  color: Colors.white,
-                  shape: const CircleBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: _reload,
-                    customBorder: const CircleBorder(),
-                    child: const SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Icon(
-                        Icons.refresh,
-                        color: kChildInk,
-                        size: 22,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          body: Stack(
+            fit: StackFit.expand,
             children: [
-              ChildSoftCard(
+              const FigmaAuthScreenBackground(),
+              SafeArea(
+                bottom: false,
+                child: Center(
+                  child: SizedBox(
+                    width: 390,
+                    child: ListView(
+                      physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(9, 31, 9, 32),
+                      children: [
+                        _NotificationsHeader(
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onRefresh: _reload,
+                        ),
+                        const SizedBox(height: 31),
+                        ChildSoftCard(
                 color: kChildSurfaceWhite,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.fromLTRB(10, 24, 10, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -190,43 +163,41 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                       'Лента семьи',
                       style: TextStyle(
                         fontFamily: 'Nunito',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
                         color: kChildInk,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     const Text(
-                      'Покупки, проверки задач, запросы — и задачи к вам от '
-                      'ребёнка: это не школьное задание малышу, а то, что дети '
-                      'просят сделать взрослого. Когда выполнили — закройте квест здесь.',
+                      'Здесь собраны покупки, задачи и важные изменения по семье.',
                       style: TextStyle(
                         fontFamily: 'Nunito',
-                        fontSize: 13,
-                        color: kChildInkMuted,
-                        height: 1.35,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: kChildInk,
+                        height: 1.18,
                       ),
                     ),
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
-                        vertical: 12,
+                        vertical: 14,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
+                        borderRadius: BorderRadius.circular(62),
                         border: Border.all(
-                          color: kChildOutline,
-                          width: 1.4,
+                          color: Colors.black.withValues(alpha: 0.22),
                         ),
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        'Всего: $totalItems',
+                        'Всего событий: $totalItems',
                         style: const TextStyle(
                           fontFamily: 'Nunito',
-                          fontSize: 14,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: kChildInk,
                         ),
@@ -235,7 +206,7 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+                        const SizedBox(height: 8),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Center(
                   child: Padding(
@@ -419,6 +390,11 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
                   ),
                 ),
               ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -451,6 +427,61 @@ class _NotificationsHubScreenState extends ConsumerState<_NotificationsHubScreen
       default:
         return 'В семье добавлена новая задача или покупка.';
     }
+  }
+}
+
+class _NotificationsHeader extends StatelessWidget {
+  const _NotificationsHeader({
+    required this.onBack,
+    required this.onRefresh,
+  });
+
+  final VoidCallback onBack;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
+          onPressed: onBack,
+        ),
+        const SizedBox(width: 6),
+        const Expanded(
+          child: Text(
+            'Уведомления',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: Colors.black,
+              height: 1.0,
+            ),
+          ),
+        ),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 3,
+          shadowColor: Colors.black.withValues(alpha: 0.18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onRefresh,
+            customBorder: const CircleBorder(),
+            child: const SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(Icons.refresh, color: Colors.black, size: 30),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -659,8 +690,8 @@ class _GroupTitle extends StatelessWidget {
         text,
         style: const TextStyle(
           fontFamily: 'Nunito',
-          fontSize: 22,
-          fontWeight: FontWeight.w900,
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
           color: kChildInk,
         ),
       ),
@@ -690,38 +721,39 @@ class _NotificationCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: ChildSoftCard(
         color: bg,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(15, 20, 15, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Icon(icon, color: kChildInk, size: 20),
-                const SizedBox(width: 8),
+                Icon(icon, color: kChildInk, size: 29),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     title,
                     style: const TextStyle(
                       fontFamily: 'Nunito',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                       color: kChildInk,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 14),
             Text(
               subtitle,
               style: const TextStyle(
                 fontFamily: 'Nunito',
-                fontSize: 13,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
                 color: kChildInk,
-                height: 1.35,
+                height: 1.18,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -731,22 +763,22 @@ class _NotificationCard extends StatelessWidget {
                       backgroundColor: Colors.white,
                       foregroundColor: kChildInk,
                       elevation: 4,
-                      minimumSize: const Size.fromHeight(40),
+                      minimumSize: const Size.fromHeight(44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(41),
                       ),
                     ),
                     child: const Text(
                       'Открыть',
                       style: TextStyle(
                         fontFamily: 'Nunito',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 17),
                 Expanded(
                   child: FilledButton(
                     onPressed: onMarkRead,
@@ -754,17 +786,17 @@ class _NotificationCard extends StatelessWidget {
                       backgroundColor: Colors.white,
                       foregroundColor: kChildInk,
                       elevation: 4,
-                      minimumSize: const Size.fromHeight(40),
+                      minimumSize: const Size.fromHeight(44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(41),
                       ),
                     ),
                     child: const Text(
                       'Прочитать',
                       style: TextStyle(
                         fontFamily: 'Nunito',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),

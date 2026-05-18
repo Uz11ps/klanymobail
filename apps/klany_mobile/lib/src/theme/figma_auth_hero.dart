@@ -10,9 +10,11 @@ import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-// HERO — квадрат в доступном слоте, максимум [kFigmaAuthHeroMaxSide] pt.
+// HERO — квадрат в слоте, макс. [kFigmaAuthHeroMaxSide].
 
-// Слот = [Expanded] между шапкой и формой/кнопками → без лишнего скролла.
+// Лендинг: [Expanded] между заголовком и кнопками.
+
+// Auth: hero забирает всё место над формой (форма не [Expanded]).
 
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -20,13 +22,13 @@ import 'package:flutter/material.dart';
 
 /// Максимальная сторона квадрата на любом экране.
 
-const double kFigmaAuthHeroMaxSide = 800;
+const double kFigmaAuthHeroMaxSide = 1024;
 
 
 
 /// Минимум на очень маленьком экране.
 
-const double kFigmaAuthHeroMinSide = 120;
+const double kFigmaAuthHeroMinSide = 300;
 
 
 
@@ -54,7 +56,7 @@ const double kFigmaAuthHeroFormPaddingH = 16;
 
 
 
-/// Отступ сверху секции hero (auth; на лендинге слот в [Expanded]).
+/// Отступ сверху секции hero.
 
 const double kFigmaAuthHeroSectionTop = 8;
 
@@ -130,8 +132,6 @@ double figmaAuthHeroSquareSide({
 
 
 
-/// Hero в [Expanded]: квадрат по высоте/ширине слота.
-
 class FigmaAuthHeroSection extends StatelessWidget {
 
   const FigmaAuthHeroSection({super.key, required this.child});
@@ -168,7 +168,7 @@ class FigmaAuthHeroSection extends StatelessWidget {
 
 
 
-/// Форма под hero: оставшаяся высота + скролл при нехватке места.
+/// Форма под hero: только своя высота; скролл если не влезает.
 
 class FigmaAuthFormSection extends StatelessWidget {
 
@@ -184,7 +184,9 @@ class FigmaAuthFormSection extends StatelessWidget {
 
   Widget build(BuildContext context) {
 
-    return Expanded(
+    return Flexible(
+
+      fit: FlexFit.loose,
 
       child: SingleChildScrollView(
 
@@ -208,7 +210,7 @@ class FigmaAuthFormSection extends StatelessWidget {
 
 
 
-/// Тело экрана: квадрат hero в [Expanded] + форма снизу.
+/// Hero [Expanded] на всю высоту над формой (как лендинг над кнопками).
 
 class FigmaAuthPageBody extends StatelessWidget {
 
@@ -273,8 +275,6 @@ class FigmaAuthPageBody extends StatelessWidget {
 const Color _kHeroDotColor = Color(0xFF000000);
 
 
-
-/// Точки под hero / каруселью.
 
 class FigmaAuthCarouselDots extends StatelessWidget {
 
@@ -342,8 +342,6 @@ class FigmaAuthCarouselDots extends StatelessWidget {
 
 
 
-/// Одна картинка hero (квадрат, без обрезки по умолчанию).
-
 class FigmaAuthHeroImage extends StatelessWidget {
 
   const FigmaAuthHeroImage({
@@ -356,7 +354,7 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
     this.fallbackColor = Colors.transparent,
 
-    this.fit = BoxFit.contain,
+    this.fit = BoxFit.cover,
 
     this.alignment = Alignment.center,
 
@@ -426,8 +424,6 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
 
 
-/// Один hero (auth: ребёнок / родитель).
-
 class FigmaAuthHero extends StatelessWidget {
 
   const FigmaAuthHero({
@@ -444,6 +440,8 @@ class FigmaAuthHero extends StatelessWidget {
 
     this.activeDotIndex = 0,
 
+    this.imageFit = BoxFit.cover,
+
   });
 
 
@@ -457,6 +455,8 @@ class FigmaAuthHero extends StatelessWidget {
   final int dotCount;
 
   final int activeDotIndex;
+
+  final BoxFit imageFit;
 
 
 
@@ -522,6 +522,8 @@ class FigmaAuthHero extends StatelessWidget {
 
                 fallbackColor: fallbackColor,
 
+                fit: imageFit,
+
               ),
 
             ),
@@ -564,8 +566,6 @@ class FigmaAuthHero extends StatelessWidget {
 
 
 
-/// Карусель hero (лендинг).
-
 class FigmaAuthHeroCarousel extends StatefulWidget {
 
   const FigmaAuthHeroCarousel({
@@ -580,6 +580,8 @@ class FigmaAuthHeroCarousel extends StatefulWidget {
 
     this.initialIndex = 0,
 
+    this.imageFit = BoxFit.contain,
+
   });
 
 
@@ -591,6 +593,8 @@ class FigmaAuthHeroCarousel extends StatefulWidget {
   final int autoAdvanceSeconds;
 
   final int initialIndex;
+
+  final BoxFit imageFit;
 
 
 
@@ -751,6 +755,8 @@ class _FigmaAuthHeroCarouselState extends State<FigmaAuthHeroCarousel> {
                     side: side,
 
                     fallbackColor: widget.fallbackColor,
+
+                    fit: widget.imageFit,
 
                   ),
 
