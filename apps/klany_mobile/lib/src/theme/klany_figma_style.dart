@@ -135,7 +135,7 @@ const double kFigmaRasterAspectRatio = 989 / 1200;
 // ─── Hero / формы (регистрация, не лендинг) ──────────────────────────────
 
 const double kFigmaAuthHeroMaxHeightFraction = 0.42;
-const double kFigmaAuthHeroMaxHeightPx = 340;
+const double kFigmaAuthHeroMaxHeightPx = kFigmaAuthHeroMaxHeight;
 
 const double kFigmaAuthScreenPaddingH = 16;
 

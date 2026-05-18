@@ -4,13 +4,25 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HERO (лендинг + auth) — меняй ТОЛЬКО константы ниже, все экраны сами.
+// HERO (лендинг + auth) — крути только 4 числа ниже (макет iPhone 17).
+// На других экранах ширина/высота картинки масштабируются сами.
 // ═══════════════════════════════════════════════════════════════════════════
-/// Ширина кадра в Figma (iPhone 17), логические pt — **390**.
-const double kFigmaAuthHeroRefFrameWidth = 325;
-/// Сторона квадрата hero на этом кадре (Figma Layout W = H) — **383**.
 
-const double kFigmaAuthHeroRefSidePx = 325;
+/// Ширина экрана в Figma (iPhone 17), pt.
+const double kFigmaAuthHeroScreenWidth = 390;
+
+/// Высота экрана в Figma (iPhone 17), pt.
+const double kFigmaAuthHeroScreenHeight = 844;
+
+/// Ширина картинки hero на этом экране, pt.
+const double kFigmaAuthHeroWidth = 340;
+
+/// Высота картинки hero на этом экране, pt.
+const double kFigmaAuthHeroHeight = 340;
+
+/// Потолок на любом экране — больше никогда.
+const double kFigmaAuthHeroMaxWidth = 340;
+const double kFigmaAuthHeroMaxHeight = 340;
 
 /// Скругление углов PNG.
 const double kFigmaAuthHeroCornerRadius = 20;
@@ -18,8 +30,9 @@ const double kFigmaAuthHeroCornerRadius = 20;
 /// Горизонтальный отступ вокруг hero (`Padding` на [Expanded]).
 const double kFigmaAuthHeroInsetH = 10;
 
-/// Минимальная сторона на очень узком экране.
-const double kFigmaAuthHeroMinSidePx = 120;
+/// Минимум ширины/высоты на очень узком экране.
+const double kFigmaAuthHeroMinWidth = 120;
+const double kFigmaAuthHeroMinHeight = 120;
 
 /// Зазор между hero и формой под ним.
 const double kFigmaAuthHeroBelowGap = 20;
@@ -40,36 +53,45 @@ const double kFigmaHeroDotsDiameter = 7;
 const double kFigmaHeroDotsBlockHeight =
     kFigmaHeroDotsGap + kFigmaHeroDotsDiameter;
 
-/// Сторона по **ширине слота** (как в Figma): refSide × (maxWidth / refFrame).
-double figmaAuthHeroWidthSide(double maxWidth) {
-  if (maxWidth < 8) return 0;
-  final nominal =
-      kFigmaAuthHeroRefSidePx * (maxWidth / kFigmaAuthHeroRefFrameWidth);
-  var side = math.min(nominal, maxWidth);
-  side = math.max(kFigmaAuthHeroMinSidePx, side);
-  return side < 8 ? 0 : side;
-}
-
-/// Вписать квадрат в слот с ограниченной высотой (карусель в [Expanded]).
-double figmaAuthHeroSlotSide({
-  required double maxWidth,
-  double? maxHeight,
+/// Размер hero в слоте: масштаб = ширина слота / [kFigmaAuthHeroScreenWidth].
+({double width, double height}) figmaAuthHeroSize(
+  double slotWidth, {
+  double? slotHeight,
   double reservedBelow = 0,
+  bool fitSlotHeight = false,
 }) {
-  var side = figmaAuthHeroWidthSide(maxWidth);
-  if (side < 8) return 0;
-  if (maxHeight != null && maxHeight.isFinite && maxHeight > 0) {
-    final cap = math.max(0.0, maxHeight - reservedBelow);
-    if (cap < side) {
-      side = math.max(kFigmaAuthHeroMinSidePx, math.min(side, cap));
+  if (slotWidth < 8) return (width: 0, height: 0);
+
+  final scale = slotWidth / kFigmaAuthHeroScreenWidth;
+  var w = kFigmaAuthHeroWidth * scale;
+  var h = kFigmaAuthHeroHeight * scale;
+
+  w = math.min(w, slotWidth);
+  w = math.max(kFigmaAuthHeroMinWidth, w);
+  h = math.max(kFigmaAuthHeroMinHeight, h);
+
+  if (fitSlotHeight &&
+      slotHeight != null &&
+      slotHeight.isFinite &&
+      slotHeight > 0) {
+    final cap = math.max(0.0, slotHeight - reservedBelow);
+    if (cap < h) {
+      final ratio = cap / h;
+      h = cap;
+      w = math.max(kFigmaAuthHeroMinWidth, w * ratio);
     }
   }
-  return side < 8 ? 0 : side;
+
+  w = math.min(w, kFigmaAuthHeroMaxWidth);
+  h = math.min(h, kFigmaAuthHeroMaxHeight);
+
+  if (w < 8 || h < 8) return (width: 0, height: 0);
+  return (width: w, height: h);
 }
 
 // ─── Общая вёрстка auth-экранов ───────────────────────────────────────────
 
-/// Hero **не** в [Expanded] — размер только по ширине ([figmaAuthHeroWidthSide]).
+/// Hero **не** в [Expanded] — размер по ширине слота ([figmaAuthHeroSize]).
 class FigmaAuthHeroSection extends StatelessWidget {
   const FigmaAuthHeroSection({super.key, required this.child});
 
@@ -180,14 +202,16 @@ class FigmaAuthHeroImage extends StatelessWidget {
   const FigmaAuthHeroImage({
     super.key,
     required this.asset,
-    required this.side,
+    required this.width,
+    required this.height,
     this.fallbackColor = Colors.transparent,
     this.fit = BoxFit.cover,
     this.alignment = Alignment.center,
   });
 
   final String asset;
-  final double side;
+  final double width;
+  final double height;
   final Color fallbackColor;
   final BoxFit fit;
   final Alignment alignment;
@@ -198,8 +222,8 @@ class FigmaAuthHeroImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(kFigmaAuthHeroCornerRadius),
       child: Image.asset(
         asset,
-        width: side,
-        height: side,
+        width: width,
+        height: height,
         fit: fit,
         alignment: alignment,
         filterQuality: FilterQuality.high,
@@ -254,14 +278,13 @@ class FigmaAuthHero extends StatelessWidget {
         }
 
         final reserved = showDots ? kFigmaHeroDotsBlockHeight : 0.0;
-        final side = constrainToSlotHeight
-            ? figmaAuthHeroSlotSide(
-                maxWidth: maxW,
-                maxHeight: maxH,
-                reservedBelow: reserved,
-              )
-            : figmaAuthHeroWidthSide(maxW);
-        if (side < 8) {
+        final size = figmaAuthHeroSize(
+          maxW,
+          slotHeight: maxH,
+          reservedBelow: reserved,
+          fitSlotHeight: constrainToSlotHeight,
+        );
+        if (size.width < 8 || size.height < 8) {
           return const SizedBox.shrink();
         }
 
@@ -272,7 +295,8 @@ class FigmaAuthHero extends StatelessWidget {
             Center(
               child: FigmaAuthHeroImage(
                 asset: asset,
-                side: side,
+                width: size.width,
+                height: size.height,
                 fallbackColor: fallbackColor,
                 alignment: Alignment.bottomCenter,
               ),
@@ -289,7 +313,7 @@ class FigmaAuthHero extends StatelessWidget {
 
         if (constrainToSlotHeight &&
             maxH != null &&
-            maxH > side + reserved + 8) {
+            maxH > size.height + reserved + 8) {
           return centerInSlot
               ? Center(child: column)
               : Align(alignment: Alignment.topCenter, child: column);
@@ -373,14 +397,13 @@ class _FigmaAuthHeroCarouselState extends State<FigmaAuthHeroCarousel> {
           return const SizedBox.shrink();
         }
 
-        final side = widget.constrainToSlotHeight
-            ? figmaAuthHeroSlotSide(
-                maxWidth: maxW,
-                maxHeight: maxH,
-                reservedBelow: kFigmaHeroDotsBlockHeight,
-              )
-            : figmaAuthHeroWidthSide(maxW);
-        if (side < 8) {
+        final size = figmaAuthHeroSize(
+          maxW,
+          slotHeight: maxH,
+          reservedBelow: kFigmaHeroDotsBlockHeight,
+          fitSlotHeight: widget.constrainToSlotHeight,
+        );
+        if (size.width < 8 || size.height < 8) {
           return const SizedBox.shrink();
         }
 
@@ -390,7 +413,7 @@ class _FigmaAuthHeroCarouselState extends State<FigmaAuthHeroCarousel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              height: side,
+              height: size.height,
               child: PageView.builder(
                 controller: _pageController,
                 padEnds: true,
@@ -400,7 +423,8 @@ class _FigmaAuthHeroCarouselState extends State<FigmaAuthHeroCarousel> {
                 itemBuilder: (_, i) => Center(
                   child: FigmaAuthHeroImage(
                     asset: widget.assets[i],
-                    side: side,
+                    width: size.width,
+                    height: size.height,
                     fallbackColor: widget.fallbackColor,
                     alignment: Alignment.bottomCenter,
                   ),
