@@ -69,6 +69,16 @@ export class ParentController {
     return this.parent.createFamilyMemberCode(req.user, body);
   }
 
+  @Patch("parent/member-codes/:id/avatar")
+  @Roles("parent", "admin")
+  async setMemberCodeAvatar(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { objectKey: string },
+  ) {
+    return this.parent.setMemberCodeAvatar(req.user, id, body?.objectKey ?? "");
+  }
+
   @Post("parent/member-codes/:id/regenerate")
   @Roles("parent", "admin")
   async regenerateMemberCode(@Req() req: any, @Param("id") id: string) {

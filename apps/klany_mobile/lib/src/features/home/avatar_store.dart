@@ -53,6 +53,13 @@ class AvatarStore {
     avatarVersion.value++;
   }
 
+  static Future<void> clearLocal(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('$_idxPrefix$key');
+    await prefs.remove('$_filePrefix$key');
+    avatarVersion.value++;
+  }
+
   static String assetForIndex(int index) => 'assets/figma/avatar_$index.png';
 }
 
@@ -108,6 +115,7 @@ Future<bool> showAvatarPicker({
           width: 320,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               GridView.builder(
                 shrinkWrap: true,
@@ -176,35 +184,21 @@ Future<bool> showAvatarPicker({
                   label: const Text('Загрузить из галереи'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kChildBrandBlue,
-                    minimumSize: const Size.fromHeight(46),
                     side: const BorderSide(
                       color: kChildBrandBlue,
                       width: 1.4,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              FigmaDialogActionStack(
+                onCancel: () => Navigator.pop(ctx, null),
+                onConfirm: () => Navigator.pop(ctx, 'preset'),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'preset'),
-            style: FilledButton.styleFrom(
-              backgroundColor: kBrandMint,
-              foregroundColor: const Color(0xFF1F4F1B),
-              elevation: 4,
-            ),
-            child: const Text('Сохранить'),
-          ),
-        ],
       ),
     ),
   );
@@ -227,10 +221,13 @@ class UserAvatar extends StatefulWidget {
     required this.userKey,
     required this.size,
     this.fallbackText,
+    this.remoteImageUrl,
   });
   final String userKey;
   final double size;
   final String? fallbackText;
+  /// Прямая или presigned HTTPS-ссылка на аватар с сервера (приоритетнее локального файла).
+  final String? remoteImageUrl;
 
   @override
   State<UserAvatar> createState() => _UserAvatarState();
@@ -283,6 +280,27 @@ class _UserAvatarState extends State<UserAvatar> {
 
   @override
   Widget build(BuildContext context) {
+    final remote = widget.remoteImageUrl;
+    if (remote != null && remote.isNotEmpty) {
+      return Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: const BoxDecoration(
+          color: Color(0xFFEFF2F8),
+          shape: BoxShape.circle,
+        ),
+        clipBehavior: Clip.antiAlias,
+        alignment: Alignment.center,
+        child: Image.network(
+          remote,
+          fit: BoxFit.cover,
+          width: widget.size,
+          height: widget.size,
+          errorBuilder: (_, _, _) => _localBody(),
+        ),
+      );
+    }
+
     return Container(
       width: widget.size,
       height: widget.size,
@@ -292,14 +310,19 @@ class _UserAvatarState extends State<UserAvatar> {
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: _filePath != null
-          ? Image.file(
-              File(_filePath!),
-              fit: BoxFit.cover,
-              errorBuilder: (_, e, s) => _assetImage(),
-            )
-          : _assetImage(),
+      child: _localBody(),
     );
+  }
+
+  Widget _localBody() {
+    if (_filePath != null) {
+      return Image.file(
+        File(_filePath!),
+        fit: BoxFit.cover,
+        errorBuilder: (_, e, s) => _assetImage(),
+      );
+    }
+    return _assetImage();
   }
 
   Widget _assetImage() {

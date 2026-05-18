@@ -14,3 +14,26 @@ String kidsPseudoEmailFromPhone(String rawPhone) {
   return '$local@${Env.kidsEmailDomain}';
 }
 
+int _digitsOnlyLength(String raw) => raw.replaceAll(RegExp(r'[^0-9]'), '').length;
+
+/// Вход / автосоздание главы: строка должна быть **либо** email с `@`, **либо** телефон (достаточно цифр).
+/// `null` — ок; иначе короткое сообщение для SnackBar.
+String? validateParentLoginIdentifier(String raw) {
+  final t = raw.trim();
+  if (t.isEmpty) {
+    return 'Введите email или номер телефона';
+  }
+  if (t.contains('@')) {
+    final ok = RegExp(
+      r'^[^@\s]+@[^\s@]+\.[^\s@]+$',
+    ).hasMatch(t);
+    if (!ok) {
+      return 'Введите email в формате user@example.com';
+    }
+    return null;
+  }
+  if (_digitsOnlyLength(t) < 10) {
+    return 'Введите корректный номер телефона или email с @';
+  }
+  return null;
+}

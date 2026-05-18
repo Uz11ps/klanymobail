@@ -31,9 +31,10 @@ class ChildWalletPage extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: kBgCloud,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: kBgCloud,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -246,15 +247,10 @@ class _WithdrawCard extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: kBrandSky,
               foregroundColor: kChildInk,
-              minimumSize: const Size.fromHeight(50),
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
+              textStyle: kFigmaLandingCtaTextStyle.copyWith(color: kChildInk),
             ),
             child: const Text(
               'Вывести',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
           ),
         ],

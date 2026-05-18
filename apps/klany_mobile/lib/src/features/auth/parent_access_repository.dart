@@ -1,6 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import 'parent_session.dart';
 
 class ParentFamilyContext {
@@ -50,11 +56,15 @@ class ChildMemberItem {
     required this.childId,
     required this.displayName,
     required this.isActive,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String childId;
   final String displayName;
   final bool isActive;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 class FamilyMemberCodeItem {
@@ -65,6 +75,8 @@ class FamilyMemberCodeItem {
     required this.displayName,
     required this.isActive,
     required this.createdAt,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String id;
@@ -73,6 +85,8 @@ class FamilyMemberCodeItem {
   final String displayName;
   final bool isActive;
   final DateTime createdAt;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 String familyMemberTypeLabel(String value) {
@@ -101,6 +115,8 @@ final parentFamilyContextProvider = FutureProvider<ParentFamilyContext?>((ref) a
 });
 
 class ParentAccessRepository {
+  static const _uuid = Uuid();
+
   ParentAccessRepository(this.ref);
   final Ref ref;
 
@@ -180,7 +196,7 @@ class ParentAccessRepository {
     return items.map((row) {
       return ParentMemberItem(
         userId: row['userId'].toString(),
-        displayName: (row['displayName'] ?? 'Без имени').toString(),
+        displayName: (row['displayName'] ?? 'Родитель').toString(),
         role: row['role'].toString(),
       );
     }).toList();
@@ -194,13 +210,25 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/children', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items.map((row) {
-      return ChildMemberItem(
-        childId: row['childId'].toString(),
-        displayName: (row['displayName'] ?? '').toString(),
-        isActive: row['isActive'] == true,
-      );
-    }).toList();
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: objectKey,
+              )
+            : null;
+        return ChildMemberItem(
+          childId: row['childId'].toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          isActive: row['isActive'] == true,
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<Map<String, dynamic>> getChildProfile(String childId) async {
@@ -287,16 +315,138 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/member-codes', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items.map((row) {
-      return FamilyMemberCodeItem(
-        id: (row['id'] ?? '').toString(),
-        role: (row['role'] ?? '').toString(),
-        code: (row['code'] ?? '').toString(),
-        displayName: (row['displayName'] ?? '').toString(),
-        isActive: row['isActive'] != false,
-        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
-      );
-    }).toList();
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: objectKey,
+              )
+            : null;
+        return FamilyMemberCodeItem(
+          id: (row['id'] ?? '').toString(),
+          role: (row['role'] ?? '').toString(),
+          code: (row['code'] ?? '').toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          isActive: row['isActive'] != false,
+          createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
+  }
+
+  /// Загружает фото в MinIO и сохраняет ключ в профиле ребёнка / взрослого по коду участника.
+  Future<void> uploadMemberCodeAvatar({
+    required String familyId,
+    required String memberCodeId,
+    required XFile imageFile,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('Не авторизован');
+
+    final Uint8List bytes = await imageFile.readAsBytes();
+    var ext = imageFile.path.split('.').last.toLowerCase();
+    if (ext.length > 5) ext = 'jpg';
+    final contentType =
+        ext == 'png' ? 'image/png' : ext == 'webp' ? 'image/webp' : 'image/jpeg';
+    final key =
+        'avatars/families/$familyId/members/$memberCodeId/${_uuid.v4()}.$ext';
+
+    final presign = await api.postJson(
+      '/storage/presign-upload',
+      accessToken: token,
+      body: <String, dynamic>{
+        'bucket': 'member-avatars',
+        'objectKey': key,
+      },
+    );
+    final url = presign['url']?.toString() ?? '';
+    if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
+
+    final put = await http.put(
+      Uri.parse(url),
+      headers: <String, String>{'Content-Type': contentType},
+      body: bytes,
+    );
+    if (put.statusCode < 200 || put.statusCode >= 300) {
+      throw Exception('Загрузка файла: ${put.statusCode}');
+    }
+
+    await api.patchJson(
+      '/parent/member-codes/$memberCodeId/avatar',
+      accessToken: token,
+      body: <String, dynamic>{'objectKey': key},
+    );
+  }
+
+  /// Пресет из assets: загружает PNG на сервер.
+  Future<void> uploadMemberCodeAvatarFromAsset({
+    required String familyId,
+    required String memberCodeId,
+    required Uint8List pngBytes,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('Не авторизован');
+
+    final key =
+        'avatars/families/$familyId/members/$memberCodeId/${_uuid.v4()}.png';
+    final presign = await api.postJson(
+      '/storage/presign-upload',
+      accessToken: token,
+      body: <String, dynamic>{
+        'bucket': 'member-avatars',
+        'objectKey': key,
+      },
+    );
+    final url = presign['url']?.toString() ?? '';
+    if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
+
+    final put = await http.put(
+      Uri.parse(url),
+      headers: const <String, String>{'Content-Type': 'image/png'},
+      body: pngBytes,
+    );
+    if (put.statusCode < 200 || put.statusCode >= 300) {
+      throw Exception('Загрузка файла: ${put.statusCode}');
+    }
+
+    await api.patchJson(
+      '/parent/member-codes/$memberCodeId/avatar',
+      accessToken: token,
+      body: <String, dynamic>{'objectKey': key},
+    );
+  }
+
+  Future<FamilyMemberCodeItem> _familyCodeItemFromResponse(
+    Map<String, dynamic> data,
+  ) async {
+    final token = _token;
+    final objectKey = data['avatarObjectKey']?.toString();
+    final avatarImageUrl =
+        (token != null && objectKey != null && objectKey.isNotEmpty)
+        ? await presignStorageDownload(
+            accessToken: token,
+            bucket: 'member-avatars',
+            objectKey: objectKey,
+          )
+        : null;
+    return FamilyMemberCodeItem(
+      id: (data['id'] ?? '').toString(),
+      role: (data['role'] ?? '').toString(),
+      code: (data['code'] ?? '').toString(),
+      displayName: (data['displayName'] ?? '').toString(),
+      isActive: data['isActive'] != false,
+      createdAt:
+          DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      avatarObjectKey: objectKey,
+      avatarImageUrl: avatarImageUrl,
+    );
   }
 
   Future<FamilyMemberCodeItem> createFamilyMemberCode({
@@ -316,29 +466,18 @@ class ParentAccessRepository {
         'displayName': displayName.trim(),
       },
     );
-    return FamilyMemberCodeItem(
-      id: (data['id'] ?? '').toString(),
-      role: (data['role'] ?? '').toString(),
-      code: (data['code'] ?? '').toString(),
-      displayName: (data['displayName'] ?? '').toString(),
-      isActive: data['isActive'] != false,
-      createdAt: DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
-    );
+    return _familyCodeItemFromResponse(data);
   }
 
   Future<FamilyMemberCodeItem> regenerateFamilyMemberCode(String codeId) async {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) throw Exception('API не настроен');
-    final data = await api.postJson('/parent/member-codes/$codeId/regenerate', accessToken: token);
-    return FamilyMemberCodeItem(
-      id: (data['id'] ?? '').toString(),
-      role: (data['role'] ?? '').toString(),
-      code: (data['code'] ?? '').toString(),
-      displayName: (data['displayName'] ?? '').toString(),
-      isActive: data['isActive'] != false,
-      createdAt: DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
+    final data = await api.postJson(
+      '/parent/member-codes/$codeId/regenerate',
+      accessToken: token,
     );
+    return _familyCodeItemFromResponse(data);
   }
 
   Future<void> deactivateFamilyMemberCode(String codeId) async {

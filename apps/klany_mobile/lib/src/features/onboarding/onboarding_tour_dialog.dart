@@ -1,6 +1,22 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../home/child_soft_ui.dart';
+
+/// Макет Figma «Мини-тур» (карточка ~0-1766): скругления, индикатор, кнопки, SVG.
+const _kTourCardRadius = 54.0;
+const _kTourPink = Color(0xFFFFD9D9);
+const _kTourBlue = Color(0xFFEFF6FF);
+const _kTourNavBtnRadius = 41.0;
+const List<BoxShadow> _kTourNavBtnShadow = [
+  BoxShadow(
+    color: Color(0x0F000000),
+    offset: Offset(0, 4),
+    blurRadius: 2,
+  ),
+];
 
 class TourStepData {
   const TourStepData({
@@ -35,6 +51,7 @@ class _OnboardingTourDialog extends StatefulWidget {
     required this.steps,
   });
 
+  /// Заголовок тура (на будущее / аналитика); на карточке показываются только шаги.
   final String title;
   final List<TourStepData> steps;
 
@@ -54,136 +71,173 @@ class _OnboardingTourDialogState extends State<_OnboardingTourDialog> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 36),
-      child: Container(
-        width: 280,
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Dots indicator
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(total, (i) {
-                final active = i == _stepIndex;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 22 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? const Color(0xFF555555)
-                        : const Color(0xFFCFCFCF),
-                    borderRadius: BorderRadius.circular(3),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(_kTourCardRadius),
+            boxShadow: [
+              ..._kTourNavBtnShadow,
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < total; i++) ...[
+                    if (i > 0) const SizedBox(width: 7),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      width: i == _stepIndex ? 28 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _stepIndex
+                            ? const Color(0xFF9C9C9C)
+                            : const Color(0xFFD9D9D9),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Шаг ${_stepIndex + 1} из $total',
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF9C9C9C),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                step.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                step.description,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                  color: kChildInkMuted,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _TourNavButton(
+                    background: _kTourPink,
+                    onTap: () {
+                      if (isFirst) {
+                        Navigator.of(context).pop();
+                      } else {
+                        setState(() => _stepIndex -= 1);
+                      }
+                    },
+                    child: isFirst
+                        ? SvgPicture.asset(
+                            'assets/figma/onboarding_sign_out.svg',
+                            width: 24,
+                            height: 24,
+                          )
+                        : Transform.rotate(
+                            angle: math.pi,
+                            child: SvgPicture.asset(
+                              'assets/figma/onboarding_chevron_right.svg',
+                              width: 24,
+                              height: 24,
+                            ),
+                          ),
                   ),
-                );
-              }),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Шаг ${_stepIndex + 1} из $total',
-              style: const TextStyle(
-                fontSize: 12,
-                color: kChildInkMuted,
+                  _TourNavButton(
+                    background: _kTourBlue,
+                    onTap: () {
+                      if (isLast) {
+                        Navigator.of(context).pop();
+                      } else {
+                        setState(() => _stepIndex += 1);
+                      }
+                    },
+                    child: isLast
+                        ? SvgPicture.asset(
+                            'assets/figma/onboarding_sign_out.svg',
+                            width: 24,
+                            height: 24,
+                          )
+                        : SvgPicture.asset(
+                            'assets/figma/onboarding_chevron_right.svg',
+                            width: 24,
+                            height: 24,
+                          ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              step.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: kChildInk,
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              step.description,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                color: kChildInkMuted,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 22),
-            // Nav row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _NavCircleBtn(
-                  icon: isFirst ? Icons.logout : Icons.chevron_left,
-                  exit: isFirst,
-                  onTap: () {
-                    if (isFirst) {
-                      Navigator.of(context).pop();
-                    } else {
-                      setState(() => _stepIndex -= 1);
-                    }
-                  },
-                ),
-                _NavCircleBtn(
-                  icon: isLast ? Icons.logout : Icons.chevron_right,
-                  exit: isLast,
-                  onTap: () {
-                    if (isLast) {
-                      Navigator.of(context).pop();
-                    } else {
-                      setState(() => _stepIndex += 1);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _NavCircleBtn extends StatelessWidget {
-  const _NavCircleBtn({
-    required this.icon,
-    required this.exit,
+class _TourNavButton extends StatelessWidget {
+  const _TourNavButton({
+    required this.background,
     required this.onTap,
+    required this.child,
   });
-  final IconData icon;
-  final bool exit;
+
+  final Color background;
   final VoidCallback onTap;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: exit
-          ? const Color(0xFFFFE0E0)
-          : const Color(0xFFE3ECF8),
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(
-            icon,
-            size: 22,
-            color: exit ? const Color(0xFFD83A3A) : kChildBrandBlue,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(_kTourNavBtnRadius),
+        boxShadow: _kTourNavBtnShadow,
+      ),
+      child: Material(
+        color: background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_kTourNavBtnRadius),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: child,
+            ),
           ),
         ),
       ),

@@ -36,9 +36,12 @@ export class ShopService {
 
   async listProducts(user: ParentUser | ChildUser) {
     const familyId = ensureFamilyId(user);
-    const where: any = { familyId };
-    if (user.role === "child") where.isActive = true;
-    const rows = await this.prisma.shopProduct.findMany({ where, orderBy: { createdAt: "desc" } });
+    // Same catalog for parents and children; purchase is still blocked for
+    // inactive items in requestPurchase().
+    const rows = await this.prisma.shopProduct.findMany({
+      where: { familyId },
+      orderBy: { createdAt: "desc" },
+    });
     return { items: rows };
   }
 

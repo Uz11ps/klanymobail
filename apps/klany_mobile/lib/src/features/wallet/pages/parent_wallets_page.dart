@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/parent_access_repository.dart';
+import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
 
 class ParentWalletsPage extends ConsumerWidget {
@@ -21,7 +22,20 @@ class ParentWalletsPage extends ConsumerWidget {
             final items = snapshot.data ?? const <ParentChildWalletItem>[];
             return CustomScrollView(
               slivers: [
-                const SliverAppBar(pinned: true, title: Text('Кошельки детей')),
+                const SliverAppBar(
+                  pinned: true,
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  title: Text(
+                    'Кошельки детей',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: kChildInk,
+                    ),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -72,12 +86,13 @@ class ParentWalletsPage extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
+            return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
               title: Text('Корректировка: ${item.displayName}'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
@@ -124,28 +139,23 @@ class ParentWalletsPage extends ConsumerWidget {
                     controller: noteController,
                     decoration: const InputDecoration(labelText: 'Комментарий'),
                   ),
+                  const SizedBox(height: 16),
+                  FigmaDialogActionStack(
+                    onCancel: () => Navigator.pop(context),
+                    onConfirm: () async {
+                      final raw = int.tryParse(amountController.text.trim());
+                      if (raw == null || raw <= 0) return;
+                      final amount = isAdding ? raw : -raw;
+                      await ref.read(walletRepositoryProvider).adjustWallet(
+                            childId: item.childId,
+                            amount: amount,
+                            note: noteController.text,
+                          );
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Отмена'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final raw = int.tryParse(amountController.text.trim());
-                    if (raw == null || raw <= 0) return;
-                    final amount = isAdding ? raw : -raw;
-                    await ref.read(walletRepositoryProvider).adjustWallet(
-                          childId: item.childId,
-                          amount: amount,
-                          note: noteController.text,
-                        );
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: const Text('Сохранить'),
-                ),
-              ],
             );
           },
         );

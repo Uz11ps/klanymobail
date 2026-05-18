@@ -57,7 +57,12 @@ export class WalletService {
     for (const child of children) {
       const wallet = await this.ensureWallet(child.id, familyId);
       const displayName = [child.firstName, child.lastName].filter(Boolean).join(" ").trim();
-      result.push({ childId: child.id, displayName, balance: wallet.balance });
+      result.push({
+        childId: child.id,
+        displayName,
+        balance: wallet.balance,
+        avatarObjectKey: child.avatarObjectKey ?? null,
+      });
     }
     return { items: result };
   }

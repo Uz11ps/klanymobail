@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth/parent_access_repository.dart';
+import '../child_soft_ui.dart';
 
 class ParentAccessRequestsPage extends ConsumerStatefulWidget {
   const ParentAccessRequestsPage({super.key});
@@ -126,12 +127,23 @@ class _PendingRequestsBody extends ConsumerWidget {
           slivers: [
             SliverAppBar(
               pinned: true,
-              title: const Text('Запросы на вход'),
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: kChildInk,
+              title: const Text(
+                'Запросы на вход',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
               actions: [
                 IconButton(
                   tooltip: 'Пригласить участника',
                   onPressed: onInviteShare,
-                  icon: const Icon(Icons.share),
+                  icon: const Icon(Icons.share, color: kChildInk),
                 ),
               ],
             ),

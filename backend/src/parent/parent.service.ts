@@ -130,6 +130,7 @@ export class ParentService {
         lastName: c.lastName,
         displayName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim(),
         isActive: c.isActive,
+        avatarObjectKey: c.avatarObjectKey ?? null,
       })),
     };
   }
@@ -140,15 +141,81 @@ export class ParentService {
       where: { familyId },
       orderBy: { createdAt: "desc" },
     });
+    const childIds = rows.map((r) => r.childId).filter(Boolean) as string[];
+    const userIds = rows.map((r) => r.userId).filter(Boolean) as string[];
+    const [children, profiles] = await Promise.all([
+      this.prisma.child.findMany({
+        where: { id: { in: childIds } },
+        select: { id: true, avatarObjectKey: true },
+      }),
+      this.prisma.profile.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, avatarObjectKey: true },
+      }),
+    ]);
+    const childMap = new Map(children.map((c) => [c.id, c.avatarObjectKey ?? null]));
+    const profileMap = new Map(profiles.map((p) => [p.userId, p.avatarObjectKey ?? null]));
+
     return {
       items: rows.map((row) => ({
         id: row.id,
         role: row.role,
         code: row.code,
         displayName: row.displayName,
+        isActive: row.isActive,
         createdAt: row.createdAt,
+        avatarObjectKey: row.childId
+          ? childMap.get(row.childId) ?? null
+          : row.userId
+            ? profileMap.get(row.userId) ?? null
+            : null,
       })),
     };
+  }
+
+  async setMemberCodeAvatar(user: ParentUser, codeIdRaw: string, objectKeyRaw: string) {
+    const row = await this.getFamilyMemberCodeOrThrow(user, codeIdRaw);
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const expectedPrefix = `avatars/families/${row.familyId}/members/${row.id}/`;
+    if (!key.startsWith(expectedPrefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    if (row.childId) {
+      await this.prisma.child.update({
+        where: { id: row.childId },
+        data: { avatarObjectKey: key },
+      });
+    } else if (row.userId) {
+      await this.prisma.profile.update({
+        where: { userId: row.userId },
+        data: { avatarObjectKey: key },
+      });
+    } else {
+      throw new BadRequestException("Код участника не привязан к профилю");
+    }
+    return { ok: true, avatarObjectKey: key };
+  }
+
+  private async avatarObjectKeyForMemberCode(mc: {
+    childId: string | null;
+    userId: string | null;
+  }): Promise<string | null> {
+    if (mc.childId) {
+      const c = await this.prisma.child.findUnique({
+        where: { id: mc.childId },
+        select: { avatarObjectKey: true },
+      });
+      return c?.avatarObjectKey ?? null;
+    }
+    if (mc.userId) {
+      const p = await this.prisma.profile.findUnique({
+        where: { userId: mc.userId },
+        select: { avatarObjectKey: true },
+      });
+      return p?.avatarObjectKey ?? null;
+    }
+    return null;
   }
 
   private async getFamilyMemberCodeOrThrow(user: ParentUser, idRaw: string) {
@@ -226,12 +293,19 @@ export class ParentService {
       return { memberCode };
     });
 
+    const avatarObjectKey = await this.avatarObjectKeyForMemberCode({
+      childId: result.memberCode.childId,
+      userId: result.memberCode.userId,
+    });
+
     return {
       id: result.memberCode.id,
       role: result.memberCode.role,
       code: result.memberCode.code,
       displayName: result.memberCode.displayName,
+      isActive: result.memberCode.isActive,
       createdAt: result.memberCode.createdAt,
+      avatarObjectKey,
     };
   }
 
@@ -253,12 +327,18 @@ export class ParentService {
       }
       return nextRow;
     });
+    const avatarObjectKey = await this.avatarObjectKeyForMemberCode({
+      childId: updated.childId,
+      userId: updated.userId,
+    });
     return {
       id: updated.id,
       role: updated.role,
       code: updated.code,
       displayName: updated.displayName,
+      isActive: updated.isActive,
       createdAt: updated.createdAt,
+      avatarObjectKey,
     };
   }
 
@@ -316,6 +396,7 @@ export class ParentService {
       childId: child.id,
       displayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
       isActive: child.isActive,
+      avatarObjectKey: child.avatarObjectKey ?? null,
       balance: wallet?.balance ?? 0,
       stats,
     };

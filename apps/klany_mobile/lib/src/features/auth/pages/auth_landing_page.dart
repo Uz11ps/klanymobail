@@ -7,7 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 
-/// Figma landing (node 0-602): carousel peek, gradient CTAs, bokeh background.
+/// Лендинг [0-602](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-602&m=dev): заголовок → карусель 1:1 → точки → [воздух] → CTA.
 class AuthLandingPage extends StatefulWidget {
   const AuthLandingPage({super.key});
 
@@ -16,15 +16,8 @@ class AuthLandingPage extends StatefulWidget {
 }
 
 class _AuthLandingPageState extends State<AuthLandingPage> {
-  static const _carouselViewport = 0.84;
-  static const _slideAspectRatio = 335 / 400;
-  static const _ctaHorizontalPadding = 16.0;
-  /// Figma frame: воздух сверху/снизу (в т.ч. на web, где safe area = 0).
-  static const _minTopInset = 36.0;
-  static const _minBottomInset = 44.0;
-
   late final PageController _pageController = PageController(
-    viewportFraction: _carouselViewport,
+    viewportFraction: 1,
   );
   int _slide = 0;
   Timer? _autoTimer;
@@ -32,13 +25,13 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
   @override
   void initState() {
     super.initState();
-    _autoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted || !_pageController.hasClients) return;
       final next = (_slide + 1) % _slides.length;
       _pageController.animateToPage(
         next,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOutCubic,
       );
     });
   }
@@ -58,105 +51,123 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final slideWidth = size.width * _carouselViewport;
-    final slideHeight = math.min(
-      slideWidth / _slideAspectRatio,
-      size.height * 0.48,
-    );
     final safe = MediaQuery.paddingOf(context);
-    final topInset = math.max(safe.top, _minTopInset);
-    final bottomInset = math.max(safe.bottom, _minBottomInset);
+    final topInset = math.max(safe.top, kFigmaLandingMinTopInset);
+    final bottomInset = math.max(safe.bottom, kFigmaLandingMinBottomInset);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F9FD),
+      backgroundColor: Colors.transparent,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const _LandingBackground(),
+          const FigmaAuthScreenBackground(),
           Padding(
             padding: EdgeInsets.only(top: topInset, bottom: bottomInset),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 6),
+                const SizedBox(height: kFigmaLandingTitleTopSpacer),
                 const Padding(
-                  padding: EdgeInsets.only(left: 24, right: 20),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: kFigmaLandingContentPaddingH,
+                  ),
                   child: Text(
                     'CLAN CAPITAL',
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF000000),
-                      letterSpacing: 0.4,
-                      height: 1.1,
+                    textAlign: TextAlign.start,
+                    style: kFigmaAuthLandingTitleStyle,
+                  ),
+                ),
+                const SizedBox(height: kFigmaLandingHeaderToCarouselGap),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: kFigmaLandingContentPaddingH,
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          const dotsBlock =
+                              kFigmaLandingSlideToDotsGap +
+                                  kFigmaLandingDotsDiameter;
+                          // Слот от [Expanded] уже отражает доступную высоту; квадрат — макс. вписанный в (ширина × высота слота).
+                          final maxSideBySlot = math.max(
+                            0.0,
+                            c.maxHeight - dotsBlock,
+                          );
+                          final side = math.min(c.maxWidth, maxSideBySlot);
+
+                          if (side < 8) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                height: side,
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  padEnds: true,
+                                  clipBehavior: Clip.none,
+                                  itemCount: _slides.length,
+                                  onPageChanged: (i) =>
+                                      setState(() => _slide = i),
+                                  itemBuilder: (_, i) {
+                                    return Center(
+                                      child: SizedBox(
+                                        width: side,
+                                        height: side,
+                                        child: _SlideCard(
+                                          asset: _slides[i],
+                                          borderRadius:
+                                              kFigmaLandingSlideRadius,
+                                          fit: BoxFit.contain,
+                                          alignment: Alignment.center,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                height: kFigmaLandingSlideToDotsGap,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(_slides.length, (i) {
+                                  final active = i == _slide;
+                                  return AnimatedContainer(
+                                    duration: const Duration(
+                                      milliseconds: 220,
+                                    ),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    width: active ? 7 : 5,
+                                    height: active ? 7 : 5,
+                                    decoration: BoxDecoration(
+                                      color: active
+                                          ? kFigmaAuthTitleBlack
+                                          : kFigmaAuthTitleBlack
+                                              .withValues(alpha: 0.22),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: slideHeight,
-                            child: PageView.builder(
-                              controller: _pageController,
-                              padEnds: true,
-                              clipBehavior: Clip.none,
-                              itemCount: _slides.length,
-                              onPageChanged: (i) => setState(() => _slide = i),
-                              itemBuilder: (_, i) {
-                                final distance =
-                                    (_slide - i).abs().toDouble();
-                                final scale =
-                                    (1 - distance * 0.05).clamp(0.95, 1.0);
-                                return AnimatedScale(
-                                  scale: scale,
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeOut,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 5,
-                                    ),
-                                    child: _SlideCard(asset: _slides[i]),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(_slides.length, (i) {
-                          final active = i == _slide;
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            margin: const EdgeInsets.symmetric(horizontal: 5),
-                            width: active ? 9 : 8,
-                            height: active ? 9 : 8,
-                            decoration: BoxDecoration(
-                              color: active
-                                  ? const Color(0xFF1E2A3D)
-                                  : const Color(0xFF1E2A3D)
-                                      .withValues(alpha: 0.18),
-                              shape: BoxShape.circle,
-                            ),
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 28),
+                SizedBox(height: kFigmaLandingDotsToButtonsGap),
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: _ctaHorizontalPadding,
+                    horizontal: kFigmaLandingContentPaddingH,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,13 +203,27 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
                       ],
                       FigmaGradientButton(
                         label: 'Я - Глава Клана',
-                        gradient: FigmaGradientButton.mintGradient,
+                        gradient: FigmaGradientButton.mintGradientVertical,
+                        height: kFigmaLandingCtaHeight,
+                        labelStyle: kFigmaLandingCtaTextStyle,
+                        boxShadow: kFigmaLandingCtaBoxShadows,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
                         onTap: () => context.go('/auth/parent/sign-in'),
                       ),
                       const SizedBox(height: 16),
                       FigmaGradientButton(
                         label: 'Я - Участник Клана',
-                        gradient: FigmaGradientButton.skyGradient,
+                        gradient: FigmaGradientButton.skyGradientVertical,
+                        height: kFigmaLandingCtaHeight,
+                        labelStyle: kFigmaLandingCtaTextStyle,
+                        boxShadow: kFigmaLandingCtaBoxShadows,
+                        textHeightBehavior: const TextHeightBehavior(
+                          applyHeightToFirstAscent: false,
+                          applyHeightToLastDescent: false,
+                        ),
                         onTap: () => context.go('/auth/child/sign-in'),
                       ),
                     ],
@@ -213,117 +238,37 @@ class _AuthLandingPageState extends State<AuthLandingPage> {
   }
 }
 
-class _LandingBackground extends StatelessWidget {
-  const _LandingBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFF8FCFF),
-            Color(0xFFEFF6FB),
-            Color(0xFFE6F0F8),
-          ],
-        ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/figma/cloud_bg.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            color: Colors.white.withValues(alpha: 0.55),
-            colorBlendMode: BlendMode.softLight,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          ),
-          const CustomPaint(painter: _BokehPainter()),
-        ],
-      ),
-    );
-  }
-}
-
-class _BokehPainter extends CustomPainter {
-  const _BokehPainter();
-
-  static const _spots = <_BokehSpot>[
-    _BokehSpot(0.12, 0.18, 42, 0.35),
-    _BokehSpot(0.78, 0.12, 56, 0.28),
-    _BokehSpot(0.88, 0.42, 34, 0.22),
-    _BokehSpot(0.08, 0.52, 28, 0.25),
-    _BokehSpot(0.62, 0.68, 48, 0.20),
-    _BokehSpot(0.32, 0.82, 38, 0.18),
-    _BokehSpot(0.92, 0.86, 24, 0.16),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final spot in _spots) {
-      final center = Offset(spot.x * size.width, spot.y * size.height);
-      final paint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: spot.opacity),
-            Colors.white.withValues(alpha: 0),
-          ],
-        ).createShader(
-          Rect.fromCircle(center: center, radius: spot.radius),
-        );
-      canvas.drawCircle(center, spot.radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BokehSpot {
-  const _BokehSpot(this.x, this.y, this.radius, this.opacity);
-  final double x;
-  final double y;
-  final double radius;
-  final double opacity;
-}
-
 class _SlideCard extends StatelessWidget {
-  const _SlideCard({required this.asset});
+  const _SlideCard({
+    required this.asset,
+    required this.borderRadius,
+    this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
+  });
+
   final String asset;
+  final double borderRadius;
+  final BoxFit fit;
+  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(34),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E2D52).withValues(alpha: 0.10),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(34),
-        child: Image.asset(
-          asset,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-          alignment: Alignment.center,
-          cacheWidth: 1200,
-          errorBuilder: (_, _, _) => ColoredBox(
-            color: kBrandMint,
-            child: Center(
-              child: Icon(
-                Icons.image_outlined,
-                size: 48,
-                color: kChildInk.withValues(alpha: 0.25),
-              ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: Image.asset(
+        asset,
+        fit: fit,
+        width: double.infinity,
+        height: double.infinity,
+        alignment: alignment,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => ColoredBox(
+          color: kBrandMint,
+          child: Center(
+            child: Icon(
+              Icons.image_outlined,
+              size: 48,
+              color: kChildInk.withValues(alpha: 0.25),
             ),
           ),
         ),

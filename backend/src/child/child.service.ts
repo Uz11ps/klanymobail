@@ -175,6 +175,7 @@ export class ChildService {
       childId: req.childId,
       familyId: req.familyId,
       childDisplayName,
+      avatarObjectKey: child?.avatarObjectKey ?? null,
     };
   }
 
@@ -212,7 +213,13 @@ export class ChildService {
     const child = await this.prisma.child.findUnique({ where: { id: session.childId } });
     const childDisplayName = child ? [child.firstName, child.lastName].filter(Boolean).join(" ").trim() : "";
 
-    return { accessToken, childId: session.childId, familyId: session.familyId, childDisplayName };
+    return {
+      accessToken,
+      childId: session.childId,
+      familyId: session.familyId,
+      childDisplayName,
+      avatarObjectKey: child?.avatarObjectKey ?? null,
+    };
   }
 
   async signInWithPassword(input: {
@@ -294,6 +301,7 @@ export class ChildService {
       familyId: child.familyId,
       childId: child.id,
       childDisplayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
+      avatarObjectKey: child.avatarObjectKey ?? null,
     };
   }
 
@@ -354,6 +362,7 @@ export class ChildService {
       familyId: child.familyId,
       childId: child.id,
       childDisplayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
+      avatarObjectKey: child.avatarObjectKey ?? null,
     };
   }
 
@@ -377,6 +386,21 @@ export class ChildService {
       }
     }
     throw new BadRequestException("Не удалось сгенерировать код входа");
+  }
+
+  async setMyAvatar(user: ChildUser, objectKeyRaw: string) {
+    if (user.role !== "child") throw new ForbiddenException("Недостаточно прав");
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const prefix = `avatars/families/${user.familyId}/children/${user.childId}/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    await this.prisma.child.update({
+      where: { id: user.childId },
+      data: { avatarObjectKey: key },
+    });
+    return { ok: true, avatarObjectKey: key };
   }
 }
 

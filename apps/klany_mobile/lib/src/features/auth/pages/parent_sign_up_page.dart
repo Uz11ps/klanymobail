@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,29 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
-
-InputDecoration _authInput(String hint, {Widget? suffixIcon}) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: kChildInkMuted, fontSize: 15),
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
-    ),
-    suffixIcon: suffixIcon,
-  );
-}
 
 class ParentSignUpPage extends ConsumerStatefulWidget {
   const ParentSignUpPage({super.key});
@@ -95,200 +74,311 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgCloud,
-      body: SafeArea(
-        child: ListView(
-          physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          children: [
-            const Center(
-              child: Text(
-                'CLAN CAPITAL',
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  color: kChildBrandBlue,
-                  letterSpacing: 2.0,
+  void _openAvatarSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kChildSurfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Text(
+                  'Выбор аватара',
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: kChildInk,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 28),
-            TextField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: _authInput('Имя участника'),
-              style: const TextStyle(fontSize: 15, color: kChildInk),
-            ),
-            const SizedBox(height: 16),
-            // Avatar picker
-            const Text(
-              'Выбор аватара',
-              style: TextStyle(
-                fontSize: 13,
-                color: kChildInkMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                ..._avatars.take(3).map((a) => Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedAvatar = a),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _avatars.map((a) {
+                  final sel = _selectedAvatar == a;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedAvatar = a);
+                      Navigator.pop(sheetCtx);
+                    },
                     child: Container(
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
                         color: kChildSurfaceWhite,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: _selectedAvatar == a
-                              ? kChildBrandBlue
-                              : kChildOutline,
-                          width: _selectedAvatar == a ? 2.2 : 1.4,
+                          color: sel ? kChildBrandBlue : kChildOutline,
+                          width: sel ? 2.4 : 1.4,
                         ),
+                        boxShadow: sel
+                            ? [
+                                BoxShadow(
+                                  color: kChildBrandBlue.withValues(alpha: 0.18),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : null,
                       ),
                       alignment: Alignment.center,
                       child: Text(a, style: const TextStyle(fontSize: 30)),
                     ),
-                  ),
-                )),
-                GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet<void>(
-                      context: context,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const FigmaAuthScreenBackground(),
+          Padding(
+            padding: EdgeInsets.only(
+              top: math.max(
+                MediaQuery.paddingOf(context).top,
+                kFigmaLandingMinTopInset,
+              ),
+              bottom: math.max(
+                MediaQuery.paddingOf(context).bottom,
+                kFigmaLandingMinBottomInset,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FigmaAuthDoubleDeckHeader(
+                  navTitle: 'Регистрация',
+                  onBack: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/auth/parent/sign-in');
+                    }
+                  },
+                ),
+                Expanded(
+                  child: ListView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      kFigmaAuthScreenPaddingH,
+                      kFigmaAuthScreenContentTop,
+                      kFigmaAuthScreenPaddingH,
+                      16,
+                    ),
+                    children: [
+                      const FigmaAuthHeroCard(
+                        asset: 'assets/figma/hero_birzha.png',
+                        fallbackColor: kBrandLavender,
+                        landingSlideStyle: true,
                       ),
-                      builder: (_) => SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: _avatars.map((a) => GestureDetector(
-                              onTap: () {
-                                setState(() => _selectedAvatar = a);
-                                Navigator.pop(context);
-                              },
-                              child: Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  color: kChildSurfaceWhite,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: _selectedAvatar == a
-                                        ? kChildBrandBlue
-                                        : kChildOutline,
-                                    width: _selectedAvatar == a ? 2.2 : 1.4,
+                      SizedBox(height: kFigmaLandingSlideToDotsGap),
+                      const FigmaAuthCarouselDots(
+                        count: 3,
+                        activeIndex: 0,
+                      ),
+                      const SizedBox(height: kFigmaAuthHeroToFormGap),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                        child: Text('Имя участника', style: kFigmaAuthFieldLabelStyle),
+                      ),
+                      FigmaAuthInputShell(
+                        child: TextField(
+                          controller: _name,
+                          textCapitalization: TextCapitalization.words,
+                          style: kFigmaAuthInputTextStyle,
+                          decoration:
+                              figmaAuthFieldDecoration('Как к тебе обращаться'),
+                        ),
+                      ),
+                      const SizedBox(height: kFigmaAuthFieldStackGap),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                        child: Text('Выбор аватара', style: kFigmaAuthFieldLabelStyle),
+                      ),
+                      Row(
+                        children: [
+                          ..._avatars.take(3).map((a) {
+                            final sel = _selectedAvatar == a;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: GestureDetector(
+                                onTap: () => setState(() => _selectedAvatar = a),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: kChildSurfaceWhite,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color:
+                                          sel ? kChildBrandBlue : kChildOutline,
+                                      width: sel ? 2.4 : 1.4,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.05),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
+                                  alignment: Alignment.center,
+                                  child:
+                                      Text(a, style: const TextStyle(fontSize: 30)),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(a, style: const TextStyle(fontSize: 30)),
                               ),
-                            )).toList(),
+                            );
+                          }),
+                          GestureDetector(
+                            onTap: _openAvatarSheet,
+                            child: Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: kChildSurfaceWhite,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: kChildOutline,
+                                  width: 1.4,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.add,
+                                color: kChildInkMuted,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: kFigmaAuthFieldStackGap),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                        child: Text('Телефон', style: kFigmaAuthFieldLabelStyle),
+                      ),
+                      FigmaAuthInputShell(
+                        child: TextField(
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          style: kFigmaAuthInputTextStyle,
+                          decoration:
+                              figmaAuthFieldDecoration('+7 (999) 000-00-00'),
+                        ),
+                      ),
+                      const SizedBox(height: kFigmaAuthFieldStackGap),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                        child: Text('Email', style: kFigmaAuthFieldLabelStyle),
+                      ),
+                      FigmaAuthInputShell(
+                        child: TextField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          style: kFigmaAuthInputTextStyle,
+                          decoration: figmaAuthFieldDecoration('email@gmail.com'),
+                        ),
+                      ),
+                      const SizedBox(height: kFigmaAuthFieldStackGap),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                        child: Text('Пароль', style: kFigmaAuthFieldLabelStyle),
+                      ),
+                      FigmaAuthInputShell(
+                        child: TextField(
+                          controller: _password,
+                          obscureText: _obscure,
+                          style: kFigmaAuthInputTextStyle,
+                          decoration: figmaAuthFieldDecoration(
+                            'Минимум 6 символов',
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: kChildInkMuted,
+                              ),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
+                            ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: kChildSurfaceWhite,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: kChildOutline, width: 1.4),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.add, color: kChildInkMuted, size: 28),
+                      const SizedBox(height: kFigmaAuthBeforePrimaryCtaGap),
+                      if (_busy)
+                        const SizedBox(
+                          height: kFigmaAuthPrimaryCtaHeight,
+                          child: Center(
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Color(0xFF1F4F1B),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        FigmaGradientButton(
+                          label: 'ПРИНЯТЬ В КЛАН',
+                          gradient: FigmaGradientButton.mintGradientVertical,
+                          height: kFigmaAuthPrimaryCtaHeight,
+                          labelStyle: kFigmaLandingCtaTextStyle,
+                          boxShadow: kFigmaLandingCtaBoxShadows,
+                          textHeightBehavior: const TextHeightBehavior(
+                            applyHeightToFirstAscent: false,
+                            applyHeightToLastDescent: false,
+                          ),
+                          onTap: _submit,
+                        ),
+                      const SizedBox(height: kFigmaAuthFieldStackGap),
+                      Center(
+                        child: TextButton(
+                          onPressed:
+                              _busy ? null : () => context.go('/auth/parent/sign-in'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: kChildBrandBlue,
+                          ),
+                          child: const Text(
+                            'Уже есть аккаунт? Войти',
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              decoration: TextDecoration.underline,
+                              decorationThickness: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: _authInput('Телефон'),
-              style: const TextStyle(fontSize: 15, color: kChildInk),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: _authInput('Email (для веб-админки)'),
-              style: const TextStyle(fontSize: 15, color: kChildInk),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: _obscure,
-              decoration: _authInput(
-                'Пароль',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: kChildInkMuted,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ),
-              style: const TextStyle(fontSize: 15, color: kChildInk),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _busy ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: kBrandMint,
-                  foregroundColor: const Color(0xFF000000),
-                  minimumSize: const Size.fromHeight(56),
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF1F4F1B),
-                        ),
-                      )
-                    : const Text(
-                        'ПРИНЯТЬ В КЛАН',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: _busy ? null : () => context.go('/auth/parent/sign-in'),
-                style: TextButton.styleFrom(foregroundColor: kChildBrandBlue),
-                child: const Text(
-                  'Все участники (0)',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

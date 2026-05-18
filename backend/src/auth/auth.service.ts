@@ -53,7 +53,9 @@ export class AuthService {
     const providedPhone = normalizePhone(input.phone ?? "");
     const providedEmail = normalizeEmail(input.email ?? input.recoveryEmail ?? "");
     const email = providedEmail || (providedPhone ? phoneToPseudoEmail(providedPhone) : "");
-    if (!email.includes("@")) throw new BadRequestException("Укажите телефон или email");
+    if (!email.includes("@")) {
+      throw new BadRequestException("Нужен email в формате user@example.com или номер телефона (10+ цифр)");
+    }
     if ((input.password ?? "").length < 6) throw new BadRequestException("Пароль: минимум 6 символов");
 
     const existing = await this.prisma.user.findUnique({ where: { email } });

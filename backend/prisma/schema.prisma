@@ -98,6 +98,7 @@ model Profile {
   familyId    String?   @db.Uuid
   role        ProfileRole @default(parent)
   displayName String?
+  avatarObjectKey String?
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
 
   user        User      @relation(fields: [userId], references: [id])
@@ -112,6 +113,7 @@ model Child {
   familyId    String   @db.Uuid
   firstName   String
   lastName    String?
+  avatarObjectKey String?
   phone       String?
   email       String?
   authCode    String?  @unique

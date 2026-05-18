@@ -62,7 +62,7 @@ class AuthFieldLabel extends StatelessWidget {
   }
 }
 
-/// Большая мятная primary-кнопка.
+/// Большая primary-кнопка как CTA лендинга (мятный вертикальный градиент).
 class AuthPrimaryButton extends StatelessWidget {
   const AuthPrimaryButton({
     super.key,
@@ -80,33 +80,47 @@ class AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: busy ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: color ?? kBrandMint,
-          foregroundColor: fg ?? const Color(0xFF000000),
-          minimumSize: const Size.fromHeight(54),
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(27),
+    if (busy) {
+      return const SizedBox(
+        height: kFigmaLandingCtaHeight,
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Color(0xFF1F4F1B),
+            ),
           ),
         ),
-        child: busy
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+      );
+    }
+    if (color != null || fg != null) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: color ?? kBrandMint,
+            foregroundColor: fg ?? const Color(0xFF000000),
+          ),
+          child: Text(
+            label,
+            style: fg != null
+                ? kFigmaLandingCtaTextStyle.copyWith(color: fg)
+                : null,
+          ),
+        ),
+      );
+    }
+    return FigmaGradientButton(
+      label: label,
+      gradient: FigmaGradientButton.mintGradientVertical,
+      textHeightBehavior: const TextHeightBehavior(
+        applyHeightToFirstAscent: false,
+        applyHeightToLastDescent: false,
       ),
+      onTap: onPressed,
     );
   }
 }

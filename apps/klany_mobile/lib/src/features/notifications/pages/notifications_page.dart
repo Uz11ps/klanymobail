@@ -55,7 +55,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               }
             }
             return Scaffold(
+              backgroundColor: Colors.transparent,
               appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back, color: kChildInk),
                   onPressed: () => Navigator.of(context).maybePop(),
@@ -64,6 +68,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 title: const Text(
                   'Уведомления',
                   style: TextStyle(
+                    fontFamily: 'Nunito',
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: kChildInk,
@@ -106,6 +111,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         const Text(
                           'Лента семьи',
                           style: TextStyle(
+                            fontFamily: 'Nunito',
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: kChildInk,
@@ -115,6 +121,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         const Text(
                           'Здесь собраны покупки, задачи и важные изменения по семье.',
                           style: TextStyle(
+                            fontFamily: 'Nunito',
                             fontSize: 13,
                             color: kChildInkMuted,
                             height: 1.35,
@@ -138,6 +145,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                           child: Text(
                             'Всего событий: ${list.length}',
                             style: const TextStyle(
+                              fontFamily: 'Nunito',
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: kChildInk,
@@ -163,6 +171,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         child: Text(
                           'Уведомлений пока нет',
                           style: TextStyle(
+                            fontFamily: 'Nunito',
                             color: kChildInkMuted,
                             fontSize: 15,
                           ),
@@ -283,6 +292,7 @@ class _GroupTitle extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
+          fontFamily: 'Nunito',
           fontSize: 22,
           fontWeight: FontWeight.w900,
           color: kChildInk,
@@ -326,6 +336,7 @@ class _NotificationCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: const TextStyle(
+                      fontFamily: 'Nunito',
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: kChildInk,
@@ -338,6 +349,7 @@ class _NotificationCard extends StatelessWidget {
             Text(
               subtitle,
               style: const TextStyle(
+                fontFamily: 'Nunito',
                 fontSize: 13,
                 color: kChildInk,
                 height: 1.35,
@@ -361,6 +373,7 @@ class _NotificationCard extends StatelessWidget {
                     child: const Text(
                       'Открыть',
                       style: TextStyle(
+                        fontFamily: 'Nunito',
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
@@ -383,6 +396,7 @@ class _NotificationCard extends StatelessWidget {
                     child: const Text(
                       'Прочитать',
                       style: TextStyle(
+                        fontFamily: 'Nunito',
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),

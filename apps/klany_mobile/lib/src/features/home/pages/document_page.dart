@@ -16,7 +16,11 @@ class DocumentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: kChildInk),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -25,6 +29,7 @@ class DocumentPage extends StatelessWidget {
         title: Text(
           title,
           style: const TextStyle(
+            fontFamily: 'Nunito',
             fontSize: 20,
             fontWeight: FontWeight.w900,
             color: kChildInk,
@@ -40,6 +45,7 @@ class DocumentPage extends StatelessWidget {
             child: Text(
               body,
               style: const TextStyle(
+                fontFamily: 'Nunito',
                 fontSize: 14,
                 color: kChildInk,
                 height: 1.5,

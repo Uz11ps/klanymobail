@@ -1,5 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../theme/klany_figma_style.dart';
+export '../../theme/klany_figma_style.dart';
 
 import 'clan_capital_ui.dart';
 
@@ -27,6 +33,271 @@ const Color kBrandPeach = Color(0xFFFFD1B8);
 const Color kBrandRose = Color(0xFFF8D2D8);
 const Color kBgCloud = Color(0xFFEFF6FB);
 
+/// Форма hero на auth: вертикальная иллюстрация PNG или квадрат 1:1 (регистрация).
+enum FigmaAuthHeroShape { portraitRaster, square }
+
+/// Hero с иллюстрацией на экранах auth
+class FigmaAuthHeroCard extends StatelessWidget {
+  const FigmaAuthHeroCard({
+    super.key,
+    required this.asset,
+    required this.fallbackColor,
+    /// Для [FigmaAuthHeroShape.portraitRaster] по умолчанию 40; для [square] — [kFigmaAuthHeroCardRadius].
+    this.borderRadius,
+    this.shape = FigmaAuthHeroShape.portraitRaster,
+    /// Меньше «рамка»: лёгкая тень (Figma 0-691 / лендинг).
+    this.compactShadow = false,
+    /// Соотношение сторон иллюстрации `width/height`. По умолчанию — PNG регистрации в Figma.
+    this.aspectRatio = kFigmaRasterAspectRatio,
+    /// Явный [BoxFit] для портретной карточки (например [BoxFit.contain], чтобы не кропать другой ассет).
+    this.portraitAssetFit,
+    /// Как квадратный слайд на лендинге 0-602: тот же расчёт стороны ([kFigmaLandingSlideVisualScale]), [kFigmaLandingSlideRadius], [BoxFit.contain], без «рамочной» тени.
+    this.landingSlideStyle = false,
+  });
+
+  final String asset;
+  final Color fallbackColor;
+  final double? borderRadius;
+  final FigmaAuthHeroShape shape;
+  final bool compactShadow;
+  final double aspectRatio;
+  final BoxFit? portraitAssetFit;
+  final bool landingSlideStyle;
+
+  List<BoxShadow> _boxShadow() {
+    return [
+      BoxShadow(
+        color: const Color(0xFF1E2D52)
+            .withValues(alpha: compactShadow ? 0.05 : 0.08),
+        blurRadius: compactShadow ? 12 : 24,
+        offset: Offset(0, compactShadow ? 5 : 10),
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (w <= 0) {
+          return const SizedBox.shrink();
+        }
+        if (landingSlideStyle) {
+          final mh = constraints.maxHeight;
+          return _buildLandingSlideHero(
+            context,
+            w,
+            maxHeight: mh.isFinite ? mh : null,
+          );
+        }
+        return shape == FigmaAuthHeroShape.square
+            ? _buildSquare(context, w)
+            : _buildPortrait(context, w);
+      },
+    );
+  }
+
+  /// Как [AuthLandingPage] / `_SlideCard`: квадрат, скругление лендинга, целиком видно иллюстрацию.
+  Widget _buildLandingSlideHero(
+    BuildContext context,
+    double w, {
+    double? maxHeight,
+  }) {
+    final maxSideFromH = figmaLandingSlideMaxSideFromScreenHeight(context);
+    var side = math.min(w, maxSideFromH);
+    if (maxHeight != null && maxHeight.isFinite) {
+      side = math.min(side, maxHeight);
+    }
+    if (side < 8) {
+      return const SizedBox.shrink();
+    }
+    final r = borderRadius ?? kFigmaLandingSlideRadius;
+
+    return Align(
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: side,
+        height: side,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(r),
+          child: Image.asset(
+            asset,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (context, error, stackTrace) => ColoredBox(
+              color: fallbackColor,
+              child: Center(
+                child: Icon(
+                  Icons.image_outlined,
+                  size: 48,
+                  color: kChildInk.withValues(alpha: 0.25),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortrait(BuildContext context, double w) {
+    final maxH = math.min(
+      MediaQuery.sizeOf(context).height * kFigmaAuthHeroMaxHeightFraction,
+      kFigmaAuthHeroMaxHeightPx,
+    );
+    final r = borderRadius ?? 40;
+    final idealH = w / aspectRatio;
+    final h = math.min(idealH, maxH);
+    if (h < 8) {
+      return const SizedBox.shrink();
+    }
+    final autoCover = portraitAssetFit == null && idealH > maxH + 0.5;
+    final fit = portraitAssetFit ??
+        (autoCover ? BoxFit.cover : BoxFit.contain);
+    final alignment = portraitAssetFit != null
+        ? Alignment.center
+        : (autoCover ? Alignment.bottomCenter : Alignment.center);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: _boxShadow(),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(r),
+        child: SizedBox(
+          width: w,
+          height: h,
+          child: Image.asset(
+            asset,
+            fit: fit,
+            width: w,
+            height: h,
+            alignment: alignment,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (context, error, stackTrace) =>
+                ColoredBox(color: fallbackColor),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSquare(BuildContext context, double w) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final heightCap = math.min(
+      screenH * kFigmaAuthSquareHeroMaxHeightFraction,
+      kFigmaAuthSquareHeroMaxSidePx,
+    );
+    final side = math.min(w, heightCap);
+    if (side < 8) {
+      return const SizedBox.shrink();
+    }
+    final r = borderRadius ?? kFigmaAuthHeroCardRadius;
+
+    final card = Container(
+      width: side,
+      height: side,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: _boxShadow(),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(r),
+        child: Image.asset(
+          asset,
+          fit: BoxFit.cover,
+          width: side,
+          height: side,
+          alignment: Alignment.bottomCenter,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (context, error, stackTrace) =>
+              ColoredBox(color: fallbackColor),
+        ),
+      ),
+    );
+
+    if ((w - side).abs() < 1) {
+      return card;
+    }
+    return Align(alignment: Alignment.center, child: card);
+  }
+}
+
+/// Квадратный hero + точки в стиле лендинга.
+/// Для экранов с [Column] внутри [Expanded] надёжнее обернуть колонку в
+/// [SingleChildScrollView] и **не** класть слот в [Flexible] — иначе при низкой
+/// высоте или широком окне flex может дать ~0 px и картинка пропадёт.
+class FigmaAuthHeroCarouselSlot extends StatelessWidget {
+  const FigmaAuthHeroCarouselSlot({
+    super.key,
+    required this.asset,
+    required this.fallbackColor,
+    this.dotCount = 3,
+    this.activeDotIndex = 0,
+  });
+
+  final String asset;
+  final Color fallbackColor;
+  final int dotCount;
+  final int activeDotIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        const dotsBlock =
+            kFigmaLandingSlideToDotsGap + kFigmaLandingDotsDiameter;
+        final mq = MediaQuery.sizeOf(context);
+        final shortest = math.min(mq.width, mq.height);
+        final cap = figmaLandingSlideMaxSideFromScreenHeight(context);
+        // Нижняя грань стороны квадрата — иначе при «широко, но низко» flex даёт
+        // нулевую высоту слота и слайд схлопывается.
+        final minSide = (shortest * 0.30).clamp(120.0, 220.0);
+        final layoutAvail = c.maxHeight.isFinite
+            ? c.maxHeight - dotsBlock
+            : cap;
+        var side = math.min(
+          c.maxWidth,
+          math.min(cap, math.max(layoutAvail, minSide)),
+        );
+        if (side < minSide && c.maxWidth >= minSide) {
+          side = math.min(minSide, math.min(c.maxWidth, cap));
+        }
+        if (side < 8) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: side,
+              width: double.infinity,
+              child: Center(
+                child: FigmaAuthHeroCard(
+                  asset: asset,
+                  fallbackColor: fallbackColor,
+                  landingSlideStyle: true,
+                ),
+              ),
+            ),
+            SizedBox(height: kFigmaLandingSlideToDotsGap),
+            FigmaAuthCarouselDots(
+              count: dotCount,
+              activeIndex: activeDotIndex,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Тень-«объём» под кнопками (как в Figma) — жёсткая нижняя полоса.
 Color _darkenColor(Color c, [double amount = 0.18]) {
   final hsl = HSLColor.fromColor(c);
@@ -45,19 +316,54 @@ List<BoxShadow> kSoftButtonShadow(Color tint) => [
       ),
     ];
 
-/// CTA как на Figma-лендинге: градиент, высокая «таблетка», Nunito чёрный.
+/// Общие поля и скругление полей ввода на auth-экранах.
+InputDecoration figmaAuthFieldDecoration(String hint, {Widget? suffixIcon}) {
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(
+      fontFamily: 'Nunito',
+      color: kChildInkMuted,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    ),
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(28),
+      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
+    ),
+    suffixIcon: suffixIcon,
+  );
+}
+
+/// CTA по макету Figma: ниже и с более лёгкой типографикой, чем 68/w800.
 class FigmaGradientButton extends StatelessWidget {
   const FigmaGradientButton({
     super.key,
     required this.label,
     required this.gradient,
     required this.onTap,
-    this.height = kFigmaCtaHeight,
+    this.height = kFigmaLandingCtaHeight,
+    /// Игнорируется, если задан [labelStyle].
     this.fontSize = kFigmaCtaFontSize,
+    /// `null` — полная «таблетка» (высота/2). Иначе фиксированное скругление.
+    this.cornerRadius,
+    /// Задаёт типографику целиком (например [kFigmaLandingCtaTextStyle]); тогда [fontSize] не используется.
+    this.labelStyle,
+    /// Тень кнопки; по умолчанию одна мягкая снизу.
+    this.boxShadow,
+    /// Ближе к Figma «Cap height» / плотной строке.
+    this.textHeightBehavior,
   });
-
-  static const double kFigmaCtaHeight = 68;
-  static const double kFigmaCtaFontSize = 18;
 
   static const mintGradient = LinearGradient(
     begin: Alignment.centerLeft,
@@ -66,6 +372,17 @@ class FigmaGradientButton extends StatelessWidget {
       Color(0xFFD8F8D0),
       Color(0xFFC5F2C0),
       Color(0xFFB8E8AF),
+    ],
+  );
+
+  /// Лендинг: лёгкий вертикальный градиент (светлее сверху).
+  static const mintGradientVertical = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFE2FADC),
+      Color(0xFFC5F2C0),
+      Color(0xFFAFE8A5),
     ],
   );
 
@@ -79,52 +396,349 @@ class FigmaGradientButton extends StatelessWidget {
     ],
   );
 
+  static const skyGradientVertical = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFEFF6FC),
+      Color(0xFFD8E9F8),
+      Color(0xFFC4DCF2),
+    ],
+  );
+
   final String label;
   final Gradient gradient;
   final VoidCallback? onTap;
   final double height;
   final double fontSize;
+  final double? cornerRadius;
+  final TextStyle? labelStyle;
+  final List<BoxShadow>? boxShadow;
+  final TextHeightBehavior? textHeightBehavior;
 
   @override
   Widget build(BuildContext context) {
+    final r = cornerRadius ?? height / 2;
+    final shadows = boxShadow ?? kFigmaLandingCtaBoxShadows;
+    final textStyle = labelStyle ?? kFigmaLandingCtaTextStyle;
     return SizedBox(
       height: height,
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(height / 2),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1E2D52).withValues(alpha: 0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(r),
+          boxShadow: shadows,
         ),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(height / 2),
+            borderRadius: BorderRadius.circular(r),
             splashColor: Colors.black.withValues(alpha: 0.06),
             highlightColor: Colors.black.withValues(alpha: 0.04),
             child: Center(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF000000),
-                  height: 1.12,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    textHeightBehavior: textHeightBehavior,
+                    style: textStyle,
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Две полноширинные CTA как у кнопок лендинга: сверху отмена, снизу подтверждение.
+class FigmaDialogActionStack extends StatelessWidget {
+  const FigmaDialogActionStack({
+    super.key,
+    required this.onCancel,
+    required this.onConfirm,
+    this.cancelLabel = 'Отмена',
+    this.confirmLabel = 'Сохранить',
+    this.confirmGradient,
+  });
+
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final String cancelLabel;
+  final String confirmLabel;
+
+  /// По умолчанию тот же мятный градиент, что у «Сохранить» на лендинге.
+  final Gradient? confirmGradient;
+
+  /// Градиент для деструктивного подтверждения («Удалить»).
+  static const LinearGradient destructiveGradientVertical = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFFFE8E8),
+      Color(0xFFFFC4C4),
+      Color(0xFFFF9E9E),
+    ],
+  );
+
+  static final TextStyle _destructiveConfirmStyle =
+      kFigmaLandingCtaTextStyle.copyWith(color: const Color(0xFF5C1414));
+
+  @override
+  Widget build(BuildContext context) {
+    final destructive =
+        identical(confirmGradient, destructiveGradientVertical);
+    final gradient =
+        confirmGradient ?? FigmaGradientButton.mintGradientVertical;
+    final confirmStyle =
+        destructive ? _destructiveConfirmStyle : kFigmaLandingCtaTextStyle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FigmaGradientButton(
+          label: cancelLabel,
+          gradient: FigmaGradientButton.mintGradientVertical,
+          height: kFigmaLandingCtaHeight,
+          labelStyle: kFigmaLandingCtaTextStyle,
+          boxShadow: kFigmaLandingCtaBoxShadows,
+          textHeightBehavior: const TextHeightBehavior(
+            applyHeightToFirstAscent: false,
+            applyHeightToLastDescent: false,
+          ),
+          onTap: onCancel,
+        ),
+        const SizedBox(height: 12),
+        FigmaGradientButton(
+          label: confirmLabel,
+          gradient: gradient,
+          height: kFigmaLandingCtaHeight,
+          labelStyle: confirmStyle,
+          boxShadow: kFigmaLandingCtaBoxShadows,
+          textHeightBehavior: const TextHeightBehavior(
+            applyHeightToFirstAscent: false,
+            applyHeightToLastDescent: false,
+          ),
+          onTap: onConfirm,
+        ),
+      ],
+    );
+  }
+}
+
+/// Шапка auth: тот же верхний ритм и типографика, что «CLAN CAPITAL» на лендинге 0-602,
+/// заголовки **по центру**; ряд «назад» — [Stack], чтобы заголовок был в центре экрана.
+class FigmaAuthDoubleDeckHeader extends StatelessWidget {
+  const FigmaAuthDoubleDeckHeader({
+    super.key,
+    this.flowBanner,
+    required this.navTitle,
+    required this.onBack,
+    this.horizontalPadding = kFigmaAuthScreenPaddingH,
+  });
+
+  /// Верхняя строка (например **УЧАСТНИК**). `null` или `''` — скрыть.
+  final String? flowBanner;
+  final String navTitle;
+  final VoidCallback onBack;
+  final double horizontalPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final banner = flowBanner?.trim();
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: kFigmaLandingTitleTopSpacer),
+          if (banner != null && banner.isNotEmpty) ...[
+            Text(
+              banner,
+              textAlign: TextAlign.center,
+              style: kFigmaAuthLandingTitleStyle,
+            ),
+            const SizedBox(height: kFigmaLandingHeaderToCarouselGap),
+          ],
+          SizedBox(
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 48,
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: kFigmaAuthTitleBlack,
+                      size: 24,
+                    ),
+                    onPressed: onBack,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 56),
+                  child: Text(
+                    navTitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: kFigmaAuthLandingTitleStyle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Точки-«шары» как на лендинге / Figma 0-691.
+class FigmaAuthCarouselDots extends StatelessWidget {
+  const FigmaAuthCarouselDots({
+    super.key,
+    required this.count,
+    required this.activeIndex,
+  });
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == activeIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: active ? 7 : 5,
+          height: active ? 7 : 5,
+          decoration: BoxDecoration(
+            color: active
+                ? kFigmaAuthTitleBlack
+                : kFigmaAuthTitleBlack.withValues(alpha: 0.22),
+            shape: BoxShape.circle,
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// Фон экранов входа/регистрации — как на лендинге Figma (градиент, облака, боке).
+class FigmaAuthScreenBackground extends StatelessWidget {
+  const FigmaAuthScreenBackground({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFF8FCFF),
+            Color(0xFFEFF6FB),
+            Color(0xFFE6F0F8),
+          ],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/figma/cloud_bg.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            color: Colors.white.withValues(alpha: 0.55),
+            colorBlendMode: BlendMode.softLight,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          ),
+          const CustomPaint(painter: FigmaBokehPainter()),
+        ],
+      ),
+    );
+  }
+}
+
+/// Боке-светлячки на фоне auth-экранов.
+class FigmaBokehPainter extends CustomPainter {
+  const FigmaBokehPainter();
+
+  static const _spots = <(double x, double y, double r, double a)>[
+    (0.12, 0.18, 42, 0.35),
+    (0.78, 0.12, 56, 0.28),
+    (0.88, 0.42, 34, 0.22),
+    (0.08, 0.52, 28, 0.25),
+    (0.62, 0.68, 48, 0.20),
+    (0.32, 0.82, 38, 0.18),
+    (0.92, 0.86, 24, 0.16),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final spot in _spots) {
+      final center = Offset(spot.$1 * size.width, spot.$2 * size.height);
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: spot.$4),
+            Colors.white.withValues(alpha: 0),
+          ],
+        ).createShader(
+          Rect.fromCircle(center: center, radius: spot.$3),
+        );
+      canvas.drawCircle(center, spot.$3, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Белая «таблетка» с мягкой тенью под полем ввода (Figma).
+class FigmaAuthInputShell extends StatelessWidget {
+  const FigmaAuthInputShell({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E2D52).withValues(alpha: 0.10),
+            offset: const Offset(0, 6),
+            blurRadius: 18,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            offset: const Offset(0, 2),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }
@@ -418,47 +1032,68 @@ class ChildBottomClanBar extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onSelected,
-    this.items = const [
-      ChildBottomNavItem(icon: Icons.home_outlined, label: 'Дом'),
-      ChildBottomNavItem(icon: Icons.assignment_outlined, label: 'Биржа'),
-      ChildBottomNavItem(icon: Icons.shopping_bag_outlined, label: 'Магазин'),
-    ],
   });
 
   final int currentIndex;
   final ValueChanged<int> onSelected;
-  final List<ChildBottomNavItem> items;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(40),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxWidth: kFigmaParentBottomBarMaxWidth),
+            child: SizedBox(
+              height: kFigmaParentBottomBarHeight,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(36),
+                        border: Border.all(
+                          color: kChildBrandBlue.withValues(alpha: 0.45),
+                          width: 1.4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _ChildFigmaNavSlot(
+                        selected: currentIndex == 0,
+                        onTap: () => onSelected(0),
+                        home: true,
+                      ),
+                      _ChildFigmaNavSlot(
+                        selected: currentIndex == 1,
+                        onTap: () => onSelected(1),
+                        asset: 'assets/figma/nav_assignment.svg',
+                      ),
+                      _ChildFigmaNavSlot(
+                        selected: currentIndex == 2,
+                        onTap: () => onSelected(2),
+                        asset: 'assets/figma/nav_shop.svg',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              for (int i = 0; i < items.length; i++)
-                _ChildNavLabeledBtn(
-                  icon: items[i].icon,
-                  label: items[i].label,
-                  selected: currentIndex == i,
-                  onTap: () => onSelected(i),
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -466,55 +1101,82 @@ class ChildBottomClanBar extends StatelessWidget {
   }
 }
 
-class _ChildNavLabeledBtn extends StatelessWidget {
-  const _ChildNavLabeledBtn({
-    required this.icon,
-    required this.label,
+class _ChildFigmaNavSlot extends StatelessWidget {
+  const _ChildFigmaNavSlot({
     required this.selected,
     required this.onTap,
+    this.home = false,
+    this.asset,
   });
-  final IconData icon;
-  final String label;
+
   final bool selected;
   final VoidCallback onTap;
+  final bool home;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : kChildInkMuted;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Container(
-                width: 44,
-                height: 44,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                width: selected
+                    ? kFigmaParentNavHomeSelected
+                    : kFigmaParentNavHomeIdle,
+                height: selected
+                    ? kFigmaParentNavHomeSelected
+                    : kFigmaParentNavHomeIdle,
                 decoration: BoxDecoration(
                   color: selected ? kChildBrandBlue : Colors.transparent,
                   shape: BoxShape.circle,
                   border: selected
                       ? null
                       : Border.all(
-                          color: kChildOutline,
-                          width: 1.4,
+                          color: kChildBrandBlue.withValues(alpha: 0.22),
+                          width: 1.3,
                         ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: kChildBrandBlue.withValues(alpha: 0.28),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: fg, size: 22),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? kChildInk : kChildInkMuted,
-                ),
+                child: home
+                    ? SvgPicture.asset(
+                        selected
+                            ? 'assets/figma/nav_home_filled.svg'
+                            : 'assets/figma/nav_home_outline.svg',
+                        width: selected ? 22 : 20,
+                        height: selected ? 22 : 20,
+                        colorFilter: ColorFilter.mode(
+                          selected ? Colors.white : kChildInkMuted,
+                          BlendMode.srcIn,
+                        ),
+                      )
+                    : SvgPicture.asset(
+                        asset!,
+                        width: selected ? 22 : 20,
+                        height: selected ? 22 : 20,
+                        colorFilter: ColorFilter.mode(
+                          selected ? Colors.white : kChildInkMuted,
+                          BlendMode.srcIn,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -604,7 +1266,7 @@ class ClanAuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kChildSurfaceSoft,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: ListView(
           physics: const ClampingScrollPhysics(),
@@ -768,17 +1430,21 @@ class ClanPrimaryButton extends StatelessWidget {
         label: Text(
           label,
           style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
+            fontFamily: 'Nunito',
+            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            height: 1.0,
           ),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: kChildBrandBlue,
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(kFigmaLandingCtaHeight),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(kFigmaLandingCtaHeight / 2),
           ),
+          elevation: 4,
         ),
       ),
     );
@@ -813,11 +1479,7 @@ class ClanSecondaryButton extends StatelessWidget {
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: kChildBrandBlue,
-          minimumSize: const Size.fromHeight(50),
           side: const BorderSide(color: kChildBrandBlue, width: 1.4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
-          ),
         ),
       ),
     );

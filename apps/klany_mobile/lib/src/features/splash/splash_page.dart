@@ -8,7 +8,7 @@ class SplashPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kChildSurfaceSoft,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -46,6 +46,7 @@ class SplashPage extends StatelessWidget {
               const Text(
                 'CLAN CAPITAL',
                 style: TextStyle(
+                  fontFamily: 'Nunito',
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                   color: kChildBrandBlue,
@@ -56,6 +57,7 @@ class SplashPage extends StatelessWidget {
               const Text(
                 'Финансовый клан для семьи',
                 style: TextStyle(
+                  fontFamily: 'Nunito',
                   color: kChildInkMuted,
                   fontSize: 14,
                 ),

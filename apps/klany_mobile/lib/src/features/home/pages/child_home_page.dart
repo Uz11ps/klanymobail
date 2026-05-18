@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../auth/child_self_avatar.dart';
 import '../../auth/child_session.dart';
 import '../../auth/child_pin_store.dart';
 import '../avatar_store.dart';
@@ -13,6 +16,7 @@ import '../../quests/quests_repository.dart';
 import '../../wallet/pages/child_wallet_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../shop/pages/child_shop_page.dart';
+import '../../../core/storage_presign.dart';
 import '../../notifications/fcm.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../onboarding/onboarding_store.dart';
@@ -78,12 +82,14 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
       }
       return;
     }
-    await ref.read(notificationsRepositoryProvider).registerDevice(
-      platform: platform,
-      pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
-          ? pushToken
-          : 'child-${identity.deviceId}',
-    );
+    await ref
+        .read(notificationsRepositoryProvider)
+        .registerDevice(
+          platform: platform,
+          pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
+              ? pushToken
+              : 'child-${identity.deviceId}',
+        );
   }
 
   @override
@@ -107,15 +113,36 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
           setState(() => _index = 0);
         }
       },
-      child: Scaffold(
-        backgroundColor: kChildSurfaceSoft,
-        body: SafeArea(
-          bottom: false,
-          child: IndexedStack(index: _index, children: pages),
-        ),
-        bottomNavigationBar: ChildBottomClanBar(
-          currentIndex: _index,
-          onSelected: (i) => setState(() => _index = i),
+      child: SizedBox.expand(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          body: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxW = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.sizeOf(context).width;
+                final maxH = constraints.maxHeight.isFinite
+                    ? constraints.maxHeight
+                    : MediaQuery.sizeOf(context).height;
+                return SizedBox(
+                  width: maxW,
+                  height: maxH,
+                  child: IndexedStack(
+                    index: _index,
+                    sizing: StackFit.expand,
+                    children: pages,
+                  ),
+                );
+              },
+            ),
+          ),
+          bottomNavigationBar: ChildBottomClanBar(
+            currentIndex: _index,
+            onSelected: (i) => setState(() => _index = i),
+          ),
         ),
       ),
     );
@@ -134,12 +161,19 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
   Future<_ChildOverviewData>? _future;
 
   Future<_ChildOverviewData> _load(String childId) async {
-    final wallet = await ref.read(walletRepositoryProvider).getChildWallet(childId);
-    final assignments = await ref.read(questsRepositoryProvider).getChildAssignments(childId);
+    final wallet = await ref
+        .read(walletRepositoryProvider)
+        .getChildWallet(childId);
+    final assignments = await ref
+        .read(questsRepositoryProvider)
+        .getChildAssignments(childId);
     final active = assignments
-        .where((a) => a.distributionType != 'exchange' &&
-            a.status != 'done' &&
-            a.status != 'completed')
+        .where(
+          (a) =>
+              a.distributionType != 'exchange' &&
+              a.status != 'done' &&
+              a.status != 'completed',
+        )
         .length;
     final exchange = assignments
         .where((a) => a.distributionType == 'exchange')
@@ -164,7 +198,9 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
     final mod10 = n % 10;
     final mod100 = n % 100;
     if (mod10 == 1 && mod100 != 11) return 'задача';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'задачи';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return 'задачи';
+    }
     return 'задач';
   }
 
@@ -175,9 +211,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           'Обратная задача',
           style: TextStyle(
@@ -188,7 +222,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
               'Поставь спец-цель с родителем. Когда соберёшь нужную сумму — родитель её исполнит.',
@@ -212,42 +246,29 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                 hintText: '500',
               ),
             ),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.pop(ctx, false),
+              onConfirm: () => Navigator.pop(ctx, true),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: kBrandMint,
-              foregroundColor: const Color(0xFF1F4F1B),
-              elevation: 4,
-            ),
-            child: const Text('Сохранить'),
-          ),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
     final title = titleCtl.text.trim();
     final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
     if (title.isEmpty || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Введите название и сумму'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите название и сумму')));
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(questsRepositoryProvider).createReverseQuest(
-            title: title,
-            rewardAmount: amount,
-          );
+      await ref
+          .read(questsRepositoryProvider)
+          .createReverseQuest(title: title, rewardAmount: amount);
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
@@ -257,9 +278,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
       _reload();
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -344,9 +363,8 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                       showDragHandle: true,
                       backgroundColor: kChildSurfaceWhite,
                       builder: (ctx) => _ChildSettingsSheet(
-                        onSignOut: () => ref
-                            .read(childSessionProvider.notifier)
-                            .clear(),
+                        onSignOut: () =>
+                            ref.read(childSessionProvider.notifier).clear(),
                       ),
                     );
                   },
@@ -375,23 +393,162 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                         children: [
                           GestureDetector(
                             onTap: () async {
-                              final changed = await showAvatarPicker(
+                              final messenger = ScaffoldMessenger.of(context);
+                              final pick = await showModalBottomSheet<String>(
                                 context: context,
-                                userKey: 'child:${session.childId}',
-                                title: 'Выбрать аватар',
+                                showDragHandle: true,
+                                builder: (ctx) => SafeArea(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.photo_library_outlined),
+                                        title: const Text('Галерея'),
+                                        onTap: () => Navigator.pop(ctx, 'gallery'),
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.face_retouching_natural),
+                                        title: const Text('Готовый аватар'),
+                                        onTap: () => Navigator.pop(ctx, 'preset'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               );
-                              if (changed && mounted) setState(() {});
+                              if (!mounted || pick == null) return;
+                              if (pick == 'gallery') {
+                                final img = await ImagePicker().pickImage(
+                                  source: ImageSource.gallery,
+                                  maxWidth: 800,
+                                  maxHeight: 800,
+                                  imageQuality: 85,
+                                );
+                                if (img == null || !mounted) return;
+                                try {
+                                  await uploadChildAvatarXFile(ref, img);
+                                  if (mounted) setState(() {});
+                                } catch (e) {
+                                  if (mounted) {
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text('Не удалось загрузить: $e')),
+                                    );
+                                  }
+                                }
+                                return;
+                              }
+                              if (pick == 'preset') {
+                                var selected = 1;
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => StatefulBuilder(
+                                    builder: (ctx, setSt) => AlertDialog(
+                                      title: const Text('Аватар'),
+                                      content: SizedBox(
+                                        width: 280,
+                                        child: GridView.builder(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          gridDelegate:
+                                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 3,
+                                            crossAxisSpacing: 10,
+                                            mainAxisSpacing: 10,
+                                          ),
+                                          itemCount: AvatarStore.totalAvatars,
+                                          itemBuilder: (_, i) {
+                                            final idx = i + 1;
+                                            final sel = idx == selected;
+                                            return GestureDetector(
+                                              onTap: () => setSt(() => selected = idx),
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: sel ? kChildBrandBlue : Colors.transparent,
+                                                    width: 3,
+                                                  ),
+                                                ),
+                                                child: ClipOval(
+                                                  child: Image.asset(
+                                                    AvatarStore.assetForIndex(idx),
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx, false),
+                                          child: const Text('Отмена'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          child: const Text('Сохранить'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                                if (ok != true || !mounted) return;
+                                try {
+                                  final data = await rootBundle.load(
+                                    AvatarStore.assetForIndex(selected),
+                                  );
+                                  await uploadChildAvatarPngBytes(
+                                    ref,
+                                    data.buffer.asUint8List(),
+                                  );
+                                  await AvatarStore.setIndex(
+                                    'child:${session.childId}',
+                                    selected,
+                                  );
+                                  if (mounted) setState(() {});
+                                } catch (e) {
+                                  if (mounted) {
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text('Ошибка: $e')),
+                                    );
+                                  }
+                                }
+                              }
                             },
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                UserAvatar(
-                                  userKey: 'child:${session.childId}',
-                                  size: 64,
-                                  fallbackText: displayName.isEmpty
-                                      ? '?'
-                                      : displayName.characters.first
-                                          .toUpperCase(),
+                                Builder(
+                                  builder: (context) {
+                                    final k = session.avatarObjectKey;
+                                    if (k == null || k.isEmpty) {
+                                      return UserAvatar(
+                                        userKey: 'child:${session.childId}',
+                                        size: 64,
+                                        fallbackText: displayName.isEmpty
+                                            ? '?'
+                                            : displayName.characters.first
+                                                .toUpperCase(),
+                                      );
+                                    }
+                                    return FutureBuilder<String?>(
+                                      key: ValueKey(k),
+                                      future: presignStorageDownload(
+                                        accessToken: session.accessToken,
+                                        bucket: 'member-avatars',
+                                        objectKey: k,
+                                      ),
+                                      builder: (context, snap) => UserAvatar(
+                                        userKey: 'child:${session.childId}',
+                                        size: 64,
+                                        fallbackText: displayName.isEmpty
+                                            ? '?'
+                                            : displayName.characters.first
+                                                .toUpperCase(),
+                                        remoteImageUrl: snap.data,
+                                      ),
+                                    );
+                                  },
                                 ),
                                 Positioned(
                                   right: -2,
@@ -534,11 +691,12 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                             child: SizedBox(
                               height: 16,
                               child: LinearProgressIndicator(
-                                value:
-                                    (data?.goalProgress ?? 0).clamp(0.0, 1.0),
+                                value: (data?.goalProgress ?? 0).clamp(
+                                  0.0,
+                                  1.0,
+                                ),
                                 backgroundColor: Colors.white,
-                                valueColor:
-                                    const AlwaysStoppedAnimation<Color>(
+                                valueColor: const AlwaysStoppedAnimation<Color>(
                                   kChildBrandBlue,
                                 ),
                               ),
@@ -587,22 +745,7 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
                           const SizedBox(height: 14),
                           FilledButton(
                             onPressed: () => _showReverseTaskDialog(context),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: kBrandMint,
-                              foregroundColor: const Color(0xFF1F4F1B),
-                              elevation: 4,
-                              minimumSize: const Size.fromHeight(48),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            child: const Text(
-                              'Создать',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
+                            child: const Text('Создать'),
                           ),
                         ],
                       ),
@@ -964,10 +1107,7 @@ class _ChildStatCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             caption,
-            style: const TextStyle(
-              fontSize: 12,
-              color: kChildInkMuted,
-            ),
+            style: const TextStyle(fontSize: 12, color: kChildInkMuted),
           ),
         ],
       ),
@@ -1013,6 +1153,7 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
         title: const Text('PIN-код ребёнка'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: pinCtl,
@@ -1034,18 +1175,13 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
                 counterText: '',
               ),
             ),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.of(ctx).pop(false),
+              onConfirm: () => Navigator.of(ctx).pop(true),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
       ),
     );
     if (ok != true) return;
@@ -1061,18 +1197,18 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
     }
     if (pin != confirm) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN-коды не совпадают')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('PIN-коды не совпадают')));
       return;
     }
 
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN сохранён')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('PIN сохранён')));
   }
 
   Future<void> _clearPin() async {
@@ -1080,26 +1216,30 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Сброс PIN'),
-        content: const Text('Удалить PIN-код для быстрого входа ребёнка?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Удалить PIN-код для быстрого входа ребёнка?'),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.of(ctx).pop(false),
+              onConfirm: () => Navigator.of(ctx).pop(true),
+              confirmLabel: 'Удалить',
+              confirmGradient:
+                  FigmaDialogActionStack.destructiveGradientVertical,
+            ),
+          ],
+        ),
       ),
     );
     if (ok != true) return;
     await ChildPinStore.clear();
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN удалён')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('PIN удалён')));
   }
 
   @override
@@ -1141,8 +1281,7 @@ class _ChildSettingsSheetState extends ConsumerState<_ChildSettingsSheet> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.pin),
-                title:
-                    Text(hasPin ? 'Сменить PIN-код' : 'Установить PIN-код'),
+                title: Text(hasPin ? 'Сменить PIN-код' : 'Установить PIN-код'),
                 subtitle: const Text('6 цифр для быстрого входа ребёнка'),
                 onTap: _setOrChangePin,
               ),

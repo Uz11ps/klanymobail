@@ -42,20 +42,21 @@ class App extends ConsumerWidget {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
           child: Stack(
+            fit: StackFit.expand,
             children: [
               const Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: kBgCloud,
                     image: DecorationImage(
-                      image: AssetImage('assets/figma/cloud_bg.png'),
-                      fit: BoxFit.cover,
-                      opacity: 0.15,
+                    image: AssetImage('assets/figma/cloud_bg.png'),
+                    fit: BoxFit.cover,
+                    opacity: 0.22,
                     ),
                   ),
                 ),
               ),
-              child!,
+              if (child != null) Positioned.fill(child: child),
             ],
           ),
         );

@@ -6,27 +6,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../shop_repository.dart';
-
-const _kProductEmojis = [
-  '🎮', '🐻', '📚', '🎧', '🏈', '🎁',
-  '🍫', '🚲', '🍕', '⚽', '🎬', '🎨',
-];
-
-String _emojiForProduct(ShopProductItem p) {
-  if ((p.imageUrl ?? '').isNotEmpty) return '🛍';
-  final desc = '${p.title} ${p.description ?? ''}'.toLowerCase();
-  if (desc.contains('игр') || desc.contains('psp') || desc.contains('xbox')) {
-    return '🎮';
-  }
-  if (desc.contains('кино') || desc.contains('фильм')) return '🎬';
-  if (desc.contains('книг') || desc.contains('читать')) return '📚';
-  if (desc.contains('шокол') || desc.contains('сладк')) return '🍫';
-  if (desc.contains('пицц')) return '🍕';
-  if (desc.contains('игрушк')) return '🐻';
-  if (desc.contains('наушник') || desc.contains('музык')) return '🎧';
-  if (desc.contains('мяч') || desc.contains('спорт')) return '🏈';
-  return '🎁';
-}
+import '../shop_product_icon.dart';
 
 class ParentShopPage extends ConsumerStatefulWidget {
   const ParentShopPage({super.key});
@@ -45,14 +25,17 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Ошибка: $error')),
       data: (family) {
-        if (family == null)
+        if (family == null) {
           return const Center(child: Text('Семья не найдена'));
+        }
         final pages = <Widget>[
           _ParentProductsList(familyId: family.familyId),
           _ParentCreateProductForm(familyId: family.familyId),
           _ParentPurchasesQueue(familyId: family.familyId),
         ];
         return Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
           body: pages[_tab],
           bottomNavigationBar: _ShopBottomBar(
             currentIndex: _tab,
@@ -76,10 +59,175 @@ class _ParentProductsList extends ConsumerStatefulWidget {
 class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
   Future<List<ShopProductItem>>? _future;
 
-  void _reload() {
+  Future<void> _reload() async {
+    final future = ref
+        .read(shopRepositoryProvider)
+        .getProducts(widget.familyId);
     setState(() {
-      _future = ref.read(shopRepositoryProvider).getProducts(widget.familyId);
+      _future = future;
     });
+    await future;
+  }
+
+  Future<void> _editProduct(ShopProductItem p) async {
+    final titleCtl = TextEditingController(text: p.title);
+    final descCtl = TextEditingController(
+      text: shopProductDescriptionWithoutIconMarker(p.description),
+    );
+    final priceCtl = TextEditingController(text: p.price.toString());
+    var isActive = p.isActive;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => AlertDialog(
+          title: const Text('Редактировать товар'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: titleCtl,
+                  decoration: const InputDecoration(labelText: 'Название'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descCtl,
+                  decoration: const InputDecoration(labelText: 'Описание'),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: priceCtl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Цена'),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: isActive,
+                  title: const Text('Активен'),
+                  onChanged: (v) => setLocalState(() => isActive = v),
+                ),
+                const SizedBox(height: 16),
+                FigmaDialogActionStack(
+                  onCancel: () => Navigator.pop(ctx, false),
+                  onConfirm: () => Navigator.pop(ctx, true),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final price = int.tryParse(priceCtl.text.trim());
+    if (price == null || price <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Цена должна быть > 0')));
+      return;
+    }
+    final storedDescription = composeShopProductDescription(
+      iconId: shopProductIconIdFromDescription(p.description),
+      userDescription: descCtl.text.trim(),
+    );
+    await ref
+        .read(shopRepositoryProvider)
+        .updateProduct(
+          productId: p.id,
+          title: titleCtl.text.trim(),
+          description: storedDescription,
+          price: price,
+          isActive: isActive,
+        );
+    if (!mounted) return;
+    _reload();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Товар обновлён')));
+  }
+
+  Future<void> _deleteProduct(ShopProductItem p) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить товар'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Удалить товар с витрины?'),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.pop(ctx, false),
+              onConfirm: () => Navigator.pop(ctx, true),
+              confirmLabel: 'Удалить',
+              confirmGradient:
+                  FigmaDialogActionStack.destructiveGradientVertical,
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirm != true) return;
+    await ref.read(shopRepositoryProvider).deleteProduct(p.id);
+    if (!mounted) return;
+    _reload();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Товар удалён')));
+  }
+
+  Future<void> _showProductActions(ShopProductItem p) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: kChildSurfaceWhite,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: kChildInk),
+              title: const Text('Редактировать'),
+              onTap: () => Navigator.pop(ctx, 'edit'),
+            ),
+            ListTile(
+              leading: Icon(
+                p.isActive
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: kChildInk,
+              ),
+              title: Text(p.isActive ? 'Деактивировать' : 'Активировать'),
+              onTap: () => Navigator.pop(ctx, 'toggle'),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline,
+                color: Color(0xFFD83A3A),
+              ),
+              title: const Text('Удалить'),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == 'edit') {
+      await _editProduct(p);
+    } else if (action == 'toggle') {
+      await ref.read(shopRepositoryProvider).toggleProduct(p.id, !p.isActive);
+      if (!mounted) return;
+      _reload();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Статус товара обновлён')));
+    } else if (action == 'delete') {
+      await _deleteProduct(p);
+    }
   }
 
   @override
@@ -90,294 +238,222 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
           ref.read(shopRepositoryProvider).getProducts(widget.familyId),
       builder: (context, snapshot) {
         final products = snapshot.data ?? const <ShopProductItem>[];
-        return Scaffold(
-          backgroundColor: kBgCloud,
-          appBar: AppBar(
-            backgroundColor: kBgCloud,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: kChildInk),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            centerTitle: true,
-            title: const Text(
-              'Магазин товаров',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: kChildInk,
+        return SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
               ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Обновить',
-                onPressed: _reload,
-                icon: const Icon(Icons.refresh, color: kChildInk),
-              ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(child: CircularProgressIndicator()),
-              if (snapshot.hasError)
-                ChildSoftCard(
-                  color: kBrandRose,
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Ошибка: ${snapshot.error}'),
-                ),
-              if (products.isEmpty &&
-                  snapshot.connectionState != ConnectionState.waiting)
-                ChildSoftCard(
-                  color: kBrandLavender,
-                  padding: const EdgeInsets.all(16),
-                  child: const Text(
-                    'Товаров пока нет — добавь первый!',
-                    style: TextStyle(color: kChildInk, fontSize: 14),
-                  ),
-                ),
-              ...products.map(
-                (p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ChildSoftCard(
-                    color: p.isActive ? kBrandLavender : kBrandSky,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.center,
-                        child: (p.imageUrl ?? '').isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Image.network(
-                                  p.imageUrl!,
-                                  width: 52,
-                                  height: 52,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Text(
-                                    _emojiForProduct(p),
-                                    style: const TextStyle(fontSize: 28),
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                _emojiForProduct(p),
-                                style: const TextStyle(fontSize: 28),
-                              ),
+              padding: const EdgeInsets.fromLTRB(19, 34, 19, 104),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 24,
+                        height: 48,
                       ),
-                      title: Text(
-                        p.title,
-                        style: const TextStyle(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: Colors.black,
+                        size: 30,
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                    const SizedBox(width: 22),
+                    const Expanded(
+                      child: Text(
+                        'Магазин товаров',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 32,
                           fontWeight: FontWeight.w800,
-                          color: kChildInk,
-                          fontSize: 15,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${p.price} монет (${p.price * 10} ₽)',
-                        style: const TextStyle(
-                          color: kChildInkMuted,
-                          fontSize: 13,
-                        ),
-                      ),
-                      trailing: PopupMenuButton<String>(
-                            onSelected: (value) async {
-                              if (value == 'toggle') {
-                                await ref
-                                    .read(shopRepositoryProvider)
-                                    .toggleProduct(p.id, !p.isActive);
-                                if (!context.mounted) return;
-                                _reload();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Статус товара обновлён'),
-                                  ),
-                                );
-                              }
-                              if (value == 'edit') {
-                                final titleCtl = TextEditingController(
-                                  text: p.title,
-                                );
-                                final descCtl = TextEditingController(
-                                  text: p.description ?? '',
-                                );
-                                final priceCtl = TextEditingController(
-                                  text: p.price.toString(),
-                                );
-                                var isActive = p.isActive;
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => StatefulBuilder(
-                                    builder: (ctx, setLocalState) =>
-                                        AlertDialog(
-                                          title: const Text(
-                                            'Редактировать товар',
-                                          ),
-                                          content: SingleChildScrollView(
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                TextField(
-                                                  controller: titleCtl,
-                                                  decoration:
-                                                      const InputDecoration(
-                                                        labelText: 'Название',
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                TextField(
-                                                  controller: descCtl,
-                                                  decoration:
-                                                      const InputDecoration(
-                                                        labelText: 'Описание',
-                                                      ),
-                                                  maxLines: 3,
-                                                ),
-                                                const SizedBox(height: 8),
-                                                TextField(
-                                                  controller: priceCtl,
-                                                  keyboardType:
-                                                      TextInputType.number,
-                                                  decoration:
-                                                      const InputDecoration(
-                                                        labelText: 'Цена',
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 8),
-                                                SwitchListTile(
-                                                  contentPadding:
-                                                      EdgeInsets.zero,
-                                                  value: isActive,
-                                                  title: const Text('Активен'),
-                                                  onChanged: (v) =>
-                                                      setLocalState(
-                                                        () => isActive = v,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx, false),
-                                              child: const Text('Отмена'),
-                                            ),
-                                            FilledButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx, true),
-                                              child: const Text('Сохранить'),
-                                            ),
-                                          ],
-                                        ),
-                                  ),
-                                );
-                                if (ok == true) {
-                                  final price = int.tryParse(
-                                    priceCtl.text.trim(),
-                                  );
-                                  if (price == null || price <= 0) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Цена должна быть > 0'),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  await ref
-                                      .read(shopRepositoryProvider)
-                                      .updateProduct(
-                                        productId: p.id,
-                                        title: titleCtl.text.trim(),
-                                        description: descCtl.text.trim(),
-                                        price: price,
-                                        isActive: isActive,
-                                      );
-                                  if (!context.mounted) return;
-                                  _reload();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Товар обновлён'),
-                                    ),
-                                  );
-                                }
-                              }
-                              if (value == 'delete') {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Удалить товар'),
-                                    content: const Text(
-                                      'Удалить товар с витрины?',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, false),
-                                        child: const Text('Отмена'),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.pop(ctx, true),
-                                        child: const Text('Удалить'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm == true) {
-                                  await ref
-                                      .read(shopRepositoryProvider)
-                                      .deleteProduct(p.id);
-                                  if (!context.mounted) return;
-                                  _reload();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Товар удалён'),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'toggle',
-                                child: Text(
-                                  p.isActive
-                                      ? 'Деактивировать'
-                                      : 'Активировать',
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Редактировать'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Удалить'),
-                              ),
-                            ],
-                          ),
+                          color: Colors.black,
+                          height: 1.0,
                         ),
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 29),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
-            ],
+                if (snapshot.hasError)
+                  ChildSoftCard(
+                    color: kBrandRose,
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Ошибка: ${snapshot.error}'),
+                  ),
+                if (products.isEmpty &&
+                    snapshot.connectionState != ConnectionState.waiting)
+                  ChildSoftCard(
+                    color: kBrandLavender,
+                    padding: const EdgeInsets.all(16),
+                    child: const Text(
+                      'Товаров пока нет — добавь первый!',
+                      style: TextStyle(color: kChildInk, fontSize: 14),
+                    ),
+                  ),
+                ...products.map(
+                  (p) => _FigmaProductCard(
+                    product: p,
+                    onTap: () => _showProductActions(p),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _FigmaProductCard extends StatelessWidget {
+  const _FigmaProductCard({required this.product, required this.onTap});
+
+  final ShopProductItem product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleColor = product.isActive
+        ? Colors.black
+        : Colors.black.withValues(alpha: 0.45);
+    final iconAsset = shopProductResolvedIcon(product).asset;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            height: 118,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8CBF7),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD8CBF7).withValues(alpha: 0.35),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
+                ),
+                BoxShadow(
+                  color: const Color(0xFFB3A5D3).withValues(alpha: 0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 13),
+                ),
+              ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.06),
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: 0.18),
+                ],
+                stops: const [0, 0.42, 1],
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 78,
+                  height: 86,
+                  child: Center(
+                    child: (product.imageUrl ?? '').isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.network(
+                              product.imageUrl!,
+                              width: 76,
+                              height: 76,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  ShopProductIconSvg(asset: iconAsset, size: 76),
+                            ),
+                          )
+                        : ShopProductIconSvg(asset: iconAsset, size: 76),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product.title.trim().isEmpty
+                            ? 'Без названия'
+                            : product.title.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: titleColor,
+                          height: 0.92,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              offset: const Offset(0, 4),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      RichText(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            color: titleColor,
+                            height: 1.0,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '${product.price} монет ',
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text: '(${product.price * 10} ₽)',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -398,7 +474,7 @@ class _ParentCreateProductFormState
   final _price = TextEditingController(text: '100');
   final _picker = ImagePicker();
   XFile? _file;
-  String? _selectedEmoji;
+  String? _selectedIconId;
   bool _busy = false;
 
   @override
@@ -409,131 +485,280 @@ class _ParentCreateProductFormState
     super.dispose();
   }
 
-  InputDecoration _softField(String hint) {
+  Future<void> _save() async {
+    final price = int.tryParse(_price.text.trim());
+    if (price == null || price <= 0 || _title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите название и цену')));
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final rawDescription = _description.text.trim();
+      final description = composeShopProductDescription(
+        iconId: _selectedIconId,
+        userDescription: rawDescription,
+      );
+      await ref
+          .read(shopRepositoryProvider)
+          .createProduct(
+            title: _title.text.trim(),
+            description: description,
+            price: price,
+            imageFile: _file,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Товар добавлен')));
+      _title.clear();
+      _description.clear();
+      _price.text = '100';
+      setState(() {
+        _file = null;
+        _selectedIconId = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка добавления: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  InputDecoration _figmaFieldDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: kChildInkMuted, fontSize: 14),
+      hintStyle: TextStyle(
+        fontFamily: 'Nunito',
+        color: Colors.black.withValues(alpha: 0.10),
+        fontSize: 20,
+        fontWeight: FontWeight.w500,
+      ),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(62),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(24),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(62),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(62),
         borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 10, bottom: 7),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Nunito',
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+          height: 1.0,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBgCloud,
-      appBar: AppBar(
-        backgroundColor: kBgCloud,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: kChildInk),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        centerTitle: true,
-        title: const Text(
-          'Добавить товар',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: kChildInk,
-          ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+    return SafeArea(
+      bottom: false,
+      child: ListView(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(19, 34, 19, 112),
         children: [
-          // Photo / emoji picker
-          ChildSoftCard(
-            color: kBrandSky,
-            padding: const EdgeInsets.all(20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 24,
+                  height: 48,
+                ),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.black,
+                  size: 30,
+                ),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+              const SizedBox(width: 22),
+              const Expanded(
+                child: Text(
+                  'Добавить товар',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 29),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(10, 30, 10, 30),
+            decoration: BoxDecoration(
+              color: const Color(0xFFC1D8F5),
+              borderRadius: BorderRadius.circular(46),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFC1DCFF).withValues(alpha: 0.35),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
+                ),
+                BoxShadow(
+                  color: const Color(0xFFBFD9FF).withValues(alpha: 0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(46),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.05),
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: 0.20),
+                ],
+              ),
+            ),
             child: Column(
               children: [
                 const Text(
                   'Выбрать фото',
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: kChildInk,
+                    fontFamily: 'Nunito',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                    height: 1.0,
                   ),
                 ),
                 const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: _busy
-                      ? null
-                      : () async {
-                          final file = await _picker.pickImage(
-                            source: ImageSource.gallery,
-                            imageQuality: 84,
-                          );
-                          setState(() {
-                            _file = file;
-                            _selectedEmoji = null;
-                          });
-                        },
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: const BoxDecoration(
-                      color: kChildBrandBlue,
-                      shape: BoxShape.circle,
+                Material(
+                  color: const Color(0xFF2B88FF),
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _busy
+                        ? null
+                        : () async {
+                            final file = await _picker.pickImage(
+                              source: ImageSource.gallery,
+                              imageQuality: 84,
+                            );
+                            setState(() {
+                              _file = file;
+                              _selectedIconId = null;
+                            });
+                          },
+                    customBorder: const CircleBorder(),
+                    child: SizedBox(
+                      width: 76,
+                      height: 76,
+                      child: Icon(
+                        _file != null ? Icons.check : Icons.camera_alt_rounded,
+                        color: Colors.white,
+                        size: _file != null ? 34 : 30,
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: _file != null
-                        ? const Icon(Icons.check, color: Colors.white, size: 32)
-                        : const Icon(Icons.camera_alt_rounded,
-                            color: Colors.white, size: 28),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 const Text(
                   'Или выберите иконку товара',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: kChildInkMuted,
+                    fontFamily: 'Nunito',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.black,
+                    height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 21),
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 10,
                   runSpacing: 10,
-                  children: _kProductEmojis.map((e) {
-                    final selected = _selectedEmoji == e;
+                  children: kShopProductIconOptions.map((option) {
+                    final selected = _selectedIconId == option.id;
                     return GestureDetector(
                       onTap: () {
                         setState(() {
-                          _selectedEmoji = selected ? null : e;
+                          _selectedIconId = selected ? null : option.id;
                           if (!selected) _file = null;
                         });
                       },
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: selected
-                              ? Border.all(color: kChildBrandBlue, width: 2)
-                              : null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(e,
-                            style: const TextStyle(fontSize: 24)),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOutCubic,
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? const Color(
+                                      0xFF4C77AD,
+                                    ).withValues(alpha: 0.23)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFF3F3F3F),
+                                width: 0.5,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: ShopProductIconSvg(
+                              asset: option.asset,
+                              size: 32,
+                            ),
+                          ),
+                          if (selected)
+                            Positioned(
+                              top: -15,
+                              right: -4,
+                              child: Container(
+                                width: 30,
+                                height: 30,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF80AB57),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   }).toList(),
@@ -541,122 +766,89 @@ class _ParentCreateProductFormState
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          const Padding(
-            padding: EdgeInsets.only(left: 6, bottom: 6),
-            child: Text(
-              'Название товара',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: kChildInk,
-              ),
-            ),
-          ),
+          const SizedBox(height: 17),
+          _fieldLabel('Название товара'),
           TextField(
             controller: _title,
-            decoration: _softField('велосипед'),
-            style: const TextStyle(fontSize: 15, color: kChildInk),
-          ),
-          const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.only(left: 6, bottom: 6),
-            child: Text(
-              'Описание',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: kChildInk,
-              ),
+            decoration: _figmaFieldDecoration('велосипед'),
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
             ),
           ),
+          const SizedBox(height: 14),
+          _fieldLabel('Описание'),
           TextField(
             controller: _description,
-            decoration:
-                _softField('Лёгкий и быстрый, для прогулок'),
-            maxLines: 3,
-            style: const TextStyle(fontSize: 15, color: kChildInk),
-          ),
-          const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.only(left: 6, bottom: 6),
-            child: Text(
-              'Цена (монеты)',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: kChildInk,
-              ),
+            decoration: _figmaFieldDecoration(
+              'Лёгкий и быстрый, для прогул...',
+            ),
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
             ),
           ),
+          const SizedBox(height: 14),
+          _fieldLabel('Цена (монеты)'),
           TextField(
             controller: _price,
             keyboardType: TextInputType.number,
-            decoration: _softField('100'),
-            style: const TextStyle(fontSize: 15, color: kChildInk),
+            decoration: _figmaFieldDecoration('1111'),
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
           ),
-          const SizedBox(height: 22),
-          SizedBox(
+          const SizedBox(height: 13),
+          Container(
             width: double.infinity,
-            child: FilledButton(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      final price = int.tryParse(_price.text.trim());
-                      if (price == null || _title.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Введите название и цену'),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() => _busy = true);
-                      try {
-                        await ref
-                            .read(shopRepositoryProvider)
-                            .createProduct(
-                              title: _title.text,
-                              description: _description.text,
-                              price: price,
-                              imageFile: _file,
-                            );
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          const SnackBar(content: Text('Товар добавлен')),
-                        );
-                        _title.clear();
-                        _description.clear();
-                        _price.text = '100';
-                        setState(() {
-                          _file = null;
-                          _selectedEmoji = null;
-                        });
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(
-                            content: Text('Ошибка добавления: $e'),
-                          ),
-                        );
-                      } finally {
-                        if (mounted) setState(() => _busy = false);
-                      }
-                    },
-              style: FilledButton.styleFrom(
-                backgroundColor: kBrandMint,
-                foregroundColor: const Color(0xFF1F4F1B),
-                minimumSize: const Size.fromHeight(54),
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD9F6C2),
+              borderRadius: BorderRadius.circular(62),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE6F7D9).withValues(alpha: 0.35),
+                  blurRadius: 50,
+                  offset: const Offset(0, 20),
                 ),
-              ),
-              child: const Text(
-                'Сохранить товар',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                BoxShadow(
+                  color: const Color(0xFFD4FFB3).withValues(alpha: 0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 13),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(62),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: _busy ? null : _save,
+                child: Center(
+                  child: _busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.4),
+                        )
+                      : const Text(
+                          'Сохранить товар',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                            height: 1.0,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -679,12 +871,14 @@ class _ParentPurchasesQueue extends ConsumerStatefulWidget {
 class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
   Future<List<ShopPurchaseItem>>? _future;
 
-  void _reload() {
+  Future<void> _reload() async {
+    final future = ref
+        .read(shopRepositoryProvider)
+        .getPendingPurchases(widget.familyId);
     setState(() {
-      _future = ref
-          .read(shopRepositoryProvider)
-          .getPendingPurchases(widget.familyId);
+      _future = future;
     });
+    await future;
   }
 
   @override
@@ -701,63 +895,84 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
           ref.read(shopRepositoryProvider).getPendingPurchases(widget.familyId),
       builder: (context, snapshot) {
         final purchases = snapshot.data ?? const <ShopPurchaseItem>[];
-        return Scaffold(
-          backgroundColor: kBgCloud,
-          appBar: AppBar(
-            backgroundColor: kBgCloud,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: kChildInk),
-              onPressed: () => Navigator.of(context).maybePop(),
-            ),
-            centerTitle: true,
-            title: const Text(
-              'Запросы',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: kChildInk,
+        return SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
               ),
-            ),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            children: [
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
+              padding: const EdgeInsets.fromLTRB(19, 34, 19, 104),
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 24,
+                            height: 48,
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.black,
+                            size: 30,
+                          ),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                      ),
+                      const Text(
+                        'Запросы',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              if (snapshot.hasError)
-                ChildSoftCard(
-                  color: kBrandRose,
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Ошибка: ${snapshot.error}'),
-                ),
-              if (purchases.isEmpty &&
-                  snapshot.connectionState != ConnectionState.waiting)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text(
-                      'Нет запросов на покупку',
-                      style: TextStyle(color: kChildInkMuted, fontSize: 15),
+                const SizedBox(height: 18),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(),
                     ),
                   ),
-                ),
-              ...purchases.map(
-                (p) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _PurchaseCard(
+                if (snapshot.hasError)
+                  ChildSoftCard(
+                    color: kBrandRose,
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Ошибка: ${snapshot.error}'),
+                  ),
+                if (purchases.isEmpty &&
+                    snapshot.connectionState != ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'Нет запросов на покупку',
+                        style: TextStyle(color: kChildInkMuted, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ...purchases.map(
+                  (p) => _PurchaseCard(
                     item: p,
                     onDecide: (approve) async {
                       await ref
                           .read(shopRepositoryProvider)
                           .decidePurchase(p.id, approve);
-                      if (mounted) _reload();
+                      if (mounted) await _reload();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -772,8 +987,8 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
                     },
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -791,94 +1006,210 @@ class _PurchaseCard extends StatelessWidget {
     final initial = item.childName.trim().isNotEmpty
         ? item.childName.trim()[0].toUpperCase()
         : '?';
-    return ChildSoftCard(
-      color: Colors.white,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              UserAvatar(
-                userKey: 'child:${item.childName}',
-                size: 48,
-                fallbackText: initial,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.productTitle,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: kChildInk,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item.totalPrice} монет (${item.totalPrice * 10} ₽)',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: kChildInkMuted,
-                      ),
-                    ),
-                    Text(
-                      item.childName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: kChildInkMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.13),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: 0.04),
+              Colors.transparent,
+              Colors.white.withValues(alpha: 0.18),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => onDecide(false),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: kBrandRose,
-                    foregroundColor: const Color(0xFF8B2C36),
-                    minimumSize: const Size.fromHeight(44),
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 73,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        UserAvatar(
+                          userKey: 'child:${item.childName}',
+                          size: 73,
+                          fallbackText: initial,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item.childName.trim().isEmpty
+                              ? 'Ребёнок'
+                              : item.childName.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.black,
+                            height: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Text(
-                    'Отклонить',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () => onDecide(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: kBrandMint,
-                    foregroundColor: const Color(0xFF1F4F1B),
-                    minimumSize: const Size.fromHeight(44),
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item.productTitle.trim().isEmpty
+                              ? 'Без названия'
+                              : item.productTitle.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
+                            height: 1.15,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                offset: const Offset(0, 4),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${item.totalPrice} монет (${item.totalPrice * 10} ₽)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.black,
+                            height: 1.0,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                offset: const Offset(0, 4),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Text(
-                    'Подтвердить',
-                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _PurchaseDecisionButton(
+                      label: 'Отклонить',
+                      color: const Color(0xFFFFC4C4),
+                      shadowColor: const Color(0xFFFAC0C0),
+                      onTap: () => onDecide(false),
+                    ),
+                  ),
+                  const SizedBox(width: 17),
+                  Expanded(
+                    child: _PurchaseDecisionButton(
+                      label: 'Подтвердить',
+                      color: const Color(0xFFD9F6C2),
+                      shadowColor: const Color(0xFFE6F7D9),
+                      onTap: () => onDecide(true),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PurchaseDecisionButton extends StatelessWidget {
+  const _PurchaseDecisionButton({
+    required this.label,
+    required this.color,
+    required this.shadowColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final Color shadowColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(41),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor.withValues(alpha: 0.35),
+            blurRadius: 50,
+            offset: const Offset(0, 20),
+          ),
+          BoxShadow(
+            color: shadowColor.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 13),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 4,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(41),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -891,54 +1222,78 @@ class _ShopBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return SizedBox(
+      height: 76 + 16 + bottomInset,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        child: SizedBox(
-          height: 72,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(36),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: 278,
+            height: 76,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(45),
+                      border: Border.all(color: const Color(0xFF22459E)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _ShopNavBtn(
-                    icon: Icons.format_list_bulleted,
-                    selected: currentIndex == 0,
-                    big: currentIndex == 0,
-                    onTap: () => onSelected(0),
-                  ),
-                  _ShopNavBtn(
-                    icon: Icons.add,
-                    selected: currentIndex == 1,
-                    big: currentIndex == 1,
-                    onTap: () => onSelected(1),
-                  ),
-                  _ShopNavBtn(
-                    icon: Icons.shopping_bag_outlined,
-                    selected: currentIndex == 2,
-                    big: currentIndex == 2,
-                    onTap: () => onSelected(2),
-                  ),
-                ],
-              ),
-            ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    SizedBox(
+                      width: 76,
+                      height: 76,
+                      child: Center(
+                        child: _ShopNavBtn(
+                          icon: Icons.format_list_bulleted,
+                          selected: currentIndex == 0,
+                          big: currentIndex == 0,
+                          onTap: () => onSelected(0),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 76,
+                      height: 76,
+                      child: Center(
+                        child: _ShopNavBtn(
+                          icon: Icons.add,
+                          selected: currentIndex == 1,
+                          big: currentIndex == 1,
+                          onTap: () => onSelected(1),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 76,
+                      height: 76,
+                      child: Center(
+                        child: _ShopNavBtn(
+                          icon: Icons.shopping_bag_outlined,
+                          selected: currentIndex == 2,
+                          big: currentIndex == 2,
+                          onTap: () => onSelected(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

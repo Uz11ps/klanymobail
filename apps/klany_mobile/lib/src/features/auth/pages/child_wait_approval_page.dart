@@ -85,6 +85,7 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
               familyId: result.familyId!,
               childDisplayName: result.childDisplayName ?? '',
               accessToken: result.accessToken!,
+              avatarObjectKey: result.avatarObjectKey,
             );
         if (!mounted) return;
         context.go('/child');

@@ -64,7 +64,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final current = _tab == 0 ? personal : exchange;
 
         return Container(
-          color: kBgCloud,
+          color: Colors.transparent,
           child: SafeArea(
             bottom: false,
             child: RefreshIndicator(

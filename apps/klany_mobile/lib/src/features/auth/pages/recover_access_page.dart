@@ -67,6 +67,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
         title: const Text(
           'Восстановление доступа',
           style: TextStyle(
+            fontFamily: 'Nunito',
             color: Colors.white,
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -89,7 +90,11 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                     child: TextField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(color: fieldColor, fontSize: 16),
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        color: fieldColor,
+                        fontSize: 16,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Email',
                         hintStyle: TextStyle(color: labelColor.withValues(alpha: 0.7)),
@@ -117,7 +122,11 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                     child: TextField(
                       controller: _phone,
                       keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: fieldColor, fontSize: 16),
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        color: fieldColor,
+                        fontSize: 16,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'Телефон (резерв для восстановления)',
                         hintStyle: TextStyle(color: labelColor.withValues(alpha: 0.7)),
@@ -144,9 +153,12 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                     backgroundColor: const Color(0xFF7B6FD0),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: const Color(0xFF4A4580),
-                    minimumSize: const Size.fromHeight(52),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
+                    textStyle: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                      color: Colors.white,
                     ),
                   ),
                   child: _busy
@@ -160,7 +172,11 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                         )
                       : const Text(
                           'Отправить',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               ),
@@ -171,15 +187,21 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                   onPressed: () => Navigator.of(context).maybePop(),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
                     side: const BorderSide(color: Color(0xFF3A4F72), width: 1.4),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(26),
+                    textStyle: const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
                   child: const Text(
                     'Уже есть токен из письма',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

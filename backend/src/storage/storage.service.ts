@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Client } from "minio";
 
-type BucketName = "quest-evidence" | "shop-products";
+type BucketName = "quest-evidence" | "shop-products" | "member-avatars";
 
 function toBool(v: string | undefined, def: boolean): boolean {
   if (v == null) return def;
@@ -68,6 +68,7 @@ export class StorageService {
   resolveBucket(name: BucketName): string {
     if (name === "quest-evidence") return process.env.MINIO_BUCKET_QUEST_EVIDENCE ?? "quest-evidence";
     if (name === "shop-products") return process.env.MINIO_BUCKET_SHOP_PRODUCTS ?? "shop-products";
+    if (name === "member-avatars") return process.env.MINIO_BUCKET_MEMBER_AVATARS ?? "member-avatars";
     throw new BadRequestException("Unknown bucket");
   }
 

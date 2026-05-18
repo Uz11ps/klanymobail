@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../auth/parent_access_repository.dart';
@@ -9,7 +10,10 @@ import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 
-// ─── Main Exchange Page ───────────────────────────────────────────────────────
+const Color _kEconomyTitleBlue = Color(0xFF4563B1);
+const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
+const Color _kFigmaReviewSky = Color(0xFFBFD3FF);
+const Color _kFigmaReviewLavender = Color(0xFFD8CBF7);
 
 class ParentQuestsPage extends ConsumerStatefulWidget {
   const ParentQuestsPage({super.key});
@@ -21,10 +25,8 @@ class ParentQuestsPage extends ConsumerStatefulWidget {
 class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   int _tab = 0;
   int _selectedWallet = -1;
-  bool _questsExpanded = false;
   int _rublesPer10Coins = 100;
   List<ParentChildWalletItem> _wallets = const [];
-  List<ParentMemberItem> _parents = const [];
 
   bool _walletsListenerSet = false;
 
@@ -51,8 +53,6 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     }
   }
 
-  void _toggleQuests() => setState(() => _questsExpanded = !_questsExpanded);
-
   Future<void> _loadWallets() async {
     final family = ref.read(parentFamilyContextProvider).asData?.value;
     if (family == null) return;
@@ -60,13 +60,9 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
       final wallets = await ref
           .read(walletRepositoryProvider)
           .getFamilyWallets(family.familyId);
-      final parents = await ref
-          .read(parentAccessRepositoryProvider)
-          .getParentMembers(family.familyId);
       if (!mounted) return;
       setState(() {
         _wallets = wallets;
-        _parents = parents;
       });
     } catch (_) {}
   }
@@ -80,6 +76,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
         title: Text('Корректировка: ${wallet.displayName}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: amountCtrl,
@@ -92,18 +89,13 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
               controller: commentCtrl,
               decoration: const InputDecoration(hintText: 'Комментарий'),
             ),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.pop(ctx, false),
+              onConfirm: () => Navigator.pop(ctx, true),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Сохранить'),
-          ),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
@@ -129,22 +121,23 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Курс монет'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: '10 монет = ? рублей'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: '10 монет = ? рублей'),
+            ),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.pop(ctx, false),
+              onConfirm: () => Navigator.pop(ctx, true),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Сохранить'),
-          ),
-        ],
       ),
     );
     if (ok != true || !mounted) return;
@@ -176,133 +169,77 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
         );
   }
 
-  Widget _buildQuestsHeader() {
-    return GestureDetector(
-      onTap: _toggleQuests,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 52,
-        color: kChildSurfaceSoft,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Icon(
-              _questsExpanded
-                  ? Icons.keyboard_arrow_up
-                  : Icons.keyboard_arrow_down,
-              color: kChildInkMuted,
-            ),
-            const SizedBox(width: 8),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'БИРЖА ЗАДАЧ',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: kChildInkMuted,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Text(
-                  'Активные, создание, проверка',
-                  style: TextStyle(fontSize: 11, color: kChildInkMuted),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPage(ParentFamilyContext family) {
     final sel = _selectedWallet >= 0 && _selectedWallet < _wallets.length
         ? _wallets[_selectedWallet]
         : null;
 
-    final questPages = <Widget>[
-      _QuestsList(familyId: family.familyId),
-      _QuestCreateForm(familyId: family.familyId),
-      _QuestReviewList(familyId: family.familyId),
-    ];
+    final totalCoins =
+        sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance);
+    final rubles = totalCoins * _rublesPer10Coins ~/ 10;
 
     return Scaffold(
-      backgroundColor: kBgCloud,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: FloatingActionButton(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => Scaffold(
-                appBar: AppBar(
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: kChildInk),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                  centerTitle: true,
-                  title: const Text(
-                    'Создать задачу',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: kChildInk,
-                    ),
-                  ),
-                ),
-                body: _QuestCreateForm(familyId: family.familyId),
-              ),
-            ),
-          ),
-          backgroundColor: kChildBrandBlue,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: Colors.white, size: 28),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
       body: CloudBackground(
         child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
+          bottom: false,
+          child: Column(
+            children: [
               Expanded(
                 child: ListView(
                   children: [
-                    // ── "Экономика" header ──────────────────────────────
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                      padding: const EdgeInsets.fromLTRB(19, 8, 19, 16),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Expanded(
                             child: Text(
                               'Экономика',
                               style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                color: kChildInk,
+                                fontFamily: 'Nunito',
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black,
+                                height: 1.0,
                               ),
                             ),
                           ),
-                          Material(
-                            color: Colors.white,
-                            shape: const CircleBorder(),
-                            clipBehavior: Clip.antiAlias,
-                            elevation: 4,
-                            child: InkWell(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const ParentShopPage(),
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(41),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 2,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
-                              customBorder: const CircleBorder(),
-                              child: const SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: kChildInk,
-                                  size: 22,
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(41),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(41),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const ParentShopPage(),
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: SvgPicture.asset(
+                                    'assets/figma/nav_shop.svg',
+                                    width: 24,
+                                    height: 24,
+                                    colorFilter: const ColorFilter.mode(
+                                      kChildInk,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -311,63 +248,49 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       ),
                     ),
 
-                    // ── Members selector ───────────────────────────────
                     SizedBox(
-                      height: 100,
+                      // 73 + отступы + подпись Nunito 16 — 124 было впритык и давало overflow 1–3 px.
+                      height: 142,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                        padding: const EdgeInsets.fromLTRB(19, 0, 19, 0),
                         children: [
                           _WalletChip(
                             label: 'Все',
                             icon: Icons.person_outline,
                             selected: _selectedWallet == -1,
-                            onTap: () =>
-                                setState(() => _selectedWallet = -1),
+                            onTap: () => setState(() => _selectedWallet = -1),
                           ),
-                          // Родители
-                          ..._parents.map((p) {
-                            final name = p.displayName.trim().isEmpty
-                                ? 'Родитель'
-                                : p.displayName.trim();
-                            return Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: _WalletChip(
-                                label: name,
-                                userKey: 'parent:${p.userId}',
-                                selected: false,
-                                onTap: () {},
-                              ),
-                            );
-                          }),
-                          // Дети
                           ..._wallets.asMap().entries.map(
-                            (e) => Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: _WalletChip(
-                                label: e.value.displayName.trim().isEmpty
-                                    ? '—'
-                                    : e.value.displayName.trim(),
-                                userKey: 'child:${e.value.childId}',
-                                selected: _selectedWallet == e.key,
-                                onTap: () => setState(
-                                  () => _selectedWallet = e.key,
+                                (e) => Padding(
+                                  padding: const EdgeInsets.only(left: 10),
+                                  child: _WalletChip(
+                                    label: e.value.displayName.trim().isEmpty
+                                        ? '—'
+                                        : e.value.displayName.trim(),
+                                    userKey: 'child:${e.value.childId}',
+                                    selected: _selectedWallet == e.key,
+                                    onTap: () => setState(
+                                      () => _selectedWallet = e.key,
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
 
-                    // Divider after member chips
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Container(height: 1, color: kChildOutline),
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        width: 311,
+                        height: 1,
+                        color: Colors.black.withValues(alpha: 0.08),
+                      ),
                     ),
-                    // ── Big balance ─────────────────────────────────────
+
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 36, 20, 36),
+                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 20),
                       child: Column(
                         children: [
                           Row(
@@ -376,47 +299,74 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             children: [
                               Image.asset(
                                 'assets/figma/coin_stack.png',
-                                width: 44,
-                                height: 44,
+                                width: 32,
+                                height: 29,
                                 fit: BoxFit.contain,
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 3),
                               Text(
-                                _formatBalance(sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance)),
+                                _formatBalance(totalCoins),
                                 style: const TextStyle(
+                                  fontFamily: 'Nunito',
                                   fontSize: 40,
-                                  fontWeight: FontWeight.w900,
-                                  color: kChildBrandBlue,
+                                  fontWeight: FontWeight.w800,
+                                  color: _kEconomyTitleBlue,
                                   height: 1.0,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Text(
-                            '${(sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance)) * _rublesPer10Coins ~/ 10} ₽',
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: kChildInkMuted.withValues(alpha: 0.65),
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black.withValues(alpha: 0.3),
+                              ),
+                              children: [
+                                TextSpan(text: '${_formatBalance(rubles)} '),
+                                const TextSpan(
+                                  text: '₽',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    // ── Управление монетами card ───────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    Center(
                       child: Container(
-                        padding: const EdgeInsets.all(18),
+                        width: 311,
+                        height: 1,
+                        color: Colors.black.withValues(alpha: 0.08),
+                      ),
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 30,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              color: Colors.black.withValues(alpha: 0.13),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
@@ -427,12 +377,13 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               children: [
                                 const Expanded(
                                   child: Text(
-                                    'Управление\nмонетами',
+                                    'Управление монетами',
                                     style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: kChildInk,
-                                      height: 1.15,
+                                      fontFamily: 'Nunito',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black,
+                                      height: 1.0,
                                     ),
                                   ),
                                 ),
@@ -451,16 +402,20 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                 ),
                               ],
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              child: Divider(height: 1, color: kChildOutline),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 20),
+                              child: Container(
+                                height: 1,
+                                color: Colors.black.withValues(alpha: 0.08),
+                              ),
                             ),
                             InkWell(
                               onTap: _editCoinRate,
                               borderRadius: BorderRadius.circular(8),
                               child: Padding(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 4),
+                                    const EdgeInsets.symmetric(vertical: 2),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -471,24 +426,28 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                           const Text(
                                             'Курс',
                                             style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w800,
-                                              color: kChildInk,
+                                              fontFamily: 'Nunito',
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black,
                                             ),
                                           ),
-                                          const SizedBox(height: 2),
+                                          const SizedBox(height: 10),
                                           Text(
                                             '10 монет = $_rublesPer10Coins ₽',
                                             style: const TextStyle(
-                                              fontSize: 13,
-                                              color: kChildInkMuted,
+                                              fontFamily: 'Nunito',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w400,
+                                              color: Colors.black,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const Icon(
+                                    Icon(
                                       Icons.chevron_right,
+                                      size: 16,
                                       color: kChildInkMuted,
                                     ),
                                   ],
@@ -499,136 +458,198 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 20),
 
-                    // Divider before Биржа задач
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                      child: Container(height: 1, color: kChildOutline),
+                    Center(
+                      child: Container(
+                        width: 311,
+                        height: 1,
+                        color: Colors.black.withValues(alpha: 0.08),
+                      ),
                     ),
-                    // ── Биржа задач section (always visible) ──────────
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 14, 20, 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Биржа задач',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: kChildInk,
+
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 15),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Биржа задач',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                                height: 1.0,
+                              ),
+                            ),
                           ),
-                        ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => Scaffold(
+                                  backgroundColor: Colors.transparent,
+                                  appBar: AppBar(
+                                    backgroundColor: Colors.transparent,
+                                    surfaceTintColor: Colors.transparent,
+                                    elevation: 0,
+                                    leading: IconButton(
+                                      icon: const Icon(
+                                        Icons.arrow_back,
+                                        color: kChildInk,
+                                      ),
+                                      onPressed: () =>
+                                          Navigator.of(context).maybePop(),
+                                    ),
+                                    centerTitle: true,
+                                    title: const Text(
+                                      'Создать задачу',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  body: _QuestCreateForm(
+                                    familyId: family.familyId,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'Добавить',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: _kEconomyTitleBlue,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 19),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
-                            width: 130,
-                            child: _PillTab(
+                          Expanded(
+                            child: _EconomySegmentTab(
                               label: 'Активные',
                               selected: _tab == 0,
-                              selectedColor: kChildBrandBlue,
+                              filled: false,
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
                           const SizedBox(width: 10),
-                          SizedBox(
-                            width: 130,
-                            child: _PillTab(
+                          Expanded(
+                            child: _EconomySegmentTab(
                               label: 'Проверка',
                               selected: _tab == 2,
-                              selectedColor: kBrandMint,
+                              filled: true,
                               onTap: () => setState(() => _tab = 2),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    if (_tab == 2) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          'На проверке',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: kChildInkMuted.withValues(alpha: 0.65),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ] else
-                      const SizedBox(height: 14),
-                    // List rendered inline
+                    const SizedBox(height: 20),
                     if (_tab == 0)
                       _QuestsList(familyId: family.familyId)
                     else
                       _QuestReviewList(familyId: family.familyId),
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 120),
                   ],
                 ),
               ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 }
 
-class _PillTab extends StatelessWidget {
-  const _PillTab({
+class _EconomySegmentTab extends StatelessWidget {
+  const _EconomySegmentTab({
     required this.label,
     required this.selected,
+    required this.filled,
     required this.onTap,
-    this.selectedColor = kBrandMint,
   });
+
   final String label;
   final bool selected;
+  final bool filled;
   final VoidCallback onTap;
-  final Color selectedColor;
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? selectedColor : Colors.white;
-    final isBlue = selectedColor == kChildBrandBlue;
-    final fg = selected
-        ? (isBlue ? Colors.white : const Color(0xFF000000))
-        : kChildInk;
+    final BoxDecoration deco;
+    if (filled) {
+      if (selected) {
+        deco = BoxDecoration(
+          color: const Color(0xFFD9F6C2),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFDEF7CB).withValues(alpha: 0.35),
+              blurRadius: 50,
+              offset: const Offset(0, 20),
+            ),
+            BoxShadow(
+              color: const Color(0xFFADD3A5).withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 13),
+            ),
+          ],
+        );
+      } else {
+        deco = BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        );
+      }
+    } else if (selected) {
+      deco = BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.34)),
+      );
+    } else {
+      deco = BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+      );
+    }
+
+    Widget child = Container(
+      height: 54,
+      alignment: Alignment.center,
+      decoration: deco,
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Nunito',
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+      ),
+    );
+
+    if (!filled && selected) {
+      child = Opacity(opacity: 0.58, child: child);
+    }
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(24),
-          border: selected
-              ? null
-              : Border.all(color: kChildOutline, width: 1.2),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    offset: const Offset(0, 4),
-                    blurRadius: 8,
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: fg,
-          ),
-        ),
-      ),
+      child: child,
     );
   }
 }
@@ -641,7 +662,6 @@ class _WalletChip extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.icon,
-    this.emoji,
     this.userKey,
   });
   final String label;
@@ -649,7 +669,6 @@ class _WalletChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final IconData? icon;
-  final String? emoji;
 
   static String _avatarAssetForName(String name) {
     final idx = (name.hashCode.abs() % 9) + 1;
@@ -661,142 +680,83 @@ class _WalletChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 72,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: selected
+              ? Border.all(
+                  color: Colors.black.withValues(alpha: 0.29),
+                  width: 0.4,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: selected ? 0.1 : 0.08,
+              ),
+              blurRadius: selected ? 20 : 40,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 54,
-              height: 54,
+              width: 73,
+              height: 73,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected
-                      ? kChildBrandBlue
-                      : const Color(0xFFE7ECF3),
-                  width: selected ? 2 : 1,
+                  color: Colors.black.withValues(alpha: 0.21),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: icon != null
-                  ? Icon(icon, color: kChildInk, size: 24)
+                  ? Icon(icon, color: kChildInk, size: 33)
                   : (userKey != null
                       ? UserAvatar(
                           userKey: userKey!,
-                          size: 54,
-                          fallbackText:
-                              emoji ?? label.characters.first.toUpperCase(),
+                          size: 73,
+                          fallbackText: label.characters.first.toUpperCase(),
                         )
                       : Image.asset(
                           _avatarAssetForName(label),
+                          width: 73,
+                          height: 73,
                           fit: BoxFit.cover,
                           errorBuilder: (_, e, s) => Text(
-                            emoji ?? label.characters.first.toUpperCase(),
+                            label.characters.first.toUpperCase(),
                             style: const TextStyle(fontSize: 22),
                           ),
                         )),
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                color: kChildInk,
-                fontWeight: FontWeight.w700,
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 80,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.black,
+                  height: 1.0,
+                ),
+                textHeightBehavior: const TextHeightBehavior(
+                  applyHeightToFirstAscent: false,
+                  applyHeightToLastDescent: false,
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AdjustBtn extends StatelessWidget {
-  const _AdjustBtn({
-    required this.label,
-    required this.filled,
-    required this.onTap,
-  });
-  final String label;
-  final bool filled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: filled ? const Color(0xFF7B6FD0) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: filled ? null : Border.all(color: kChildOutline, width: 1.4),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: filled ? Colors.white : kChildInkMuted,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuestTab extends StatelessWidget {
-  const _QuestTab({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF2E3A4E) : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.white, size: 20),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -864,6 +824,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
                     controller: titleCtl,
@@ -1063,20 +1024,15 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                         },
                       ),
                     ),
+                  const SizedBox(height: 16),
+                  FigmaDialogActionStack(
+                    onCancel: () => Navigator.pop(ctx, false),
+                    onConfirm: () => Navigator.pop(ctx, true),
+                  ),
                 ],
               ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Отмена'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Сохранить'),
-            ),
-          ],
         ),
       ),
     );
@@ -1152,22 +1108,8 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 19),
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Все задачи',
-                    style: TextStyle(fontSize: 14, color: kChildInkMuted),
-                  ),
-                ),
-                IconButton(
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh, color: kChildInkMuted, size: 20),
-                ),
-              ],
-            ),
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator()),
             if (snapshot.hasError)
@@ -1187,54 +1129,81 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
             ...list.asMap().entries.map(
               (e) {
                 final q = e.value;
-                final colors = [kBrandMint, kBrandLavender, kBrandSky, kBrandSunny];
+                final colors = _reviewCardColors;
                 final cardColor = colors[e.key % colors.length];
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: ChildSoftCard(
-                    color: cardColor,
-                    padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                q.title,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: kChildInk,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '+${q.rewardAmount} монет',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: kChildInkMuted,
-                                ),
-                              ),
-                              Text(
-                                '${typeLabel(q.questType)} • ${q.distributionType == 'exchange' ? 'Биржа' : 'Адресно'}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: kChildInkMuted,
-                                ),
-                              ),
-                              Text(
-                                '${q.status} • ${DateFormat('dd.MM HH:mm').format(q.createdAt.toLocal())}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: kChildInkMuted,
-                                ),
-                              ),
-                            ],
-                          ),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(15, 20, 12, 20),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(25),
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.08),
                         ),
-                        PopupMenuButton<String>(
+                        boxShadow: [
+                          BoxShadow(
+                            color: cardColor.withValues(alpha: 0.35),
+                            blurRadius: 50,
+                            offset: const Offset(0, 20),
+                          ),
+                          BoxShadow(
+                            color: _figmaReviewCardShadow2(cardColor),
+                            blurRadius: 20,
+                            offset: const Offset(0, 13),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  q.title,
+                                  style: const TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 15),
+                                Text(
+                                  '+${q.rewardAmount} монет',
+                                  style: const TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${typeLabel(q.questType)} • ${q.distributionType == 'exchange' ? 'Биржа' : 'Адресно'}',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black.withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                Text(
+                                  '${q.status} • ${DateFormat('dd.MM HH:mm').format(q.createdAt.toLocal())}',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 12,
+                                    color: Colors.black.withValues(alpha: 0.38),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuButton<String>(
                     onSelected: (value) async {
                       if (value == 'edit') {
                         await _editQuest(q);
@@ -1243,17 +1212,22 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('Удалить квест'),
-                            content: const Text('Удалить квест полностью?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Отмена'),
-                              ),
-                              FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Удалить'),
-                              ),
-                            ],
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text('Удалить квест полностью?'),
+                                const SizedBox(height: 16),
+                                FigmaDialogActionStack(
+                                  onCancel: () => Navigator.pop(ctx, false),
+                                  onConfirm: () => Navigator.pop(ctx, true),
+                                  confirmLabel: 'Удалить',
+                                  confirmGradient:
+                                      FigmaDialogActionStack
+                                          .destructiveGradientVertical,
+                                ),
+                              ],
+                            ),
                           ),
                         );
                         if (confirm == true) {
@@ -1279,7 +1253,8 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
                       ),
                     ],
                   ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -1733,7 +1708,22 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
 
 // ─── Quest review list ────────────────────────────────────────────────────────
 
-const _reviewCardColors = <Color>[kBrandMint, kBrandSky, kBrandLavender];
+const _reviewCardColors = <Color>[
+  _kFigmaReviewMint,
+  _kFigmaReviewSky,
+  _kFigmaReviewLavender,
+];
+
+Color _figmaReviewCardShadow2(Color bg) {
+  switch (bg.toARGB32()) {
+    case 0xFFD9F6C2:
+      return const Color(0xFFADD3A5).withValues(alpha: 0.35);
+    case 0xFFBFD3FF:
+      return const Color(0xFFBFD3FF).withValues(alpha: 0.35);
+    default:
+      return const Color(0xFFB3A5D3).withValues(alpha: 0.35);
+  }
+}
 
 class _QuestReviewList extends ConsumerWidget {
   const _QuestReviewList({required this.familyId});
@@ -1864,7 +1854,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                   child: Image.network(
                     widget.item.evidenceUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       color: const Color(0xFFEFF2F8),
                       alignment: Alignment.center,
                       child: const Text('Не удалось загрузить фото'),
@@ -1912,18 +1902,24 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(25),
         onTap: _busy ? null : _openReviewSheet,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          padding: const EdgeInsets.fromLTRB(15, 20, 15, 20),
           decoration: BoxDecoration(
             color: widget.bg,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: widget.bg.withValues(alpha: 0.35),
+                blurRadius: 50,
+                offset: const Offset(0, 20),
+              ),
+              BoxShadow(
+                color: _figmaReviewCardShadow2(widget.bg),
+                blurRadius: 20,
+                offset: const Offset(0, 13),
               ),
             ],
           ),
@@ -1933,28 +1929,33 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
               Text(
                 widget.item.title,
                 style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: kChildInk,
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 15),
               if (reward != null)
                 Text(
                   '$reward монет',
                   style: const TextStyle(
-                    fontSize: 14,
-                    color: kChildInk,
+                    fontFamily: 'Nunito',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
-              if (widget.item.childName.isNotEmpty)
-                Text(
-                  widget.item.childName,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: kChildInk,
-                  ),
+              const SizedBox(height: 15),
+              Text(
+                widget.item.childName,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
+              ),
             ],
           ),
         ),
@@ -1973,60 +1974,21 @@ class _CircleIconBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      shape: const CircleBorder(side: BorderSide(color: kChildOutline, width: 1.4)),
+      shape: CircleBorder(
+        side: BorderSide(
+          color: Colors.black.withValues(alpha: 0.21),
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(icon, color: kChildInk, size: 22),
+          width: 57,
+          height: 57,
+          child: Icon(icon, color: kChildInk, size: 24),
         ),
       ),
     );
   }
-}
-
-class _CoinStackIcon extends StatelessWidget {
-  const _CoinStackIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _CoinStackPainter(),
-    );
-  }
-}
-
-class _CoinStackPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = kChildBrandBlue
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeJoin = StrokeJoin.round;
-    final w = size.width;
-    final h = size.height;
-    final coinW = w * 0.95;
-    final coinH = h * 0.30;
-    final cx = w / 2;
-    // Draw 3 stacked coins (ellipses with side walls), bottom to top
-    for (int i = 0; i < 3; i++) {
-      final cy = h - coinH / 2 - i * (coinH * 0.85);
-      final rect = Rect.fromCenter(center: Offset(cx, cy), width: coinW, height: coinH);
-      canvas.drawOval(rect, stroke);
-      // side walls (only between coins or for bottom)
-      final leftX = cx - coinW / 2;
-      final rightX = cx + coinW / 2;
-      final wallTop = cy;
-      final wallBottom = cy + coinH * 0.45;
-      canvas.drawLine(Offset(leftX, wallTop), Offset(leftX, wallBottom), stroke);
-      canvas.drawLine(Offset(rightX, wallTop), Offset(rightX, wallBottom), stroke);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -96,57 +96,58 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/',
         builder: (context, state) => const SplashPage(),
       ),
+      // Каждый экран — отдельная страница на корневом Navigator. Вложенные
+      // GoRoute под /auth оставляли AuthLandingPage в стеке под sign-in
+      // (просвечивали карусель и CTA — «лагающее» переключение).
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthLandingPage(),
-        routes: [
-          GoRoute(
-            path: 'join',
-            builder: (context, state) {
-              final role = state.uri.queryParameters['role'] ?? 'child';
-              return JoinFamilyCodePage(role: role);
-            },
-          ),
-          GoRoute(
-            path: 'parent/sign-in',
-            builder: (context, state) => const ParentSignInPage(),
-          ),
-          GoRoute(
-            path: 'admin/sign-in',
-            builder: (context, state) => const ParentSignInPage(isAdmin: true),
-          ),
-          GoRoute(
-            path: 'parent/sign-up',
-            builder: (context, state) => const ParentSignUpPage(),
-          ),
-          GoRoute(
-            path: 'sign-in/role',
-            builder: (context, state) => const SignInRoleChoicePage(),
-          ),
-          GoRoute(
-            path: 'child/sign-in',
-            builder: (context, state) => const ChildSignInPage(),
-          ),
-          GoRoute(
-            path: 'sign-up/role',
-            builder: (context, state) => const SignUpRoleChoicePage(),
-          ),
-          GoRoute(
-            path: 'recover',
-            builder: (context, state) => const RecoverAccessPage(),
-          ),
-          GoRoute(
-            path: 'child/request',
-            builder: (context, state) => const ChildRequestAccessPage(),
-          ),
-          GoRoute(
-            path: 'child/wait',
-            builder: (context, state) {
-              final requestId = state.uri.queryParameters['requestId'] ?? '';
-              return ChildWaitApprovalPage(requestId: requestId);
-            },
-          ),
-        ],
+      ),
+      GoRoute(
+        path: '/auth/join',
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] ?? 'child';
+          return JoinFamilyCodePage(role: role);
+        },
+      ),
+      GoRoute(
+        path: '/auth/parent/sign-in',
+        builder: (context, state) => const ParentSignInPage(),
+      ),
+      GoRoute(
+        path: '/auth/admin/sign-in',
+        builder: (context, state) => const ParentSignInPage(isAdmin: true),
+      ),
+      GoRoute(
+        path: '/auth/parent/sign-up',
+        builder: (context, state) => const ParentSignUpPage(),
+      ),
+      GoRoute(
+        path: '/auth/sign-in/role',
+        builder: (context, state) => const SignInRoleChoicePage(),
+      ),
+      GoRoute(
+        path: '/auth/child/sign-in',
+        builder: (context, state) => const ChildSignInPage(),
+      ),
+      GoRoute(
+        path: '/auth/sign-up/role',
+        builder: (context, state) => const SignUpRoleChoicePage(),
+      ),
+      GoRoute(
+        path: '/auth/recover',
+        builder: (context, state) => const RecoverAccessPage(),
+      ),
+      GoRoute(
+        path: '/auth/child/request',
+        builder: (context, state) => const ChildRequestAccessPage(),
+      ),
+      GoRoute(
+        path: '/auth/child/wait',
+        builder: (context, state) {
+          final requestId = state.uri.queryParameters['requestId'] ?? '';
+          return ChildWaitApprovalPage(requestId: requestId);
+        },
       ),
       GoRoute(
         path: '/parent',

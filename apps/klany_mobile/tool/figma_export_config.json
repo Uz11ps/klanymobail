@@ -1,0 +1,24 @@
+{
+  "fileKey": "z72tmzXGfrKzFPQMqrL1ZB",
+  "exports": [
+    { "comment": "Главная ребёнка iPhone 17 - 7 (нижняя панель + обновить)" },
+    { "nodeId": "0:129", "path": "assets/figma/nav_refresh.svg" },
+    { "nodeId": "0:132", "path": "assets/figma/nav_shop.svg" },
+    { "nodeId": "0:134", "path": "assets/figma/nav_home_outline.svg" },
+    { "nodeId": "0:136", "path": "assets/figma/nav_tune.svg" },
+
+    { "comment": "Экран квестов iPhone 17 - 39 — выбран «Дом», иконка заданий" },
+    { "nodeId": "0:340", "path": "assets/figma/nav_home_filled.svg" },
+    { "nodeId": "0:342", "path": "assets/figma/nav_assignment.svg" },
+
+    { "comment": "Родительский магазин iPhone 17 - 16 — нижняя капсула (list / + / bag)" },
+    { "nodeId": "0:852", "path": "assets/figma/shop_nav_list.svg" },
+    { "nodeId": "0:854", "path": "assets/figma/shop_nav_plus.svg" },
+    { "nodeId": "0:856", "path": "assets/figma/shop_nav_bag.svg" },
+
+    { "comment": "Онбординг карточка 0-1766 — fi-br-sign-out-alt, fi-br-angle-right" },
+    { "nodeId": "0:1781", "path": "assets/figma/onboarding_sign_out.svg" },
+    { "nodeId": "0:1783", "path": "assets/figma/onboarding_chevron_right.svg" }
+
+  ]
+}

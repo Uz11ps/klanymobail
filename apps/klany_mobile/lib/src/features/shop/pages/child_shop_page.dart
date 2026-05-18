@@ -7,6 +7,7 @@ import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
 import '../../wallet/pages/child_wallet_page.dart';
 import '../../wallet/wallet_repository.dart';
+import '../shop_product_icon.dart';
 import '../shop_repository.dart';
 
 const _shopCardColors = <Color>[kBrandMint, kBrandSky, kBrandLavender];
@@ -98,7 +99,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
         final completed = data?.completedCount ?? 0;
 
         return Container(
-          color: kBgCloud,
+          color: Colors.transparent,
           child: SafeArea(
             bottom: false,
             child: RefreshIndicator(
@@ -182,7 +183,18 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
                           child: _ChildProductCard(
                             product: e.value,
                             bg: _shopCardColors[e.key % _shopCardColors.length],
-                            onBuy: () => _buy(e.value),
+                            onBuy: e.value.isActive
+                                ? () => _buy(e.value)
+                                : () {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Этот товар сейчас недоступен',
+                                        ),
+                                      ),
+                                    );
+                                  },
                           ),
                         ),
                       ),
@@ -330,23 +342,6 @@ class _ChildProfileCard extends ConsumerWidget {
   }
 }
 
-String _emojiForProduct(ShopProductItem p) {
-  final desc = '${p.title} ${p.description ?? ''}'.toLowerCase();
-  if (desc.contains('игр') || desc.contains('psp') || desc.contains('xbox')) {
-    return '🎮';
-  }
-  if (desc.contains('кино') || desc.contains('фильм')) return '🎬';
-  if (desc.contains('книг') || desc.contains('читать') || desc.contains('урок')) return '📚';
-  if (desc.contains('шокол') || desc.contains('сладк')) return '🍫';
-  if (desc.contains('пицц')) return '🍕';
-  if (desc.contains('игрушк')) return '🐻';
-  if (desc.contains('наушник') || desc.contains('музык')) return '🎧';
-  if (desc.contains('мяч') || desc.contains('спорт') || desc.contains('матч')) return '🏈';
-  if (desc.contains('прогул')) return '🐻';
-  if (desc.contains('вечер') || desc.contains('свобод')) return '🎧';
-  return '🎁';
-}
-
 class _ChildProductCard extends StatelessWidget {
   const _ChildProductCard({
     required this.product,
@@ -360,78 +355,97 @@ class _ChildProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final active = product.isActive;
+    final titleStyle = TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w900,
+      color: active ? kChildInk : kChildInk.withValues(alpha: 0.45),
+    );
+    final priceStyle = TextStyle(
+      fontSize: 14,
+      color: active
+          ? kChildInkMuted
+          : kChildInkMuted.withValues(alpha: 0.55),
+      fontWeight: FontWeight.w600,
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: onBuy,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 56,
-                height: 56,
-                child: (product.imageUrl ?? '').isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Center(
-                            child: Text(
-                              _emojiForProduct(product),
-                              style: const TextStyle(fontSize: 40),
+        child: Opacity(
+          opacity: active ? 1 : 0.72,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: (product.imageUrl ?? '').isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Center(
+                              child: ShopProductIconSvg(
+                                asset: shopProductResolvedIcon(product).asset,
+                                size: 40,
+                              ),
                             ),
                           ),
+                        )
+                      : Center(
+                          child: ShopProductIconSvg(
+                            asset: shopProductResolvedIcon(product).asset,
+                            size: 40,
+                          ),
                         ),
-                      )
-                    : Center(
-                        child: Text(
-                          _emojiForProduct(product),
-                          style: const TextStyle(fontSize: 40),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      product.title,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: kChildInk,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${product.price} монет',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: kChildInkMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        product.title,
+                        style: titleStyle,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${product.price} монет',
+                        style: priceStyle,
+                      ),
+                      if (!active) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Недоступно',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: kChildInkMuted.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -10,7 +10,11 @@ class TechSupportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: kChildInk),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -85,9 +89,21 @@ class TechSupportPage extends StatelessWidget {
                             style: TextStyle(fontSize: 14),
                           ),
                           actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Закрыть'),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                              child: FigmaGradientButton(
+                                label: 'Закрыть',
+                                gradient:
+                                    FigmaGradientButton.mintGradientVertical,
+                                height: kFigmaLandingCtaHeight,
+                                labelStyle: kFigmaLandingCtaTextStyle,
+                                boxShadow: kFigmaLandingCtaBoxShadows,
+                                textHeightBehavior: const TextHeightBehavior(
+                                  applyHeightToFirstAscent: false,
+                                  applyHeightToLastDescent: false,
+                                ),
+                                onTap: () => Navigator.pop(ctx),
+                              ),
                             ),
                           ],
                         ),
@@ -97,19 +113,10 @@ class TechSupportPage extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: kBrandSky,
                     foregroundColor: kChildInk,
-                    elevation: 4,
-                    minimumSize: const Size.fromHeight(54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
+                    textStyle:
+                        kFigmaLandingCtaTextStyle.copyWith(color: kChildInk),
                   ),
-                  child: const Text(
-                    'Написать в поддержку',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  child: const Text('Написать в поддержку'),
                 ),
               ],
             ),
@@ -219,21 +226,21 @@ class _SupportSkyButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: kBrandSky,
           foregroundColor: kChildInk,
-          elevation: 4,
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(kFigmaLandingCtaHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(kFigmaLandingCtaHeight / 2),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          textStyle: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+          ),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            height: 1.2,
-          ),
         ),
       ),
     );

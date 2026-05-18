@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/klany_figma_style.dart';
+
 // Force consistent Material Design on all platforms (iOS + Android look identical).
 const _pageTransitions = PageTransitionsTheme(
   builders: {
@@ -31,7 +33,9 @@ ThemeData _build(ColorScheme colorScheme) {
       bodyColor: inkDark,
       displayColor: inkDark,
     ),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    // Floating snackbars clash with tall custom bottomNavigationBar (parent/child
+    // pill bars): layout asserts on Web when the bar + safe area leave no room.
+    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.fixed),
     // Make Scaffold transparent so the global cloud background shows through.
     scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(
@@ -46,36 +50,43 @@ ThemeData _build(ColorScheme colorScheme) {
         color: Color(0xFF1E2D52),
       ),
     ),
-    // App-style FilledButton: mint, dark ink text, hard bottom shadow.
+    // Primary FilledButton — как CTA лендинга 0-602: высота 72, Nunito 24/w700, «таблетка».
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
         backgroundColor: const WidgetStatePropertyAll(Color(0xFFC5F2C0)),
         foregroundColor: const WidgetStatePropertyAll(Color(0xFF000000)),
-        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(54)),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        minimumSize: const WidgetStatePropertyAll(
+          Size.fromHeight(kFigmaLandingCtaHeight),
         ),
-        elevation: const WidgetStatePropertyAll(6),
-        shadowColor: const WidgetStatePropertyAll(Color(0xFF7BC976)),
-        textStyle: const WidgetStatePropertyAll(TextStyle(
-          fontFamily: 'Nunito',
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-        )),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 22, vertical: 0),
+        ),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(kFigmaLandingCtaHeight / 2),
+          ),
+        ),
+        elevation: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return 0;
+          return 5;
+        }),
+        shadowColor: const WidgetStatePropertyAll(Color(0x331E2D52)),
+        textStyle: const WidgetStatePropertyAll(kFigmaLandingCtaTextStyle),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: ButtonStyle(
-        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(50)),
+        minimumSize: const WidgetStatePropertyAll(Size.fromHeight(56)),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         ),
         side: const WidgetStatePropertyAll(
           BorderSide(color: Color(0xFFD7E1F2), width: 1.4),
         ),
         textStyle: const WidgetStatePropertyAll(TextStyle(
           fontFamily: 'Nunito',
-          fontSize: 15,
+          fontSize: 17,
           fontWeight: FontWeight.w800,
         )),
       ),

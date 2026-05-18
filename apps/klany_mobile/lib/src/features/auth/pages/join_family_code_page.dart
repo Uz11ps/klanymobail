@@ -64,6 +64,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
             familyId: result.familyId,
             childDisplayName: result.childDisplayName,
             accessToken: result.accessToken,
+            avatarObjectKey: result.avatarObjectKey,
           );
       if (!mounted) return;
       context.go('/child');

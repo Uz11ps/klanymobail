@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
+import '../phone_utils.dart';
 
 // ─── APK-matching "СМЫСЛ" feature card ──────────────────────────────────────
 
@@ -109,59 +112,8 @@ class _SmyshlCard extends StatelessWidget {
 
 // ─── APK-style text field decoration ────────────────────────────────────────
 
-/// Wraps a child (e.g. TextField) in a soft-shadowed pill-shaped container
-/// to match Figma input styling.
-class SoftInputContainer extends StatelessWidget {
-  const SoftInputContainer({super.key, required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E2D52).withValues(alpha: 0.10),
-            offset: const Offset(0, 6),
-            blurRadius: 18,
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            offset: const Offset(0, 2),
-            blurRadius: 6,
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-InputDecoration _authInput(String hint, {Widget? suffixIcon}) {
-  return InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: kChildInkMuted, fontSize: 15),
-    filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: BorderSide.none,
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(28),
-      borderSide: const BorderSide(color: kChildBrandBlue, width: 1.4),
-    ),
-    suffixIcon: suffixIcon,
-  );
-}
+InputDecoration _authInput(String hint, {Widget? suffixIcon}) =>
+    figmaAuthFieldDecoration(hint, suffixIcon: suffixIcon);
 
 // ─── Parent sign-in page ─────────────────────────────────────────────────────
 
@@ -189,10 +141,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   String? _savedPassword;
 
   Future<void> _proceed() async {
-    if (_email.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите email или телефон')),
-      );
+    final err = validateParentLoginIdentifier(_email.text);
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
       return;
     }
     setState(() => _step = 1);
@@ -244,6 +195,11 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       );
       return;
     }
+    final loginErr = validateParentLoginIdentifier(_email.text);
+    if (loginErr != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loginErr)));
+      return;
+    }
     if (!Env.hasApiConfig) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы войти')),
@@ -262,12 +218,14 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       await prefs.setString(_kBiometricPassword, _password.text);
       if (mounted) context.go('/parent');
     } catch (_) {
-      // Sign-in failed → automatically register
+      // Sign-in failed → automatically register (email в API — только в email/recovery, не в phone)
       try {
+        final login = _email.text.trim();
+        final asEmail = login.contains('@');
         await ref.read(authActionsProvider).parentSignUp(
-              phone: _email.text.trim(),
+              phone: asEmail ? '' : login,
               password: _password.text,
-              recoveryEmail: _email.text.trim(),
+              recoveryEmail: asEmail ? login : null,
             );
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_kBiometricLogin, _email.text.trim());
@@ -312,202 +270,182 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
   @override
   Widget build(BuildContext context) {
     final isEmailStep = _step == 0;
+
+    void onBack() {
+      if (_step == 1) {
+        setState(() => _step = 0);
+      } else if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/auth');
+      }
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: kChildInk),
-          onPressed: () {
-            if (_step == 1) {
-              setState(() => _step = 0);
-            } else {
-              Navigator.of(context).maybePop();
-            }
-          },
-        ),
-        centerTitle: true,
-        title: const Text(
-          'Регистрация',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: kChildInk,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
-          children: [
-            // Hero illustration card
-            _AuthHeroCard(
-              asset: isEmailStep
-                  ? 'assets/figma/hero_birzha.png'
-                  : 'assets/figma/hero_economika.png',
-              bg: isEmailStep ? kBrandLavender : kBrandSunny,
-              title: isEmailStep ? 'Биржа задач' : 'Лимиты и Капитал',
-              subtitle: isEmailStep
-                  ? 'Создавай задания и назначай оплату участникам'
-                  : 'Устанавливай лимиты и управляй капиталом',
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const FigmaAuthScreenBackground(),
+          Padding(
+            padding: EdgeInsets.only(
+              top: math.max(
+                MediaQuery.paddingOf(context).top,
+                kFigmaLandingMinTopInset,
+              ),
+              bottom: math.max(
+                MediaQuery.paddingOf(context).bottom,
+                kFigmaLandingMinBottomInset,
+              ),
             ),
-            const SizedBox(height: 28),
-            // Step-specific content
-            if (isEmailStep) ...[
-              const Padding(
-                padding: EdgeInsets.only(left: 6, bottom: 10),
-                child: Text(
-                  'Email',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: kChildInk,
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FigmaAuthDoubleDeckHeader(
+                  navTitle: 'Регистрация',
+                  onBack: onBack,
                 ),
-              ),
-              SoftInputContainer(
-                child: TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  autofillHints: const [
-                    AutofillHints.username,
-                    AutofillHints.email,
-                  ],
-                  decoration: _authInput('email@gmail.com'),
-                  style: const TextStyle(fontSize: 15, color: kChildInk),
-                ),
-              ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _busy ? null : _proceed,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: kBrandMint,
-                    foregroundColor: const Color(0xFF000000),
-                    minimumSize: const Size.fromHeight(56),
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kFigmaAuthScreenPaddingH,
+                      kFigmaAuthScreenContentTop,
+                      kFigmaAuthScreenPaddingH,
+                      16,
                     ),
-                  ),
-                  child: const Text(
-                    'Продолжить',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ] else ...[
-              const Padding(
-                padding: EdgeInsets.only(left: 6, bottom: 10),
-                child: Text(
-                  'Пароль',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: kChildInk,
-                  ),
-                ),
-              ),
-              StatefulBuilder(
-                builder: (context, setLocal) => SoftInputContainer(
-                  child: TextField(
-                    controller: _password,
-                    obscureText: _obscure,
-                    autofillHints: const [AutofillHints.password],
-                    decoration: _authInput(
-                      '••••••••',
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: kChildInkMuted,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: ClampingScrollPhysics(),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FigmaAuthHeroCarouselSlot(
+                            asset: isEmailStep
+                                ? 'assets/figma/hero_birzha.png'
+                                : 'assets/figma/hero_economika.png',
+                            fallbackColor:
+                                isEmailStep ? kBrandLavender : kBrandSunny,
+                            dotCount: 3,
+                            activeDotIndex: _step.clamp(0, 2),
+                          ),
+                          const SizedBox(height: 8),
+                          if (isEmailStep) ...[
+                        const Padding(
+                          padding:
+                              EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                          child: Text('Email', style: kFigmaAuthFieldLabelStyle),
                         ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [
+                              AutofillHints.username,
+                              AutofillHints.email,
+                            ],
+                            style: kFigmaAuthInputTextStyle,
+                            decoration: _authInput('email@gmail.com'),
+                          ),
+                        ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
+                        FigmaGradientButton(
+                          label: 'Продолжить',
+                          gradient: FigmaGradientButton.mintGradientVertical,
+                          height: kFigmaAuthPrimaryCtaHeight,
+                          labelStyle: kFigmaLandingCtaTextStyle,
+                          boxShadow: kFigmaLandingCtaBoxShadows,
+                          textHeightBehavior: const TextHeightBehavior(
+                            applyHeightToFirstAscent: false,
+                            applyHeightToLastDescent: false,
+                          ),
+                          onTap: _busy ? null : _proceed,
+                        ),
+                      ] else ...[
+                        const Padding(
+                          padding:
+                              EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                          child:
+                              Text('Пароль', style: kFigmaAuthFieldLabelStyle),
+                        ),
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _password,
+                            obscureText: _obscure,
+                            autofillHints: const [AutofillHints.password],
+                            style: kFigmaAuthInputTextStyle,
+                            decoration: _authInput(
+                              '••••••••',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: kChildInkMuted,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
+                        if (_busy)
+                          const SizedBox(
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            child: Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF1F4F1B),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          FigmaGradientButton(
+                            label: 'Войти в управление',
+                            gradient: FigmaGradientButton.mintGradientVertical,
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            labelStyle: kFigmaLandingCtaTextStyle,
+                            boxShadow: kFigmaLandingCtaBoxShadows,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: false,
+                              applyHeightToLastDescent: false,
+                            ),
+                            onTap: _submit,
+                          ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
+                        Center(
+                          child: TextButton(
+                            onPressed:
+                                _busy ? null : () => context.go('/auth/recover'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: kChildInkMuted,
+                            ),
+                            child: const Text(
+                              'Забыли пароль?',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                        ],
                       ),
                     ),
-                    style: const TextStyle(fontSize: 15, color: kChildInk),
                   ),
                 ),
-              ),
-              const SizedBox(height: 22),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _busy ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: kBrandMint,
-                    foregroundColor: const Color(0xFF000000),
-                    minimumSize: const Size.fromHeight(56),
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                  child: _busy
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Color(0xFF1F4F1B),
-                          ),
-                        )
-                      : const Text(
-                          'Войти в управление',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Center(
-                child: TextButton(
-                  onPressed: _busy ? null : () => context.go('/auth/recover'),
-                  style: TextButton.styleFrom(foregroundColor: kChildInkMuted),
-                  child: const Text(
-                    'Забыли пароль?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthHeroCard extends StatelessWidget {
-  const _AuthHeroCard({
-    required this.asset,
-    required this.bg,
-    required this.title,
-    required this.subtitle,
-  });
-  final String asset;
-  final Color bg;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1.05,
-      child: Image.asset(
-        asset,
-        fit: BoxFit.contain,
-        alignment: Alignment.center,
-        errorBuilder: (_, __, ___) => Container(color: bg),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -523,7 +461,7 @@ class ParentActivationKeyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kChildSurfaceSoft,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: ListView(
           physics: const ClampingScrollPhysics(),
@@ -634,19 +572,16 @@ class ParentActivationKeyPage extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: kChildBrandBlue,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                ),
-                child: const Text(
-                  'ПЕРЕЙТИ НА ГЛАВНЫЙ ЭКРАН',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                  textStyle: const TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.05,
                     letterSpacing: 0.4,
                   ),
                 ),
+                child: const Text('ПЕРЕЙТИ НА ГЛАВНЫЙ ЭКРАН'),
               ),
             ),
             const SizedBox(height: 12),

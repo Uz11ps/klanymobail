@@ -9,6 +9,7 @@ class ChildAccessPollResult {
     this.childId,
     this.childDisplayName,
     this.accessToken,
+    this.avatarObjectKey,
   });
 
   final String requestId;
@@ -17,6 +18,7 @@ class ChildAccessPollResult {
   final String? childId;
   final String? childDisplayName;
   final String? accessToken;
+  final String? avatarObjectKey;
 }
 
 class ChildRestoreSessionResult {
@@ -25,12 +27,14 @@ class ChildRestoreSessionResult {
     required this.familyId,
     required this.childDisplayName,
     required this.accessToken,
+    this.avatarObjectKey,
   });
 
   final String childId;
   final String familyId;
   final String childDisplayName;
   final String accessToken;
+  final String? avatarObjectKey;
 }
 
 class PasswordlessChildRepository {
@@ -85,6 +89,7 @@ class PasswordlessChildRepository {
       childId: data['childId']?.toString(),
       childDisplayName: data['childDisplayName']?.toString(),
       accessToken: data['accessToken']?.toString(),
+      avatarObjectKey: data['avatarObjectKey']?.toString(),
     );
   }
 
@@ -105,6 +110,7 @@ class PasswordlessChildRepository {
       familyId: (data['familyId'] ?? '').toString(),
       childDisplayName: (data['childDisplayName'] ?? '').toString(),
       accessToken: (data['accessToken'] ?? '').toString(),
+      avatarObjectKey: data['avatarObjectKey']?.toString(),
     );
   }
 
@@ -131,6 +137,7 @@ class PasswordlessChildRepository {
       familyId: (data['familyId'] ?? '').toString(),
       childDisplayName: (data['childDisplayName'] ?? '').toString(),
       accessToken: (data['accessToken'] ?? '').toString(),
+      avatarObjectKey: data['avatarObjectKey']?.toString(),
     );
   }
 
@@ -155,6 +162,7 @@ class PasswordlessChildRepository {
       familyId: (data['familyId'] ?? '').toString(),
       childDisplayName: (data['childDisplayName'] ?? '').toString(),
       accessToken: (data['accessToken'] ?? '').toString(),
+      avatarObjectKey: data['avatarObjectKey']?.toString(),
     );
   }
 

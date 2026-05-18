@@ -1,0 +1,10 @@
+{
+  "fileKey": "z72tmzXGfrKzFPQMqrL1ZB",
+  "exports": [
+    { "nodeId": "12:345", "path": "assets/figma/nav_shop.svg" },
+    { "nodeId": "12:346", "path": "assets/figma/nav_home_outline.svg" },
+    { "nodeId": "12:347", "path": "assets/figma/nav_home_filled.svg" },
+    { "nodeId": "12:348", "path": "assets/figma/nav_tune.svg" },
+    { "nodeId": "12:349", "path": "assets/figma/nav_assignment.svg" }
+  ]
+}
