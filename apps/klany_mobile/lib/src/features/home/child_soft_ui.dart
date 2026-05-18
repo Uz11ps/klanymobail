@@ -33,6 +33,17 @@ const Color kBrandPeach = Color(0xFFFFD1B8);
 const Color kBrandRose = Color(0xFFF8D2D8);
 const Color kBgCloud = Color(0xFFEFF6FB);
 
+/// Child dashboard + bottom bar ([Figma child home](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-137)).
+const Color kFigmaChildScreenBlue = Color(0xFF4563B1);
+const Color kFigmaChildNavPillBorder = Color(0xFF22459E);
+const Color kFigmaChildNavLabelMuted = Color(0xFFACACAC);
+const Color kFigmaChildStatMint = Color(0xFFD9F6C2);
+const Color kFigmaChildStatLavender = Color(0xFFD8CBF7);
+const Color kFigmaChildGoalCard = Color(0xFFF9E8A5);
+const Color kFigmaChildGoalThumb = Color(0xFFEACC56);
+const Color kFigmaChildBalancePill = Color(0xFFF2F7FF);
+const double kFigmaChildBottomBarMaxWidth = 311;
+
 /// Форма hero на auth: вертикальная иллюстрация PNG или квадрат 1:1 (регистрация).
 enum FigmaAuthHeroShape { portraitRaster, square }
 
@@ -42,15 +53,20 @@ class FigmaAuthHeroCard extends StatelessWidget {
     super.key,
     required this.asset,
     required this.fallbackColor,
+
     /// Для [FigmaAuthHeroShape.portraitRaster] по умолчанию 40; для [square] — [kFigmaAuthHeroCardRadius].
     this.borderRadius,
     this.shape = FigmaAuthHeroShape.portraitRaster,
+
     /// Меньше «рамка»: лёгкая тень (Figma 0-691 / лендинг).
     this.compactShadow = false,
+
     /// Соотношение сторон иллюстрации `width/height`. По умолчанию — PNG регистрации в Figma.
     this.aspectRatio = kFigmaRasterAspectRatio,
+
     /// Явный [BoxFit] для портретной карточки (например [BoxFit.contain], чтобы не кропать другой ассет).
     this.portraitAssetFit,
+
     /// Как квадратный слайд на лендинге 0-602: тот же расчёт стороны ([kFigmaLandingSlideVisualScale]), [kFigmaLandingSlideRadius], [BoxFit.contain], без «рамочной» тени.
     this.landingSlideStyle = false,
   });
@@ -67,8 +83,9 @@ class FigmaAuthHeroCard extends StatelessWidget {
   List<BoxShadow> _boxShadow() {
     return [
       BoxShadow(
-        color: const Color(0xFF1E2D52)
-            .withValues(alpha: compactShadow ? 0.05 : 0.08),
+        color: const Color(
+          0xFF1E2D52,
+        ).withValues(alpha: compactShadow ? 0.05 : 0.08),
         blurRadius: compactShadow ? 12 : 24,
         offset: Offset(0, compactShadow ? 5 : 10),
       ),
@@ -156,8 +173,7 @@ class FigmaAuthHeroCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final autoCover = portraitAssetFit == null && idealH > maxH + 0.5;
-    final fit = portraitAssetFit ??
-        (autoCover ? BoxFit.cover : BoxFit.contain);
+    final fit = portraitAssetFit ?? (autoCover ? BoxFit.cover : BoxFit.contain);
     final alignment = portraitAssetFit != null
         ? Alignment.center
         : (autoCover ? Alignment.bottomCenter : Alignment.center);
@@ -287,10 +303,7 @@ class FigmaAuthHeroCarouselSlot extends StatelessWidget {
               ),
             ),
             SizedBox(height: kFigmaLandingSlideToDotsGap),
-            FigmaAuthCarouselDots(
-              count: dotCount,
-              activeIndex: activeDotIndex,
-            ),
+            FigmaAuthCarouselDots(count: dotCount, activeIndex: activeDotIndex),
           ],
         );
       },
@@ -308,13 +321,13 @@ Color _darkenColor(Color c, [double amount = 0.18]) {
 }
 
 List<BoxShadow> kSoftButtonShadow(Color tint) => [
-      BoxShadow(
-        color: _darkenColor(tint, 0.18),
-        offset: const Offset(0, 5),
-        blurRadius: 0,
-        spreadRadius: 0,
-      ),
-    ];
+  BoxShadow(
+    color: _darkenColor(tint, 0.18),
+    offset: const Offset(0, 5),
+    blurRadius: 0,
+    spreadRadius: 0,
+  ),
+];
 
 /// Общие поля и скругление полей ввода на auth-экранах.
 InputDecoration figmaAuthFieldDecoration(String hint, {Widget? suffixIcon}) {
@@ -353,14 +366,19 @@ class FigmaGradientButton extends StatelessWidget {
     required this.gradient,
     required this.onTap,
     this.height = kFigmaLandingCtaHeight,
+
     /// Игнорируется, если задан [labelStyle].
     this.fontSize = kFigmaCtaFontSize,
+
     /// `null` — полная «таблетка» (высота/2). Иначе фиксированное скругление.
     this.cornerRadius,
+
     /// Задаёт типографику целиком (например [kFigmaLandingCtaTextStyle]); тогда [fontSize] не используется.
     this.labelStyle,
+
     /// Тень кнопки; по умолчанию одна мягкая снизу.
     this.boxShadow,
+
     /// Ближе к Figma «Cap height» / плотной строке.
     this.textHeightBehavior,
   });
@@ -368,42 +386,26 @@ class FigmaGradientButton extends StatelessWidget {
   static const mintGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [
-      Color(0xFFD8F8D0),
-      Color(0xFFC5F2C0),
-      Color(0xFFB8E8AF),
-    ],
+    colors: [Color(0xFFD8F8D0), Color(0xFFC5F2C0), Color(0xFFB8E8AF)],
   );
 
   /// Лендинг: лёгкий вертикальный градиент (светлее сверху).
   static const mintGradientVertical = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFFE2FADC),
-      Color(0xFFC5F2C0),
-      Color(0xFFAFE8A5),
-    ],
+    colors: [Color(0xFFE2FADC), Color(0xFFC5F2C0), Color(0xFFAFE8A5)],
   );
 
   static const skyGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [
-      Color(0xFFEAF4FC),
-      Color(0xFFD8E9F8),
-      Color(0xFFC8DFF2),
-    ],
+    colors: [Color(0xFFEAF4FC), Color(0xFFD8E9F8), Color(0xFFC8DFF2)],
   );
 
   static const skyGradientVertical = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFFEFF6FC),
-      Color(0xFFD8E9F8),
-      Color(0xFFC4DCF2),
-    ],
+    colors: [Color(0xFFEFF6FC), Color(0xFFD8E9F8), Color(0xFFC4DCF2)],
   );
 
   final String label;
@@ -471,10 +473,7 @@ EdgeInsets figmaWideModalInsets(
 }
 
 /// Целевая ширина модалки как доля экрана (по умолчанию 80%).
-double figmaWideModalWidth(
-  BuildContext context, {
-  double widthFraction = 0.8,
-}) {
+double figmaWideModalWidth(BuildContext context, {double widthFraction = 0.8}) {
   return MediaQuery.sizeOf(context).width * widthFraction;
 }
 
@@ -501,24 +500,20 @@ class FigmaDialogActionStack extends StatelessWidget {
   static const LinearGradient destructiveGradientVertical = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [
-      Color(0xFFFFE8E8),
-      Color(0xFFFFC4C4),
-      Color(0xFFFF9E9E),
-    ],
+    colors: [Color(0xFFFFE8E8), Color(0xFFFFC4C4), Color(0xFFFF9E9E)],
   );
 
-  static final TextStyle _destructiveConfirmStyle =
-      kFigmaLandingCtaTextStyle.copyWith(color: const Color(0xFF5C1414));
+  static final TextStyle _destructiveConfirmStyle = kFigmaLandingCtaTextStyle
+      .copyWith(color: const Color(0xFF5C1414));
 
   @override
   Widget build(BuildContext context) {
-    final destructive =
-        identical(confirmGradient, destructiveGradientVertical);
+    final destructive = identical(confirmGradient, destructiveGradientVertical);
     final gradient =
         confirmGradient ?? FigmaGradientButton.mintGradientVertical;
-    final confirmStyle =
-        destructive ? _destructiveConfirmStyle : kFigmaLandingCtaTextStyle;
+    final confirmStyle = destructive
+        ? _destructiveConfirmStyle
+        : kFigmaLandingCtaTextStyle;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -671,11 +666,7 @@ class FigmaAuthScreenBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFF8FCFF),
-            Color(0xFFEFF6FB),
-            Color(0xFFE6F0F8),
-          ],
+          colors: [Color(0xFFF8FCFF), Color(0xFFEFF6FB), Color(0xFFE6F0F8)],
         ),
       ),
       child: Stack(
@@ -720,9 +711,7 @@ class FigmaBokehPainter extends CustomPainter {
             Colors.white.withValues(alpha: spot.$4),
             Colors.white.withValues(alpha: 0),
           ],
-        ).createShader(
-          Rect.fromCircle(center: center, radius: spot.$3),
-        );
+        ).createShader(Rect.fromCircle(center: center, radius: spot.$3));
       canvas.drawCircle(center, spot.$3, paint);
     }
   }
@@ -831,7 +820,11 @@ class SoftButton extends StatelessWidget {
 
 /// Иконка стопки монет (3 эллипса с боковыми стенками).
 class CoinStackIcon extends StatelessWidget {
-  const CoinStackIcon({super.key, this.size = 24, this.color = kChildBrandBlue});
+  const CoinStackIcon({
+    super.key,
+    this.size = 24,
+    this.color = kChildBrandBlue,
+  });
   final double size;
   final Color color;
 
@@ -932,7 +925,8 @@ class ChildSoftCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
-  final Color? borderColor; // kept for API compat, not used (neuCard has no border)
+  final Color?
+  borderColor; // kept for API compat, not used (neuCard has no border)
   final double radius;
 
   @override
@@ -944,10 +938,7 @@ class ChildSoftCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: Padding(
-          padding: padding,
-          child: child,
-        ),
+        child: Padding(padding: padding, child: child),
       ),
     );
   }
@@ -1064,53 +1055,52 @@ class ChildBottomClanBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         child: Center(
           child: ConstrainedBox(
-            constraints:
-                const BoxConstraints(maxWidth: kFigmaParentBottomBarMaxWidth),
-            child: SizedBox(
-              height: kFigmaParentBottomBarHeight,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(36),
-                        border: Border.all(
-                          color: kChildBrandBlue.withValues(alpha: 0.45),
-                          width: 1.4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.07),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _ChildFigmaNavSlot(
-                        selected: currentIndex == 0,
-                        onTap: () => onSelected(0),
-                        home: true,
-                      ),
-                      _ChildFigmaNavSlot(
-                        selected: currentIndex == 1,
-                        onTap: () => onSelected(1),
-                        asset: 'assets/figma/nav_assignment.svg',
-                      ),
-                      _ChildFigmaNavSlot(
-                        selected: currentIndex == 2,
-                        onTap: () => onSelected(2),
-                        asset: 'assets/figma/nav_shop.svg',
-                      ),
-                    ],
+            constraints: const BoxConstraints(
+              maxWidth: kFigmaChildBottomBarMaxWidth,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(color: kFigmaChildNavPillBorder, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.07),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
                   ),
                 ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ChildHomeNavColumn(
+                      label: 'Дом',
+                      selected: currentIndex == 0,
+                      onTap: () => onSelected(0),
+                      home: true,
+                    ),
+                    const SizedBox(width: 28),
+                    _ChildHomeNavColumn(
+                      label: 'Биржа',
+                      selected: currentIndex == 1,
+                      onTap: () => onSelected(1),
+                      asset: 'assets/figma/nav_assignment.svg',
+                    ),
+                    const SizedBox(width: 28),
+                    _ChildHomeNavColumn(
+                      label: 'Магазин',
+                      selected: currentIndex == 2,
+                      onTap: () => onSelected(2),
+                      asset: 'assets/figma/nav_shop.svg',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1120,56 +1110,60 @@ class ChildBottomClanBar extends StatelessWidget {
   }
 }
 
-class _ChildFigmaNavSlot extends StatelessWidget {
-  const _ChildFigmaNavSlot({
+class _ChildHomeNavColumn extends StatelessWidget {
+  const _ChildHomeNavColumn({
+    required this.label,
     required this.selected,
     required this.onTap,
     this.home = false,
     this.asset,
   });
 
+  final String label;
   final bool selected;
   final VoidCallback onTap;
   final bool home;
   final String? asset;
 
+  static const double _kCircle = 57;
+  static const double _kIcon = 29;
+
   @override
   Widget build(BuildContext context) {
+    final blue = kFigmaChildScreenBlue;
+    final muted = kFigmaChildNavLabelMuted;
+    final iconColor = selected ? Colors.white : muted;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 52,
-          height: 52,
-          child: Stack(
-            alignment: Alignment.center,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
-                width: selected
-                    ? kFigmaParentNavHomeSelected
-                    : kFigmaParentNavHomeIdle,
-                height: selected
-                    ? kFigmaParentNavHomeSelected
-                    : kFigmaParentNavHomeIdle,
+                width: _kCircle,
+                height: _kCircle,
                 decoration: BoxDecoration(
-                  color: selected ? kChildBrandBlue : Colors.transparent,
+                  color: selected ? blue : Colors.white,
                   shape: BoxShape.circle,
                   border: selected
                       ? null
                       : Border.all(
-                          color: kChildBrandBlue.withValues(alpha: 0.22),
-                          width: 1.3,
+                          color: muted.withValues(alpha: 0.39),
+                          width: 1,
                         ),
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: kChildBrandBlue.withValues(alpha: 0.28),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                            color: blue.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ]
                       : null,
@@ -1180,22 +1174,33 @@ class _ChildFigmaNavSlot extends StatelessWidget {
                         selected
                             ? 'assets/figma/nav_home_filled.svg'
                             : 'assets/figma/nav_home_outline.svg',
-                        width: selected ? 22 : 20,
-                        height: selected ? 22 : 20,
+                        width: _kIcon,
+                        height: _kIcon,
                         colorFilter: ColorFilter.mode(
-                          selected ? Colors.white : kChildInkMuted,
+                          iconColor,
                           BlendMode.srcIn,
                         ),
                       )
                     : SvgPicture.asset(
                         asset!,
-                        width: selected ? 22 : 20,
-                        height: selected ? 22 : 20,
+                        width: _kIcon,
+                        height: _kIcon,
                         colorFilter: ColorFilter.mode(
-                          selected ? Colors.white : kChildInkMuted,
+                          iconColor,
                           BlendMode.srcIn,
                         ),
                       ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? blue : muted,
+                  height: 1.1,
+                ),
               ),
             ],
           ),
@@ -1491,10 +1496,7 @@ class ClanSecondaryButton extends StatelessWidget {
         icon: icon != null ? Icon(icon) : const SizedBox.shrink(),
         label: Text(
           label,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: kChildBrandBlue,
@@ -1518,8 +1520,7 @@ InputDecoration clanInputDecoration({
     prefixIcon: icon != null ? Icon(icon, color: kChildBrandBlue) : null,
     filled: true,
     fillColor: Colors.white,
-    contentPadding:
-        const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(22),
       borderSide: BorderSide.none,

@@ -25,6 +25,17 @@ function ensureFamilyId(user: { familyId?: string | null }): string {
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Mirrors parent goal resolution so child dashboard progress matches семейная цель. */
+  private async getFamilyGoalAmount(familyId: string): Promise<number> {
+    const row = await this.prisma.auditLog.findFirst({
+      where: { familyId, action: "family_goal_set" },
+      orderBy: { createdAt: "desc" },
+    });
+    const payload = (row?.payload ?? null) as { goalAmount?: number } | null;
+    const parsed = Math.trunc(Number(payload?.goalAmount ?? 0));
+    return parsed > 0 ? parsed : 10000;
+  }
+
   private async ensureWallet(childId: string, familyId: string) {
     const existing = await this.prisma.wallet.findUnique({ where: { childId } });
     if (existing) return existing;
@@ -33,7 +44,8 @@ export class WalletService {
 
   async getChildWallet(user: ChildUser) {
     const wallet = await this.ensureWallet(user.childId, user.familyId);
-    return { walletId: wallet.id, balance: wallet.balance };
+    const goalAmount = await this.getFamilyGoalAmount(user.familyId);
+    return { walletId: wallet.id, balance: wallet.balance, goalAmount };
   }
 
   async getChildTransactions(user: ChildUser) {

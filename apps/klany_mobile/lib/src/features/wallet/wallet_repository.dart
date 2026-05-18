@@ -13,10 +13,13 @@ class WalletSummary {
   WalletSummary({
     required this.walletId,
     required this.balance,
+    this.goalAmount = 10000,
   });
 
   final String walletId;
   final int balance;
+  /// Family savings goal from `/wallet/child` (audit «family_goal_set»).
+  final int goalAmount;
 }
 
 class WalletTxItem {
@@ -68,6 +71,7 @@ class WalletRepository {
     return WalletSummary(
       walletId: (data['walletId'] ?? '').toString(),
       balance: (data['balance'] as num?)?.toInt() ?? 0,
+      goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
     );
   }
 

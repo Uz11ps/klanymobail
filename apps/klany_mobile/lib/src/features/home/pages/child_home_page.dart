@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -182,7 +183,8 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
         .where((a) => a.status == 'completed' || a.status == 'done')
         .length;
     final balance = wallet?.balance ?? 0;
-    const goal = 10000;
+    final rawGoal = wallet?.goalAmount ?? 10000;
+    final goal = rawGoal > 0 ? rawGoal : 10000;
     return _ChildOverviewData(
       walletBalance: balance,
       activeAssignments: active,
@@ -313,451 +315,714 @@ class _ChildDashboardBodyState extends ConsumerState<_ChildDashboardBody> {
         ? 'Привет!'
         : session.childDisplayName;
 
-    return RefreshIndicator(
-      onRefresh: _reload,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: ClampingScrollPhysics(),
-        ),
-        padding: EdgeInsets.zero,
+    return CloudBackground(
+      opacity: 0.16,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+          Positioned.fill(
+            child: ColoredBox(
+              color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
+            ),
+          ),
+          RefreshIndicator(
+            onRefresh: _reload,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: ClampingScrollPhysics(),
+              ),
+              padding: EdgeInsets.zero,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(
+                  height: 112,
+                  child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      const Text(
-                        'CLAN CAPITAL',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: kChildBrandBlue,
-                          letterSpacing: 1.6,
-                          height: 1.05,
+                      Positioned(
+                        left: 20,
+                        right: 20,
+                        top: 36,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 353),
+                            child: const Text(
+                              'CLAN CAPITAL',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: kFigmaChildScreenBlue,
+                                letterSpacing: 0.4,
+                                height: 1.05,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Главное: $displayName',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
+                      Positioned(
+                        top: 28,
+                        right: 16,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ChildHeaderRoundBtn(
+                              onTap: _reload,
+                              child: SvgPicture.asset(
+                                'assets/figma/nav_refresh.svg',
+                                width: 22,
+                                height: 22,
+                                colorFilter: const ColorFilter.mode(
+                                  kChildInk,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _ChildHeaderRoundBtn(
+                              onTap: () {
+                                showModalBottomSheet<void>(
+                                  context: context,
+                                  showDragHandle: true,
+                                  backgroundColor: kChildSurfaceWhite,
+                                  builder: (ctx) => _ChildSettingsSheet(
+                                    onSignOut: () => ref
+                                        .read(childSessionProvider.notifier)
+                                        .clear(),
+                                  ),
+                                );
+                              },
+                              child: SvgPicture.asset(
+                                'assets/figma/child_nav_menu_dots.svg',
+                                width: 22,
+                                height: 22,
+                                colorFilter: const ColorFilter.mode(
+                                  kChildInk,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh, color: kChildInk),
-                ),
-                IconButton(
-                  onPressed: () {
-                    showModalBottomSheet<void>(
-                      context: context,
-                      showDragHandle: true,
-                      backgroundColor: kChildSurfaceWhite,
-                      builder: (ctx) => _ChildSettingsSheet(
-                        onSignOut: () =>
-                            ref.read(childSessionProvider.notifier).clear(),
-                      ),
+                const SizedBox(height: 6),
+                FutureBuilder<_ChildOverviewData>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    final data = snapshot.data;
+                    final balance = data?.walletBalance ?? 0;
+                    final active = data?.activeAssignments ?? 0;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Profile card
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.10),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () async {
+                                      final messenger = ScaffoldMessenger.of(
+                                        context,
+                                      );
+                                      final pick =
+                                          await showModalBottomSheet<String>(
+                                            context: context,
+                                            showDragHandle: true,
+                                            builder: (ctx) => SafeArea(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  ListTile(
+                                                    leading: const Icon(
+                                                      Icons
+                                                          .photo_library_outlined,
+                                                    ),
+                                                    title: const Text(
+                                                      'Галерея',
+                                                    ),
+                                                    onTap: () => Navigator.pop(
+                                                      ctx,
+                                                      'gallery',
+                                                    ),
+                                                  ),
+                                                  ListTile(
+                                                    leading: const Icon(
+                                                      Icons
+                                                          .face_retouching_natural,
+                                                    ),
+                                                    title: const Text(
+                                                      'Готовый аватар',
+                                                    ),
+                                                    onTap: () => Navigator.pop(
+                                                      ctx,
+                                                      'preset',
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                      if (!mounted || pick == null) return;
+                                      if (pick == 'gallery') {
+                                        final img = await ImagePicker()
+                                            .pickImage(
+                                              source: ImageSource.gallery,
+                                              maxWidth: 800,
+                                              maxHeight: 800,
+                                              imageQuality: 85,
+                                            );
+                                        if (img == null || !mounted) return;
+                                        try {
+                                          await uploadChildAvatarXFile(
+                                            ref,
+                                            img,
+                                          );
+                                          if (mounted) setState(() {});
+                                        } catch (e) {
+                                          if (mounted) {
+                                            messenger.showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Не удалось загрузить: $e',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                        return;
+                                      }
+                                      if (pick == 'preset') {
+                                        var selected = 1;
+                                        final ok = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => StatefulBuilder(
+                                            builder: (ctx, setSt) => AlertDialog(
+                                              title: const Text('Аватар'),
+                                              content: SizedBox(
+                                                width: 280,
+                                                child: GridView.builder(
+                                                  shrinkWrap: true,
+                                                  physics:
+                                                      const NeverScrollableScrollPhysics(),
+                                                  gridDelegate:
+                                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                                        crossAxisCount: 3,
+                                                        crossAxisSpacing: 10,
+                                                        mainAxisSpacing: 10,
+                                                      ),
+                                                  itemCount:
+                                                      AvatarStore.totalAvatars,
+                                                  itemBuilder: (_, i) {
+                                                    final idx = i + 1;
+                                                    final sel = idx == selected;
+                                                    return GestureDetector(
+                                                      onTap: () => setSt(
+                                                        () => selected = idx,
+                                                      ),
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          shape:
+                                                              BoxShape.circle,
+                                                          border: Border.all(
+                                                            color: sel
+                                                                ? kFigmaChildScreenBlue
+                                                                : Colors
+                                                                      .transparent,
+                                                            width: 3,
+                                                          ),
+                                                        ),
+                                                        child: ClipOval(
+                                                          child: Image.asset(
+                                                            AvatarStore.assetForIndex(
+                                                              idx,
+                                                            ),
+                                                            fit: BoxFit.cover,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, false),
+                                                  child: const Text('Отмена'),
+                                                ),
+                                                FilledButton(
+                                                  onPressed: () =>
+                                                      Navigator.pop(ctx, true),
+                                                  child: const Text(
+                                                    'Сохранить',
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                        if (ok != true || !mounted) return;
+                                        try {
+                                          final data = await rootBundle.load(
+                                            AvatarStore.assetForIndex(selected),
+                                          );
+                                          await uploadChildAvatarPngBytes(
+                                            ref,
+                                            data.buffer.asUint8List(),
+                                          );
+                                          await AvatarStore.setIndex(
+                                            'child:${session.childId}',
+                                            selected,
+                                          );
+                                          if (mounted) setState(() {});
+                                        } catch (e) {
+                                          if (mounted) {
+                                            messenger.showSnackBar(
+                                              SnackBar(
+                                                content: Text('Ошибка: $e'),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      }
+                                    },
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Builder(
+                                          builder: (context) {
+                                            final k = session.avatarObjectKey;
+                                            if (k == null || k.isEmpty) {
+                                              return UserAvatar(
+                                                userKey:
+                                                    'child:${session.childId}',
+                                                size: 107,
+                                                fallbackText:
+                                                    displayName.isEmpty
+                                                    ? '?'
+                                                    : displayName
+                                                          .characters
+                                                          .first
+                                                          .toUpperCase(),
+                                              );
+                                            }
+                                            return FutureBuilder<String?>(
+                                              key: ValueKey(k),
+                                              future: presignStorageDownload(
+                                                accessToken:
+                                                    session.accessToken,
+                                                bucket: 'member-avatars',
+                                                objectKey: k,
+                                              ),
+                                              builder: (context, snap) =>
+                                                  UserAvatar(
+                                                    userKey:
+                                                        'child:${session.childId}',
+                                                    size: 107,
+                                                    fallbackText:
+                                                        displayName.isEmpty
+                                                        ? '?'
+                                                        : displayName
+                                                              .characters
+                                                              .first
+                                                              .toUpperCase(),
+                                                    remoteImageUrl: snap.data,
+                                                  ),
+                                            );
+                                          },
+                                        ),
+                                        Positioned(
+                                          right: 2,
+                                          bottom: 2,
+                                          child: Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              color: kFigmaChildScreenBlue,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: Colors.white,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons.edit,
+                                              size: 14,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          displayName,
+                                          style: const TextStyle(
+                                            fontFamily: 'Nunito',
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w700,
+                                            color: kChildInk,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${data?.completedCount ?? 0} ${_taskWord(data?.completedCount ?? 0)} выполнено',
+                                          style: TextStyle(
+                                            fontFamily: 'Nunito',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w400,
+                                            color: kChildInk.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () =>
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      const ChildWalletPage(),
+                                                ),
+                                              ),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: kFigmaChildBalancePill,
+                                              borderRadius:
+                                                  BorderRadius.circular(25),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const CoinStackIcon(
+                                                  size: 22,
+                                                  color: kFigmaChildScreenBlue,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  _formatNumber(balance),
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Nunito',
+                                                    fontSize: 24,
+                                                    fontWeight: FontWeight.w800,
+                                                    color:
+                                                        kFigmaChildScreenBlue,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Container(
+                            height: 1,
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        // Stat tiles (Figma)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _ChildSquareTile(
+                                  label: 'Мои задачи',
+                                  value: active.toString(),
+                                  bg: kFigmaChildStatMint,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: _ChildSquareTile(
+                                  label: 'Биржа',
+                                  value: (data?.exchangeCount ?? 0).toString(),
+                                  bg: kFigmaChildStatLavender,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        // Goal progress
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: kFigmaChildGoalCard,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.06),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                20,
+                                20,
+                                18,
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Текущая цель',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: kChildInk,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _FigmaChildGoalTrack(
+                                    progress: (data?.goalProgress ?? 0).clamp(
+                                      0.0,
+                                      1.0,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    '${data?.goalCurrent ?? balance} / ${data?.goalTarget ?? 10000} монет',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: kChildInk,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        // Reverse task card
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.06),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.07),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    'Обратная задача',
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: kChildInk,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Поставь одну спец-цель с родителем. Собранное идёт в цель.',
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: kChildInk.withValues(alpha: 0.55),
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  SoftButton(
+                                    onTap: () =>
+                                        _showReverseTaskDialog(context),
+                                    label: 'Создать',
+                                    bg: kFigmaChildStatMint,
+                                    fg: const Color(0xFF1F4F1B),
+                                    height: 52,
+                                    fontSize: 17,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                     );
                   },
-                  icon: const Icon(Icons.manage_accounts, color: kChildInk),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          FutureBuilder<_ChildOverviewData>(
-            future: _future,
-            builder: (context, snapshot) {
-              final data = snapshot.data;
-              final balance = data?.walletBalance ?? 0;
-              final active = data?.activeAssignments ?? 0;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Profile card
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ChildSoftCard(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () async {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final pick = await showModalBottomSheet<String>(
-                                context: context,
-                                showDragHandle: true,
-                                builder: (ctx) => SafeArea(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ListTile(
-                                        leading: const Icon(Icons.photo_library_outlined),
-                                        title: const Text('Галерея'),
-                                        onTap: () => Navigator.pop(ctx, 'gallery'),
-                                      ),
-                                      ListTile(
-                                        leading: const Icon(Icons.face_retouching_natural),
-                                        title: const Text('Готовый аватар'),
-                                        onTap: () => Navigator.pop(ctx, 'preset'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                              if (!mounted || pick == null) return;
-                              if (pick == 'gallery') {
-                                final img = await ImagePicker().pickImage(
-                                  source: ImageSource.gallery,
-                                  maxWidth: 800,
-                                  maxHeight: 800,
-                                  imageQuality: 85,
-                                );
-                                if (img == null || !mounted) return;
-                                try {
-                                  await uploadChildAvatarXFile(ref, img);
-                                  if (mounted) setState(() {});
-                                } catch (e) {
-                                  if (mounted) {
-                                    messenger.showSnackBar(
-                                      SnackBar(content: Text('Не удалось загрузить: $e')),
-                                    );
-                                  }
-                                }
-                                return;
-                              }
-                              if (pick == 'preset') {
-                                var selected = 1;
-                                final ok = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => StatefulBuilder(
-                                    builder: (ctx, setSt) => AlertDialog(
-                                      title: const Text('Аватар'),
-                                      content: SizedBox(
-                                        width: 280,
-                                        child: GridView.builder(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          gridDelegate:
-                                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: 3,
-                                            crossAxisSpacing: 10,
-                                            mainAxisSpacing: 10,
-                                          ),
-                                          itemCount: AvatarStore.totalAvatars,
-                                          itemBuilder: (_, i) {
-                                            final idx = i + 1;
-                                            final sel = idx == selected;
-                                            return GestureDetector(
-                                              onTap: () => setSt(() => selected = idx),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: sel ? kChildBrandBlue : Colors.transparent,
-                                                    width: 3,
-                                                  ),
-                                                ),
-                                                child: ClipOval(
-                                                  child: Image.asset(
-                                                    AvatarStore.assetForIndex(idx),
-                                                    fit: BoxFit.cover,
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx, false),
-                                          child: const Text('Отмена'),
-                                        ),
-                                        FilledButton(
-                                          onPressed: () => Navigator.pop(ctx, true),
-                                          child: const Text('Сохранить'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                                if (ok != true || !mounted) return;
-                                try {
-                                  final data = await rootBundle.load(
-                                    AvatarStore.assetForIndex(selected),
-                                  );
-                                  await uploadChildAvatarPngBytes(
-                                    ref,
-                                    data.buffer.asUint8List(),
-                                  );
-                                  await AvatarStore.setIndex(
-                                    'child:${session.childId}',
-                                    selected,
-                                  );
-                                  if (mounted) setState(() {});
-                                } catch (e) {
-                                  if (mounted) {
-                                    messenger.showSnackBar(
-                                      SnackBar(content: Text('Ошибка: $e')),
-                                    );
-                                  }
-                                }
-                              }
-                            },
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Builder(
-                                  builder: (context) {
-                                    final k = session.avatarObjectKey;
-                                    if (k == null || k.isEmpty) {
-                                      return UserAvatar(
-                                        userKey: 'child:${session.childId}',
-                                        size: 64,
-                                        fallbackText: displayName.isEmpty
-                                            ? '?'
-                                            : displayName.characters.first
-                                                .toUpperCase(),
-                                      );
-                                    }
-                                    return FutureBuilder<String?>(
-                                      key: ValueKey(k),
-                                      future: presignStorageDownload(
-                                        accessToken: session.accessToken,
-                                        bucket: 'member-avatars',
-                                        objectKey: k,
-                                      ),
-                                      builder: (context, snap) => UserAvatar(
-                                        userKey: 'child:${session.childId}',
-                                        size: 64,
-                                        fallbackText: displayName.isEmpty
-                                            ? '?'
-                                            : displayName.characters.first
-                                                .toUpperCase(),
-                                        remoteImageUrl: snap.data,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                Positioned(
-                                  right: -2,
-                                  bottom: -2,
-                                  child: Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      color: kChildBrandBlue,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Icon(
-                                      Icons.edit,
-                                      size: 12,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  displayName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${data?.completedCount ?? 0} ${_taskWord(data?.completedCount ?? 0)} выполнено',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: kChildInkMuted,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => const ChildWalletPage(),
-                                    ),
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF2F8),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const CoinStackIcon(size: 18),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _formatNumber(balance),
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w900,
-                                            color: kChildBrandBlue,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChildHeaderRoundBtn extends StatelessWidget {
+  const _ChildHeaderRoundBtn({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(width: 44, height: 44, child: Center(child: child)),
+        ),
+      ),
+    );
+  }
+}
+
+class _FigmaChildGoalTrack extends StatelessWidget {
+  const _FigmaChildGoalTrack({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        const trackH = 27.0;
+        final thumb = trackH;
+        final clamped = progress.clamp(0.0, 1.0);
+        final thumbX = ((w - thumb) * clamped).clamp(0.0, w - thumb);
+        final fillW = clamped <= 0 ? 0.0 : (w * clamped).clamp(0.0, w);
+
+        return SizedBox(
+          height: trackH,
+          width: w,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: w,
+                height: trackH,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.06),
                   ),
-                  const SizedBox(height: 18),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Divider(height: 1, color: kChildOutline),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: fillW,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: clamped <= 0
+                        ? Colors.transparent
+                        : kFigmaChildGoalThumb.withValues(alpha: 0.38),
                   ),
-                  const SizedBox(height: 18),
-                  // Two square buttons
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _ChildSquareTile(
-                            label: 'Мои задачи',
-                            value: active.toString(),
-                            color: kBrandMint,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: _ChildSquareTile(
-                            label: 'Биржа',
-                            value: (data?.exchangeCount ?? 0).toString(),
-                            color: kBrandLavender,
-                          ),
+                ),
+              ),
+              Positioned(
+                left: thumbX,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Container(
+                    width: thumb,
+                    height: thumb,
+                    decoration: BoxDecoration(
+                      color: kFigmaChildGoalThumb,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  // Goal progress
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ChildSoftCard(
-                      color: kBrandSunny,
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Текущая цель',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: kChildInk,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: SizedBox(
-                              height: 16,
-                              child: LinearProgressIndicator(
-                                value: (data?.goalProgress ?? 0).clamp(
-                                  0.0,
-                                  1.0,
-                                ),
-                                backgroundColor: Colors.white,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  kChildBrandBlue,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${data?.goalCurrent ?? balance} / ${data?.goalTarget ?? 10000} монет',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: kChildInk,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Reverse task card
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ChildSoftCard(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Обратная задача',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: kChildInk,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Поставь одну спец-цель с родителем. Собранное идет в цель.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: kChildInkMuted,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          FilledButton(
-                            onPressed: () => _showReverseTaskDialog(context),
-                            child: const Text('Создать'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              );
-            },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -786,41 +1051,61 @@ class _ChildSquareTile extends StatelessWidget {
   const _ChildSquareTile({
     required this.label,
     required this.value,
-    required this.color,
+    required this.bg,
   });
   final String label;
   final String value;
-  final Color color;
+  final Color bg;
 
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 1.05,
-      child: ChildSoftCard(
-        color: color,
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: kChildInk,
-              ),
+      aspectRatio: 173 / 165,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 15,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                color: kChildInk,
-                height: 1,
-              ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 6,
+              offset: const Offset(0, 4),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w400,
+                  color: kChildInk,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 40,
+                  fontWeight: FontWeight.w700,
+                  color: kChildInk,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
