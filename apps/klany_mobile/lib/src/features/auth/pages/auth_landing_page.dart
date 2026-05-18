@@ -45,13 +45,14 @@ class AuthLandingPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: kFigmaLandingHeaderToCarouselGap),
-                const FigmaAuthHeroSection(
-                  child: FigmaAuthHeroCarousel(
-                    assets: _slides,
-                    fallbackColor: kBrandMint,
+                const Expanded(
+                  child: FigmaAuthHeroSection(
+                    child: FigmaAuthHeroCarousel(
+                      assets: _slides,
+                      fallbackColor: kBrandMint,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 SizedBox(height: kFigmaLandingDotsToButtonsGap),
                 Padding(
                   padding: const EdgeInsets.symmetric(
