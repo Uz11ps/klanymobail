@@ -216,16 +216,15 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
   }
 }
 
-// ─── Нижняя «капсула» Figma 0-81 ───────────────────────────────────────────
+// ─── Нижняя «таблетка» — те же размеры и сетка, что `_ShopBottomBar` (без смены ширины центра).
 
-/// Figma iPhone 17 - 45 (`0:1135`): капсула поверх контента.
-const double _kParentCapsuleMaxW = 298;
-const double _kParentCapsuleH = 76;
-const double _kParentCapsuleRadius = 45;
-const double _kParentNavGap = 28;
-const double _kParentNavSlot = 64;
-/// Активная «Дом»: синий блок (stadium) шире круга боковых иконок на эту дельту по ширине.
-const double _kParentHomeSelectedExtraWidth = 20;
+const double _kParentNavPillW = 278;
+const double _kParentNavPillH = 76;
+const double _kParentNavPillRadius = 45;
+/// Три равные ячейки внутри капсулы — центр не меняет ширину при выборе (нет «прыжка» иконок).
+const double _kParentNavSlot = 76;
+const double _kParentNavSelectedCircle = 64;
+const double _kParentNavIdleTap = 52;
 
 class _ParentBottomBar extends StatelessWidget {
   const _ParentBottomBar({
@@ -246,63 +245,72 @@ class _ParentBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return SizedBox(
-      height: _kParentCapsuleH + 16 + bottomInset,
+      height: _kParentNavPillH + 16 + bottomInset,
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
         child: Align(
           alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _kParentCapsuleMaxW),
-            child: SizedBox(
-              height: _kParentCapsuleH,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(_kParentCapsuleRadius),
-                        border: Border.all(
-                          color: const Color(0xFF22459E),
-                          width: 1,
+          child: SizedBox(
+            width: _kParentNavPillW,
+            height: _kParentNavPillH,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(_kParentNavPillRadius),
+                      border: Border.all(color: const Color(0xFF22459E)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.06),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ParentCapsuleNavIcon(
-                        asset: 'assets/figma/nav_shop.svg',
-                        selected: false,
-                        onTap: onOpenShop,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    SizedBox(
+                      width: _kParentNavSlot,
+                      height: _kParentNavSlot,
+                      child: Center(
+                        child: _ParentOuterNavSvg(
+                          asset: 'assets/figma/nav_shop.svg',
+                          onTap: onOpenShop,
+                        ),
                       ),
-                      const SizedBox(width: _kParentNavGap),
-                      _ParentCapsuleHomeNav(
-                        selected: homeSelected,
-                        badgeCount: pendingRequests,
-                        onTap: onHome,
+                    ),
+                    SizedBox(
+                      width: _kParentNavSlot,
+                      height: _kParentNavSlot,
+                      child: Center(
+                        child: _ParentHomeNavSvg(
+                          selected: homeSelected,
+                          badgeCount: pendingRequests,
+                          onTap: onHome,
+                        ),
                       ),
-                      const SizedBox(width: _kParentNavGap),
-                      _ParentCapsuleNavIcon(
-                        asset: 'assets/figma/nav_tune.svg',
-                        selected: false,
-                        onTap: onOpenSettings,
-                        badgeDot: pendingRequests > 0,
+                    ),
+                    SizedBox(
+                      width: _kParentNavSlot,
+                      height: _kParentNavSlot,
+                      child: Center(
+                        child: _ParentOuterNavSvg(
+                          asset: 'assets/figma/nav_tune.svg',
+                          onTap: onOpenSettings,
+                          badgeDot: pendingRequests > 0,
+                        ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -311,35 +319,30 @@ class _ParentBottomBar extends StatelessWidget {
   }
 }
 
-class _ParentCapsuleNavIcon extends StatelessWidget {
-  const _ParentCapsuleNavIcon({
+/// Боковая иконка (магазин / настройки): без белого «линза-круга», как неактивные пункты в магазине.
+class _ParentOuterNavSvg extends StatelessWidget {
+  const _ParentOuterNavSvg({
     required this.asset,
-    required this.selected,
     required this.onTap,
     this.badgeDot = false,
   });
 
   final String asset;
-  final bool selected;
   final VoidCallback onTap;
   final bool badgeDot;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor =
-        selected ? Colors.white : kChildInkMuted;
     return Material(
-      color: selected ? kChildBrandBlue : Colors.white,
+      color: Colors.transparent,
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
-      elevation: selected ? 6 : 0,
-      shadowColor: kChildBrandBlue.withValues(alpha: 0.35),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: _kParentNavSlot,
-          height: _kParentNavSlot,
+          width: _kParentNavIdleTap,
+          height: _kParentNavIdleTap,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -348,12 +351,13 @@ class _ParentCapsuleNavIcon extends StatelessWidget {
                 asset,
                 width: 26,
                 height: 26,
-                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+                colorFilter:
+                    const ColorFilter.mode(kChildInkMuted, BlendMode.srcIn),
               ),
               if (badgeDot)
                 Positioned(
-                  top: 14,
-                  right: 14,
+                  top: 8,
+                  right: 8,
                   child: Container(
                     width: 9,
                     height: 9,
@@ -371,8 +375,9 @@ class _ParentCapsuleNavIcon extends StatelessWidget {
   }
 }
 
-class _ParentCapsuleHomeNav extends StatelessWidget {
-  const _ParentCapsuleHomeNav({
+/// Центр «Дом»: фиксированный слот 76×76; активное состояние — синий круг 64 px (как `_ShopNavBtn` big).
+class _ParentHomeNavSvg extends StatelessWidget {
+  const _ParentHomeNavSvg({
     required this.selected,
     required this.onTap,
     required this.badgeCount,
@@ -384,65 +389,92 @@ class _ParentCapsuleHomeNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final h = _kParentNavSlot;
-    final w = selected ? _kParentNavSlot + _kParentHomeSelectedExtraWidth : h;
-    final shape =
-        selected ? const StadiumBorder() : const CircleBorder();
-    return Material(
-      color: selected ? kChildBrandBlue : Colors.white,
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
-      elevation: selected ? 6 : 0,
-      shadowColor: kChildBrandBlue.withValues(alpha: 0.35),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: shape,
-        child: SizedBox(
-          width: w,
-          height: h,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              SvgPicture.asset(
-                selected
-                    ? 'assets/figma/nav_home_filled.svg'
-                    : 'assets/figma/nav_home_outline.svg',
-                width: 26,
-                height: 26,
-                colorFilter: ColorFilter.mode(
-                  selected ? Colors.white : kChildInkMuted,
-                  BlendMode.srcIn,
-                ),
-              ),
-              if (badgeCount > 0)
-                Positioned(
-                  top: 12,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD83A3A),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                    child: Text(
-                      badgeCount > 9 ? '9+' : '$badgeCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
+    final inner = selected
+        ? Material(
+            color: kChildBrandBlue,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            elevation: 6,
+            shadowColor: kChildBrandBlue.withValues(alpha: 0.4),
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: _kParentNavSelectedCircle,
+                height: _kParentNavSelectedCircle,
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/figma/nav_home_filled.svg',
+                    width: 26,
+                    height: 26,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+          )
+        : Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              customBorder: const CircleBorder(),
+              child: SizedBox(
+                width: _kParentNavIdleTap,
+                height: _kParentNavIdleTap,
+                child: Center(
+                  child: SvgPicture.asset(
+                    'assets/figma/nav_home_outline.svg',
+                    width: 26,
+                    height: 26,
+                    colorFilter: const ColorFilter.mode(
+                      kChildInkMuted,
+                      BlendMode.srcIn,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+    return SizedBox(
+      width: _kParentNavSlot,
+      height: _kParentNavSlot,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          inner,
+          if (badgeCount > 0)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD83A3A),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../shop_repository.dart';
+import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
 
@@ -395,16 +396,15 @@ class _FigmaProductCard extends StatelessWidget {
                     child: (product.imageUrl ?? '').isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(18),
-                            child: Image.network(
-                              product.imageUrl!,
+                            child: ShopProductCachedImage(
+                              imageUrl: product.imageUrl!,
+                              productId: product.id,
+                              imageStorageKey: product.imagePath,
                               width: 76,
                               height: 76,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  ShopProductIconSvg(
-                                    asset: iconAsset,
-                                    size: 76,
-                                  ),
+                              errorIconAsset: iconAsset,
+                              iconSize: 76,
                             ),
                           )
                         : ShopProductIconSvg(asset: iconAsset, size: 76),

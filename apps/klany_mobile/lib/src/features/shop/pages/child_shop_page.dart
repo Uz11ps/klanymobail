@@ -11,6 +11,7 @@ import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../../core/api_client.dart';
+import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../shop_repository.dart';
 import '../../../core/app_snackbar.dart';
@@ -439,17 +440,17 @@ class _ChildShopProductCard extends StatelessWidget {
                         child: (product.imageUrl ?? '').isNotEmpty
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: Image.network(
-                                  product.imageUrl!,
+                                child: ShopProductCachedImage(
+                                  imageUrl: product.imageUrl!,
+                                  productId: product.id,
+                                  imageStorageKey: product.imagePath,
+                                  width: 56,
+                                  height: 56,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Center(
-                                    child: ShopProductIconSvg(
-                                      asset: shopProductResolvedIcon(
-                                        product,
-                                      ).asset,
-                                      size: 40,
-                                    ),
-                                  ),
+                                  errorIconAsset: shopProductResolvedIcon(
+                                    product,
+                                  ).asset,
+                                  iconSize: 40,
                                 ),
                               )
                             : Center(

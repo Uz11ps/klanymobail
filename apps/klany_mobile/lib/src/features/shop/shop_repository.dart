@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
 
@@ -72,31 +73,6 @@ class ShopRepository {
   String? get _childToken =>
       ref.read(childSessionProvider).asData?.value?.accessToken;
 
-  Future<String?> _presignDownloadUrl({
-    required String token,
-    required String bucket,
-    required String objectKey,
-  }) async {
-    final api = Sdk.apiOrNull;
-    if (api == null || objectKey.trim().isEmpty) return null;
-    try {
-      final res = await api.postJson(
-        '/storage/presign-download',
-        accessToken: token,
-        body: <String, dynamic>{
-          'bucket': bucket,
-          'objectKey': objectKey,
-          'expiresSeconds': 3600,
-        },
-      );
-      final url = res['url']?.toString();
-      if (url == null || url.isEmpty) return null;
-      return url;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<List<ShopProductItem>> getProducts(String familyId) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken ?? _childToken;
@@ -108,8 +84,8 @@ class ShopRepository {
       rows.map((row) async {
         final imagePath = row['imageKey']?.toString();
         final imageUrl = (imagePath != null && imagePath.isNotEmpty)
-            ? await _presignDownloadUrl(
-                token: token,
+            ? await PresignStorageDownloadCache.resolve(
+                accessToken: token,
                 bucket: 'shop-products',
                 objectKey: imagePath,
               )
