@@ -1,14 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${1:-/opt/klany}"
-ENV_FILE="$APP_DIR/shared/.env.server"
+# Релизная схема: APP_DIR/current + APP_DIR/shared/.env
+# Или один каталог (/opt/klanymobail) с .env рядом с docker-compose.yml.
+APP_DIR="${1:-/opt/klanymobail}"
 CRON_TMP="$(mktemp)"
 
-if [[ ! -f "$ENV_FILE" ]]; then
-  echo "Env file not found: $ENV_FILE" >&2
+pick_env_file() {
+  local base="$1"
+  [[ -f "$base/.env" ]] && {
+    echo "$base/.env"
+    return 0
+  }
+  [[ -f "$base/shared/.env" ]] && {
+    echo "$base/shared/.env"
+    return 0
+  }
+  [[ -f "$base/.env.server" ]] && {
+    echo "$base/.env.server"
+    return 0
+  }
+  [[ -f "$base/shared/.env.server" ]] && {
+    echo "$base/shared/.env.server"
+    return 0
+  }
+  return 1
+}
+
+ENV_FILE="$(pick_env_file "$APP_DIR")" || {
+  echo "Не найден .env ни в $APP_DIR, ни в $APP_DIR/shared." >&2
   exit 1
-fi
+}
 
 get_env() {
   local key="$1"
@@ -17,21 +39,24 @@ get_env() {
 
 CRON_SECRET="$(get_env CRON_SECRET)"
 if [[ -z "$CRON_SECRET" ]]; then
-  echo "CRON_SECRET is empty in $ENV_FILE" >&2
+  echo "CRON_SECRET пуст в $ENV_FILE" >&2
   exit 1
 fi
 
 mkdir -p "$APP_DIR/shared/ops" "$APP_DIR/shared/backups/postgres" "$APP_DIR/shared/backups/minio"
 
-cat > "$APP_DIR/shared/ops/backup.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+EF_Q="$(printf '%q' "$ENV_FILE")"
+AD_Q="$(printf '%q' "$APP_DIR")"
 
-APP_DIR="/opt/klany"
-ENV_FILE="$APP_DIR/shared/.env.server"
+{
+  echo '#!/usr/bin/env bash'
+  echo 'set -euo pipefail'
+  echo "ENV_FILE=$EF_Q"
+  echo "APP_DIR_FIXED=$AD_Q"
+  cat <<'EOS'
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
-PG_DIR="$APP_DIR/shared/backups/postgres"
-MINIO_DIR="$APP_DIR/shared/backups/minio"
+PG_DIR="$APP_DIR_FIXED/shared/backups/postgres"
+MINIO_DIR="$APP_DIR_FIXED/shared/backups/minio"
 
 get_env() {
   local key="$1"
@@ -54,16 +79,14 @@ MINIO_BUCKET_QUEST_EVIDENCE="${MINIO_BUCKET_QUEST_EVIDENCE:-quest-evidence}"
 MINIO_BUCKET_SHOP_PRODUCTS="${MINIO_BUCKET_SHOP_PRODUCTS:-shop-products}"
 
 if [[ -z "$MINIO_ACCESS_KEY" || -z "$MINIO_SECRET_KEY" ]]; then
-  echo "MINIO_ACCESS_KEY/MINIO_SECRET_KEY are required in $ENV_FILE" >&2
+  echo "MINIO_ACCESS_KEY/MINIO_SECRET_KEY нужны в $ENV_FILE" >&2
   exit 1
 fi
 
 mkdir -p "$PG_DIR" "$MINIO_DIR/$STAMP"
 
-COMPOSE_DIR="$APP_DIR/current"
-if [[ ! -f "$COMPOSE_DIR/docker-compose.yml" ]]; then
-  COMPOSE_DIR="/opt/klanymobail"
-fi
+COMPOSE_DIR="$APP_DIR_FIXED/current"
+[[ ! -f "$COMPOSE_DIR/docker-compose.yml" ]] && COMPOSE_DIR="/opt/klanymobail"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_DIR/docker-compose.yml" exec -T postgres \
   sh -lc "pg_dump -U \"$POSTGRES_USER\" \"$POSTGRES_DB\"" | gzip > "$PG_DIR/${STAMP}.sql.gz"
 
@@ -81,30 +104,35 @@ docker run --rm --network host \
 
 find "$PG_DIR" -type f -name "*.sql.gz" -mtime +7 -delete
 find "$MINIO_DIR" -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} +
-EOF
+EOS
+} >"$APP_DIR/shared/ops/backup.sh"
 
 chmod +x "$APP_DIR/shared/ops/backup.sh"
 
-cat > "$APP_DIR/shared/ops/healthcheck.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
+{
+  echo '#!/usr/bin/env bash'
+  echo 'set -euo pipefail'
+  echo "ENV_FILE=$EF_Q"
+  echo "APP_DIR_FIXED=$AD_Q"
+  cat <<'EOS'
 if ! curl -fsS -m 10 "http://127.0.0.1:8782/api/health" >/dev/null; then
-  cd /opt/klany/current
-  docker compose --env-file /opt/klany/shared/.env.server up -d
+  COMPOSE_DIR="$APP_DIR_FIXED/current"
+  [[ ! -f "$COMPOSE_DIR/docker-compose.yml" ]] && COMPOSE_DIR="/opt/klanymobail"
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_DIR/docker-compose.yml" up -d
 fi
-EOF
+EOS
+} >"$APP_DIR/shared/ops/healthcheck.sh"
 
 chmod +x "$APP_DIR/shared/ops/healthcheck.sh"
 
 {
   crontab -l 2>/dev/null | sed '/# klany-notifications-cron/d;/# klany-backup/d;/# klany-healthcheck/d' || true
   echo "*/15 * * * * curl -fsS -m 10 -X POST -H 'x-cron-secret: ${CRON_SECRET}' -o /dev/null http://127.0.0.1:8782/api/internal/notifications-cron # klany-notifications-cron"
-  echo "17 2 * * * /opt/klany/shared/ops/backup.sh >/var/log/klany-backup.log 2>&1 # klany-backup"
-  echo "*/5 * * * * /opt/klany/shared/ops/healthcheck.sh >/var/log/klany-healthcheck.log 2>&1 # klany-healthcheck"
-} > "$CRON_TMP"
+  echo "17 2 * * * ${APP_DIR}/shared/ops/backup.sh >/var/log/klany-backup.log 2>&1 # klany-backup"
+  echo "*/5 * * * * ${APP_DIR}/shared/ops/healthcheck.sh >/var/log/klany-healthcheck.log 2>&1 # klany-healthcheck"
+} >"$CRON_TMP"
 
 crontab "$CRON_TMP"
 rm -f "$CRON_TMP"
 
-echo "OK: ops installed"
+echo "OK: ops installed (env=$ENV_FILE)"

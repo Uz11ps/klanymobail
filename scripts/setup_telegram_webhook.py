@@ -5,10 +5,17 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_PATH = ROOT / ".env.server"
+
+
+def _env_path() -> Path:
+    p = ROOT / ".env"
+    if p.exists():
+        return p
+    return ROOT / ".env.server"
 
 
 def read_env_token() -> str:
+    ENV_PATH = _env_path()
     if not ENV_PATH.exists():
         return ""
     for raw in ENV_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
@@ -29,7 +36,7 @@ def post_json(url: str, body: dict) -> dict:
 def main() -> None:
     token = read_env_token()
     if not token:
-        raise SystemExit("TELEGRAM_BOT_TOKEN is missing in .env.server")
+        raise SystemExit("TELEGRAM_BOT_TOKEN is missing in repo root .env")
 
     webhook_url = os.getenv("TELEGRAM_WEBHOOK_URL", "https://klanymobail.ru/api/webhooks/telegram").strip()
 

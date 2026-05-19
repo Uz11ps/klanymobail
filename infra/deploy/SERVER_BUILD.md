@@ -26,7 +26,7 @@ swapon /swapfile
 echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
-В `.env.server` при необходимости подними лимит памяти сборки Node (по умолчанию 768 MB в образе):
+В `.env` при необходимости подними лимит памяти сборки Node (по умолчанию 768 MB в образе):
 
 ```bash
 NODE_BUILD_MEMORY_MB=1536
@@ -49,7 +49,7 @@ docker image prune -af
 
 На машине уже что‑то слушает **9000** (часто старый MinIO или другой стек).
 
-Либо освободи порт (`docker ps`, `ss -tlnp | grep 9000`), либо в **`.env.server`** задай другой проброс, например:
+Либо освободи порт (`docker ps`, `ss -tlnp | grep 9000`), либо в **`.env`** задай другой проброс, например:
 
 ```bash
 MINIO_HOST_PORT=9002
@@ -57,11 +57,11 @@ MINIO_HOST_PORT=9002
 
 (`MINIO_HOST_PORT` — только публикация на хост; контейнер `api` по‑прежнему ходит в MinIO как `minio:9000` внутри сети compose.)
 
-После правки: `docker compose --env-file .env.server up -d`.
+После правки: `docker compose --env-file .env up -d`.
 
 ### 4b. Занят порт консоли MinIO (`Bind ... :9001 failed`)
 
-На хосте уже что‑то слушает **9001**. В **`.env.server`** задай другой проброс (внутри контейнера консоль всё равно **9001**):
+На хосте уже что‑то слушает **9001**. В **`.env`** задай другой проброс (внутри контейнера консоль всё равно **9001**):
 
 ```bash
 MINIO_CONSOLE_HOST_PORT=9011
@@ -74,8 +74,8 @@ MINIO_CONSOLE_HOST_PORT=9011
 После обновления репозитория пересобери API и поднись заново:
 
 ```bash
-docker compose --env-file .env.server build api --no-cache
-docker compose --env-file .env.server up -d
+docker compose --env-file .env build api --no-cache
+docker compose --env-file .env up -d
 ```
 
 Если ошибка не уходит — проверь, что контейнер **`postgres` healthy**: `docker compose ps`, логи `docker compose logs postgres`.
@@ -84,7 +84,7 @@ docker compose --env-file .env.server up -d
 
 ```bash
 cd /opt/klanymobail   # или твой каталог с compose
-DOCKER_BUILDKIT=1 docker compose --env-file .env.server build api --progress=plain --no-cache 2>&1 | tee /tmp/build-api.log
+DOCKER_BUILDKIT=1 docker compose --env-file .env build api --progress=plain --no-cache 2>&1 | tee /tmp/build-api.log
 ```
 
 Если обрыв на `npm ci` — сеть/registry; если на `npm run build` — CPU/RAM.
@@ -102,7 +102,7 @@ Nest по умолчанию собирает через **Webpack**. На сл�
 Если образ `api` уже собран раньше:
 
 ```bash
-docker compose --env-file .env.server up -d postgres redis minio
+docker compose --env-file .env up -d postgres redis minio
 ```
 
 Полный стек после фикса — как обычно: `./scripts/server/stack-up.sh` или `docker compose ... up -d --build`.

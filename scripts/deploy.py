@@ -183,7 +183,7 @@ def deploy() -> None:
         user=(os.getenv("VPS_USER") or "root").strip() or "root",
         password=_required("VPS_PASSWORD"),
         app_dir=(os.getenv("APP_DIR") or "/opt/klany").strip() or "/opt/klany",
-        env_file=(os.getenv("ENV_FILE") or ".env.server").strip() or ".env.server",
+        env_file=(os.getenv("ENV_FILE") or ".env").strip() or ".env",
         compose_file=(os.getenv("COMPOSE_FILE") or "docker-compose.yml").strip() or "docker-compose.yml",
         keep_releases=_read_int("KEEP_RELEASES", 5),
     )
@@ -204,7 +204,7 @@ def deploy() -> None:
     release_name = f"{release}-{commit}"
     remote_tgz = f"/tmp/klany-{release_name}.tgz"
     remote_release_dir = f"{cfg.app_dir}/releases/{release_name}"
-    remote_env = f"{cfg.app_dir}/shared/.env.server"
+    remote_env = f"{cfg.app_dir}/shared/.env"
 
     print(f"[deploy] Connecting to {cfg.user}@{cfg.server} ...")
     ssh = create_ssh_client(cfg.server, cfg.user, cfg.password)

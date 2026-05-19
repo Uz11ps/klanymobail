@@ -4,7 +4,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_PATH = ROOT / ".env.server"
+ENV_PATH = ROOT / ".env"
+if not ENV_PATH.exists() and (ROOT / ".env.server").exists():
+    ENV_PATH = ROOT / ".env.server"
 SERVICE_ACCOUNT_PATH = ROOT / "apps" / "klany_mobile" / "android" / "app" / "klany-push-firebase-adminsdk-fbsvc-1248fd1254.json"
 
 # Provided earlier in the chat; do not print it.
@@ -44,7 +46,7 @@ def upsert_env_lines(lines: list[str], updates: dict[str, str]) -> list[str]:
 
 def main() -> None:
     if not ENV_PATH.exists():
-        raise SystemExit(f".env.server not found at: {ENV_PATH}")
+        raise SystemExit(f".env not found at: {ENV_PATH} (create from repo root .env.example)")
     if not SERVICE_ACCOUNT_PATH.exists():
         raise SystemExit(f"Firebase service account json not found at: {SERVICE_ACCOUNT_PATH}")
 

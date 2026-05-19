@@ -5,8 +5,8 @@
 #   ./scripts/server/stack-up.sh [compose_dir] [env_file] [extra docker compose up args...]
 #
 # Examples:
-#   cd /opt/klanymobail && ./scripts/server/stack-up.sh . .env.server
-#   cd /opt/klany/current && ./scripts/server/stack-up.sh . /opt/klany/shared/.env.server
+#   cd /opt/klanymobail && ./scripts/server/stack-up.sh
+#   cd /opt/klanymobail && ./scripts/server/stack-up.sh . /path/to/.env
 
 set -euo pipefail
 
@@ -17,12 +17,16 @@ ENV_FILE="${1:-}"
 if [[ -n "$ENV_FILE" ]]; then
   shift || true
 else
-  if [[ -f "$COMPOSE_DIR/.env.server" ]]; then
+  if [[ -f "$COMPOSE_DIR/.env" ]]; then
+    ENV_FILE="$COMPOSE_DIR/.env"
+  elif [[ -f "/opt/klany/shared/.env" ]]; then
+    ENV_FILE="/opt/klany/shared/.env"
+  elif [[ -f "$COMPOSE_DIR/.env.server" ]]; then
     ENV_FILE="$COMPOSE_DIR/.env.server"
   elif [[ -f "/opt/klany/shared/.env.server" ]]; then
     ENV_FILE="/opt/klany/shared/.env.server"
   else
-    echo "stack-up: env file not found (pass as 2nd arg or create .env.server)" >&2
+    echo "stack-up: создай файл $COMPOSE_DIR/.env (см. .env.example в репозитории) или передай путь вторым аргументом" >&2
     exit 1
   fi
 fi

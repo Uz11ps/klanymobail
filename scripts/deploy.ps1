@@ -9,7 +9,7 @@ param(
   [string]$AppDir = "/opt/klany",
 
   [Parameter(Mandatory = $false)]
-  [string]$EnvFile = ".env.server",
+  [string]$EnvFile = ".env",
 
   [Parameter(Mandatory = $false)]
   [string]$ComposeFile = "docker-compose.yml",
@@ -45,7 +45,7 @@ if (!(Test-Path $composePath)) {
   throw "Compose file not found: $composePath"
 }
 if (!(Test-Path $envPath)) {
-  throw "Env file not found: $envPath (create it from .env.server.example)"
+  throw "Env file not found: $envPath (copy `.env.example` in repo root to `.env` and fill secrets)"
 }
 
 Push-Location $repoRoot
@@ -117,7 +117,7 @@ try {
     $sshCommon += @("-i", $IdentityFile)
   }
   $remoteTgz = "/tmp/klany-$releaseName.tgz"
-  $remoteEnv = "$AppDir/shared/.env.server"
+  $remoteEnv = "$AppDir/shared/.env"
   $remoteReleaseDir = "$AppDir/releases/$releaseName"
 
   Write-Host "Uploading archive..."
