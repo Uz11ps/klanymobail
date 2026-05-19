@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -337,14 +336,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
         onSignOut: () => ref.read(childSessionProvider.notifier).clear(),
       ),
     );
-  }
-
-  String _taskWordRu(int n) {
-    final t = n % 10;
-    final h = n % 100;
-    if (t == 1 && h != 11) return 'задача';
-    if (t >= 2 && t <= 4 && (h < 12 || h > 14)) return 'задачи';
-    return 'задач';
   }
 
   String _formatBalance(int n) {

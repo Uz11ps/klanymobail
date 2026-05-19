@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../auth/child_session.dart';
+import '../../home/child_avatar_picker_flow.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
@@ -62,10 +63,6 @@ List<BoxShadow> _questCardOuterShadows(Color bg) {
     ),
   ];
 }
-
-/// Как [_ChildHomeDashboardState._layoutScale] на домашнем дашборде ребёнка.
-double _childDashboardLayoutScale(double contentWidth) =>
-    ((contentWidth / 353) * 0.87).clamp(0.74, 1.0).toDouble();
 
 /// Дубликат теней с [ChildHomePage] — `_scaledMintStatShadows`.
 List<BoxShadow> _questsScaledMintStatShadows(double scale) => [
@@ -192,7 +189,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final screenW = MediaQuery.sizeOf(context).width;
         final cw = kFigmaChildDashboardContentWidth(screenW);
         final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
-        final s = _childDashboardLayoutScale(cw);
+        final s = kFigmaChildDashboardLayoutScale(cw);
         final bottomPad =
             ChildBottomClanBar.scrollBottomClearance(context) + 28;
 
@@ -290,7 +287,12 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      ChildDashboardProfileCard(completedCount: completed),
+                      ChildDashboardProfileCard(
+                        layoutScale: s,
+                        completedCount: completed,
+                        onAvatarTap: () =>
+                            runChildAvatarPickerFlow(context, ref),
+                      ),
                       const SizedBox(height: 20),
                       _questsDividerLine(),
                       const SizedBox(height: 20),

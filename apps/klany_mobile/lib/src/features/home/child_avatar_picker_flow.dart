@@ -3,7 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/app_snackbar.dart';
+import '../../core/app_snackbar.dart';
 import '../auth/child_self_avatar.dart';
 import '../auth/child_session.dart';
 import 'avatar_store.dart';

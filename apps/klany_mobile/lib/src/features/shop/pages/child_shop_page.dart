@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/child_session.dart';
+import '../../home/child_avatar_picker_flow.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
@@ -187,6 +188,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
     final screenW = MediaQuery.sizeOf(context).width;
     final cw = kFigmaChildDashboardContentWidth(screenW);
     final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+    final layoutScale = kFigmaChildDashboardLayoutScale(cw);
     final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
 
     return FutureBuilder<_ChildShopData>(
@@ -291,7 +293,12 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      ChildDashboardProfileCard(completedCount: completed),
+                      ChildDashboardProfileCard(
+                        layoutScale: layoutScale,
+                        completedCount: completed,
+                        onAvatarTap: () =>
+                            runChildAvatarPickerFlow(context, ref),
+                      ),
                       const SizedBox(height: 20),
                       _shopDividerLine(),
                       const SizedBox(height: 20),
