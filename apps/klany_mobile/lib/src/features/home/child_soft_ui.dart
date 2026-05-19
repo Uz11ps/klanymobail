@@ -64,6 +64,10 @@ double kFigmaChildDashboardHorizontalPadding(
   double contentWidth,
 ) => math.max(16.0, (screenWidth - contentWidth) / 2);
 
+/// Тот же масштаб карточки профиля и цветных плиток, что на [`ChildHomePage`].
+double kFigmaChildDashboardLayoutScale(double contentWidth) =>
+    ((contentWidth / 353) * 0.87).clamp(0.74, 1.0).toDouble();
+
 /// Растровый экспорт той же графики, что и в [`profile_coin_stack.svg`].
 /// На вебе `flutter_svg` не раскладывает паттерн с встроенным PNG — без этого ассета иконки в пилюле нет.
 const String kFigmaProfileCoinStackPng = 'assets/figma/profile_coin_stack.png';

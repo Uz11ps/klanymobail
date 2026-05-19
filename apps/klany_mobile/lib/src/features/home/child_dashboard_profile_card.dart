@@ -9,15 +9,25 @@ import 'avatar_store.dart';
 import 'child_soft_ui.dart';
 import 'presigned_member_avatar.dart';
 
-/// Масштаб аватара 107 px относительно дашборда 92 px (Figma).
-const double kChildDashboardProfileScale = 107 / 92;
-
 String _firstDisplayChar(String s) {
   if (s.isEmpty) return '?';
   final it = s.trim().runes.iterator;
   if (!it.moveNext()) return '?';
   return String.fromCharCode(it.current);
 }
+
+TextStyle _profileNunito({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double height = 1.0,
+}) =>
+    GoogleFonts.nunito(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color ?? kChildInk,
+      height: height,
+    );
 
 /// Аватар в карточке профиля (presign для загруженного фото ребёнка).
 class ChildDashboardAvatar extends StatelessWidget {
@@ -59,11 +69,22 @@ class ChildDashboardAvatar extends StatelessWidget {
   }
 }
 
-/// Белая карточка профиля: как на вкладках «Дом», «Задачи», «Магазин» ребёнка.
+/// Белая карточка профиля — те же размеры, что [_DashboardProfileCard] на главной ребёнка.
 class ChildDashboardProfileCard extends ConsumerStatefulWidget {
-  const ChildDashboardProfileCard({super.key, required this.completedCount});
+  const ChildDashboardProfileCard({
+    super.key,
+    required this.completedCount,
+    required this.layoutScale,
+    this.onAvatarTap,
+    this.openWalletOnTap = true,
+  });
 
   final int completedCount;
+  final double layoutScale;
+  final VoidCallback? onAvatarTap;
+
+  /// На главном экране карточка не открывает кошелёк целиком (аватар отдельно).
+  final bool openWalletOnTap;
 
   @override
   ConsumerState<ChildDashboardProfileCard> createState() =>
@@ -90,6 +111,86 @@ class _ChildDashboardProfileCardState
     return _walletFuture!;
   }
 
+  Widget _buildAvatarLead({
+    required ChildSession? session,
+    required String name,
+    required String initial,
+    required double avatarSize,
+    required double layoutScale,
+  }) {
+    if (session == null) {
+      return ClipOval(
+        child: UserAvatar(
+          userKey: 'child:guest',
+          size: avatarSize,
+          fallbackText: initial,
+        ),
+      );
+    }
+
+    final fallback = name.isEmpty
+        ? '?'
+        : _firstDisplayChar(name).toUpperCase();
+
+    if (widget.onAvatarTap != null) {
+      return GestureDetector(
+        onTap: widget.onAvatarTap,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Builder(
+              builder: (context) {
+                final key = session.avatarObjectKey;
+                if (key == null || key.isEmpty) {
+                  return UserAvatar(
+                    userKey: 'child:${session.childId}',
+                    size: avatarSize,
+                    fallbackText: fallback,
+                  );
+                }
+                return PresignedMemberAvatar(
+                  accessToken: session.accessToken,
+                  objectKey: key,
+                  userKey: 'child:${session.childId}',
+                  size: avatarSize,
+                  fallbackText: fallback,
+                );
+              },
+            ),
+            Positioned(
+              right: 2 * layoutScale,
+              bottom: 2 * layoutScale,
+              child: Container(
+                width: 24 * layoutScale,
+                height: 24 * layoutScale,
+                decoration: BoxDecoration(
+                  color: kFigmaChildScreenBlue,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white,
+                    width: 1.5 * layoutScale,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.edit,
+                  size: 12 * layoutScale,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ChildDashboardAvatar(
+      session: session,
+      displayName: name,
+      size: avatarSize,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
@@ -98,128 +199,132 @@ class _ChildDashboardProfileCardState
         : 'Участник';
     final initial =
         name.isNotEmpty ? _firstDisplayChar(name).toUpperCase() : '?';
-    final s = kChildDashboardProfileScale;
-    final cardR = BorderRadius.circular(20);
-    final avatarSize = 92 * s;
+
+    final layoutScale = widget.layoutScale;
+    final r = BorderRadius.circular(18 * layoutScale);
+    final avatarSize = 92 * layoutScale;
 
     return FutureBuilder<WalletSummary?>(
       future: _walletFutureForSession(session),
       builder: (context, walletSnap) {
         final balance = walletSnap.data?.balance ?? 0;
+
+        final inner = Padding(
+          padding: EdgeInsets.all(14 * layoutScale),
+          child: Row(
+            children: [
+              _buildAvatarLead(
+                session: session,
+                name: name,
+                initial: initial,
+                avatarSize: avatarSize,
+                layoutScale: layoutScale,
+              ),
+              SizedBox(width: 8 * layoutScale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _profileNunito(
+                        fontSize: 21 * layoutScale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 6 * layoutScale),
+                    Text(
+                      '${widget.completedCount} ${_taskWord(widget.completedCount)} выполнено',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _profileNunito(
+                        fontSize: 14 * layoutScale,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.black.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    SizedBox(height: 6 * layoutScale),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minWidth: 118 * layoutScale,
+                        minHeight: 26 * layoutScale,
+                      ),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10 * layoutScale,
+                          vertical: 4 * layoutScale,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kFigmaChildBalancePill,
+                          borderRadius:
+                              BorderRadius.circular(22 * layoutScale),
+                        ),
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            FigmaProfileCoinStack(
+                              width: 18 * layoutScale,
+                              height: 17 * layoutScale,
+                            ),
+                            SizedBox(width: 6 * layoutScale),
+                            Text(
+                              _formatBalance(balance),
+                              style: _profileNunito(
+                                fontSize: 20 * layoutScale,
+                                fontWeight: FontWeight.w800,
+                                color: kFigmaChildScreenBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+
         return DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: cardR,
+            borderRadius: r,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 18 * s,
-                offset: Offset(0, 8 * s),
+                blurRadius: 18 * layoutScale,
+                offset: Offset(0, 8 * layoutScale),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: cardR,
-            child: ColoredBox(
-              color: Colors.white,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ChildWalletPage(),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(14 * s),
-                    child: Row(
-                      children: [
-                        if (session != null)
-                          ChildDashboardAvatar(
-                            session: session,
-                            displayName: name,
-                            size: avatarSize,
-                          )
-                        else
-                          ClipOval(
-                            child: UserAvatar(
-                              userKey: 'child:guest',
-                              size: avatarSize,
-                              fallbackText: initial,
-                            ),
-                          ),
-                        SizedBox(width: 8 * s),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.nunito(
-                                  fontSize: 21 * s,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              SizedBox(height: 6 * s),
-                              Text(
-                                '${widget.completedCount} ${_taskWord(widget.completedCount)} выполнено',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.nunito(
-                                  fontSize: 14 * s,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.black.withValues(alpha: 0.5),
-                                ),
-                              ),
-                              SizedBox(height: 6 * s),
-                              ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minWidth: 118 * s,
-                                  minHeight: 26 * s,
-                                ),
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: kFigmaChildBalancePill,
-                                    borderRadius: BorderRadius.circular(22 * s),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 10 * s,
-                                      vertical: 4 * s,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        FigmaProfileCoinStack(
-                                          width: 18 * s,
-                                          height: 17 * s,
-                                        ),
-                                        SizedBox(width: 6 * s),
-                                        Text(
-                                          _formatBalance(balance),
-                                          style: GoogleFonts.nunito(
-                                            fontSize: 20 * s,
-                                            fontWeight: FontWeight.w800,
-                                            color: kFigmaChildScreenBlue,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+            borderRadius: r,
+            child: widget.openWalletOnTap
+                ? ColoredBox(
+                    color: Colors.white,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ChildWalletPage(),
                           ),
                         ),
-                      ],
+                        child: inner,
+                      ),
                     ),
+                  )
+                : ColoredBox(
+                    color: Colors.white,
+                    child: inner,
                   ),
-                ),
-              ),
-            ),
           ),
         );
       },
