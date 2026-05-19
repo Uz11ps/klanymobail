@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -32,6 +33,7 @@ InputDecoration _settingsField(String hint, {Widget? prefixIcon}) {
     filled: true,
     fillColor: Colors.white,
     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+    constraints: const BoxConstraints(minHeight: 56),
     prefixIcon: prefixIcon,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(62),
@@ -106,16 +108,17 @@ class _SectionTitle extends StatelessWidget {
               child: Text(
                 text,
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: kChildInk,
+                  fontFamily: 'Nunito',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
                 ),
               ),
             ),
             ?trailing,
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 20),
         Divider(height: 1, color: Colors.black.withValues(alpha: 0.12)),
         const SizedBox(height: 20),
       ],
@@ -161,24 +164,15 @@ class _ParentPremiumAnalyticsSectionState
                   const _SectionTitle('Premium-аналитика'),
                   Text(
                     'Дети: ${data['childrenCount'] ?? 0}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: kChildInk,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: kChildInk),
                   ),
                   Text(
                     'Квесты: ${data['questsCompleted'] ?? 0}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: kChildInk,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: kChildInk),
                   ),
                   Text(
                     'Транзакции: ${data['walletTxCount'] ?? 0}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: kChildInk,
-                    ),
+                    style: const TextStyle(fontSize: 14, color: kChildInk),
                   ),
                 ],
               ),
@@ -230,7 +224,9 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final name = _memberName.text.trim();
     if (name.isEmpty) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Введите имя участника')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите имя участника')),
+      );
       return;
     }
     setState(() => _busy = true);
@@ -246,7 +242,9 @@ class _ParentFamilySettingsPageState
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка создания кода: $e')));
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Ошибка создания кода: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -256,7 +254,9 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final email = _inviteEmail.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@')) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Введите валидный email')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите валидный email')),
+      );
       return;
     }
     setState(() => _busy = true);
@@ -275,7 +275,9 @@ class _ParentFamilySettingsPageState
       _inviteEmail.clear();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка приглашения: $e')));
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Ошибка приглашения: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -285,7 +287,9 @@ class _ParentFamilySettingsPageState
     if (_busy) return;
     final parsed = int.tryParse(_goalAmount.text.trim());
     if (parsed == null || parsed <= 0) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Введите сумму цели')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите сумму цели')),
+      );
       return;
     }
     setState(() => _busy = true);
@@ -293,7 +297,9 @@ class _ParentFamilySettingsPageState
       await ref.read(parentAccessRepositoryProvider).setFamilyGoal(parsed);
       ref.invalidate(parentFamilyContextProvider);
       if (!mounted) return;
-      context.showKlanySnackBar(const SnackBar(content: Text('Цель обновлена')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Цель обновлена')),
+      );
       _goalAmount.clear();
     } catch (e) {
       if (!mounted) return;
@@ -311,12 +317,16 @@ class _ParentFamilySettingsPageState
           .read(subscriptionRepositoryProvider)
           .activatePromo(_promoCode.text.trim());
       if (!mounted) return;
-      context.showKlanySnackBar(const SnackBar(content: Text('Промокод активирован')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Промокод активирован')),
+      );
       _promoCode.clear();
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка промокода: $e')));
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Ошибка промокода: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -341,7 +351,9 @@ class _ParentFamilySettingsPageState
       }
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка создания платежа: $e')));
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Ошибка создания платежа: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -396,8 +408,9 @@ class _ParentFamilySettingsPageState
         avatarVersion.value++;
         if (mounted) setState(() {});
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+        }
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -492,8 +505,9 @@ class _ParentFamilySettingsPageState
         avatarVersion.value++;
         if (mounted) setState(() {});
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+        }
       } finally {
         if (mounted) setState(() => _busy = false);
       }
@@ -590,7 +604,9 @@ class _ParentFamilySettingsPageState
     );
     await OnboardingStore.setParentTourSeen();
     if (!mounted) return;
-    context.showKlanySnackBar(const SnackBar(content: Text('Обучение показано повторно')));
+    context.showKlanySnackBar(
+      const SnackBar(content: Text('Обучение показано повторно')),
+    );
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -634,478 +650,321 @@ class _ParentFamilySettingsPageState
 
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: SafeArea(
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxW = constraints.maxWidth;
-                // Телефон — на всю доступную ширину; планшет/web — заметно шире 393, с потолком для читаемости.
-                final pageWidth = maxW < 520
-                    ? maxW
-                    : (maxW * 0.72).clamp(440.0, 640.0);
-                return Center(
-                  child: SizedBox(
-                    width: pageWidth,
-                    child: ListView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(19, 0, 19, 40),
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 34),
-                          child: SizedBox(
-                            height: 48,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 48,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 48,
-                                            height: 48,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              const FigmaAuthScreenBackground(),
+              SafeArea(
+                bottom: false,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxW = constraints.maxWidth;
+                    final pageWidth = math.min(maxW, 390.0);
+                    return Center(
+                      child: SizedBox(
+                        width: pageWidth,
+                        child: ListView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(19, 31, 19, 40),
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.zero,
+                              child: SizedBox(
+                                height: 48,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 48,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints:
+                                              const BoxConstraints.tightFor(
+                                                width: 48,
+                                                height: 48,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.arrow_back,
+                                            color: Colors.black,
+                                            size: 24,
                                           ),
-                                      icon: const Icon(
-                                        Icons.arrow_back,
-                                        color: Colors.black,
-                                        size: 30,
+                                          onPressed: () =>
+                                              Navigator.of(context).maybePop(),
+                                        ),
                                       ),
-                                      onPressed: () =>
-                                          Navigator.of(context).maybePop(),
                                     ),
-                                  ),
-                                ),
-                                const Expanded(
-                                  child: Text(
-                                    'Настройки',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.black,
-                                      height: 1.0,
+                                    const Expanded(
+                                      child: Text(
+                                        'Настройки',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontFamily: 'Nunito',
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.black,
+                                          height: 1.0,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 48,
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 48,
-                                            height: 48,
+                                    SizedBox(
+                                      width: 48,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints:
+                                              const BoxConstraints.tightFor(
+                                                width: 48,
+                                                height: 48,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.logout_outlined,
+                                            color: Colors.black,
+                                            size: 24,
                                           ),
-                                      icon: const Icon(
-                                        Icons.logout_outlined,
-                                        color: Colors.black,
-                                        size: 26,
+                                          onPressed: _busy
+                                              ? null
+                                              : () => ref
+                                                    .read(authActionsProvider)
+                                                    .signOut(),
+                                        ),
                                       ),
-                                      onPressed: _busy
-                                          ? null
-                                          : () => ref
-                                                .read(authActionsProvider)
-                                                .signOut(),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
+                            const SizedBox(height: 20),
 
-                        // ── Clan card (3 rows in one card) ───────────────────────────
-                        _SCard(
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            children: [
-                              _ClanRow(
-                                avatarText:
-                                    (family.clanName?.trim().isNotEmpty == true
-                                            ? family.clanName!
-                                            : 'К')
-                                        .characters
-                                        .first
-                                        .toUpperCase(),
-                                title:
-                                    family.clanName?.trim().isNotEmpty == true
-                                    ? family.clanName!
-                                    : 'Клан',
-                                subtitle: 'Family ID: ${family.familyCode}',
-                                subtitleColor: kChildBrandBlue,
-                                userKey: 'parent:${family.familyId}',
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Divider(height: 1, color: kChildOutline),
-                              ),
-                              _IconRow(
-                                icon: Icons.badge_outlined,
-                                title: 'Текущая учётная запись',
-                                subtitle: 'Без имени\nГлава семьи',
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Divider(height: 1, color: kChildOutline),
-                              ),
-                              _IconRow(
-                                icon: Icons.school_outlined,
-                                title: 'Показать обучение',
-                                subtitle: 'Мини-тур по разделам',
-                                onTap: _showTourAgain,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // ── Family goal ──────────────────────────────────────────────
-                        _SCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _SectionTitle('Общая цель семьи'),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 6, bottom: 6),
-                                child: Text(
-                                  'Название цели',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildInk,
+                            // ── Clan card (3 rows in one card) ───────────────────────────
+                            _SCard(
+                              padding: EdgeInsets.zero,
+                              child: Column(
+                                children: [
+                                  _ClanRow(
+                                    avatarText:
+                                        (family.clanName?.trim().isNotEmpty ==
+                                                    true
+                                                ? family.clanName!
+                                                : 'К')
+                                            .characters
+                                            .first
+                                            .toUpperCase(),
+                                    title:
+                                        family.clanName?.trim().isNotEmpty ==
+                                            true
+                                        ? family.clanName!
+                                        : 'Клан',
+                                    subtitle: 'Family ID: ${family.familyCode}',
+                                    subtitleColor: kChildBrandBlue,
+                                    userKey: 'parent:${family.familyId}',
                                   ),
-                                ),
-                              ),
-                              TextField(
-                                controller: _goalName,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: kChildInk,
-                                ),
-                                decoration: _settingsField('Купить велосипед'),
-                              ),
-                              const SizedBox(height: 14),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 6, bottom: 6),
-                                child: Text(
-                                  'Сумма цели',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                              ),
-                              TextField(
-                                controller: _goalAmount,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: kChildInk,
-                                ),
-                                decoration: _settingsField(
-                                  family.goalAmount > 0
-                                      ? '${family.goalAmount}'
-                                      : 'Купить велосипед',
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              FilledButton(
-                                onPressed: _busy ? null : _saveGoal,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: kBrandMint,
-                                  foregroundColor: const Color(0xFF1F4F1B),
-                                  elevation: 4,
-                                  textStyle: kFigmaLandingCtaTextStyle.copyWith(
-                                    color: const Color(0xFF1F4F1B),
-                                  ),
-                                ),
-                                child: const Text('Сохранить цель'),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // ── Subscription ─────────────────────────────────────────────
-                        FutureBuilder<List<FamilySubscriptionItem>>(
-                          future: ref
-                              .read(subscriptionRepositoryProvider)
-                              .getFamilySubscriptions(family.familyId),
-                          builder: (context, subSnap) {
-                            final subs =
-                                subSnap.data ??
-                                const <FamilySubscriptionItem>[];
-                            final current = subs.isNotEmpty ? subs.first : null;
-                            final isPremium =
-                                current?.planCode.toLowerCase().contains(
-                                  'premium',
-                                ) ==
-                                true;
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                if (isPremium) ...[
-                                  Container(
-                                    padding: const EdgeInsets.all(18),
-                                    decoration: BoxDecoration(
-                                      color: kBrandLavender,
-                                      borderRadius: BorderRadius.circular(22),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Мой тариф: PREMIUM',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w900,
-                                            color: kChildInk,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          current?.expiresAt != null
-                                              ? 'Активен до ${current!.expiresAt!.year}г.'
-                                              : 'Активен',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: kChildInk,
-                                          ),
-                                        ),
-                                        const Text(
-                                          'Участников: 1/999',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: kChildInk,
-                                          ),
-                                        ),
-                                        const Text(
-                                          'Обратные и VIP задачи: доступны',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: kChildInk,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 14),
-                                        FilledButton(
-                                          onPressed: _busy ? null : _buyPremium,
-                                          style: FilledButton.styleFrom(
-                                            backgroundColor: Colors.white,
-                                            foregroundColor: kChildInk,
-                                            elevation: 4,
-                                            textStyle: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w800,
-                                              height: 1.1,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Управлять подпиской',
-                                          ),
-                                        ),
-                                      ],
+                                    child: Divider(
+                                      height: 1,
+                                      color: kChildOutline,
+                                    ),
+                                  ),
+                                  _IconRow(
+                                    icon: Icons.badge_outlined,
+                                    title: 'Текущая учётная запись',
+                                    subtitle: 'Без имени\nГлава семьи',
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Divider(
+                                      height: 1,
+                                      color: kChildOutline,
+                                    ),
+                                  ),
+                                  _IconRow(
+                                    icon: Icons.school_outlined,
+                                    title: 'Показать обучение',
+                                    subtitle: 'Мини-тур по разделам',
+                                    onTap: _showTourAgain,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // ── Family goal ──────────────────────────────────────────────
+                            _SCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _SectionTitle('Общая цель семьи'),
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 6,
+                                      bottom: 6,
+                                    ),
+                                    child: Text(
+                                      'Название цели',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: _goalName,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: kChildInk,
+                                    ),
+                                    decoration: _settingsField(
+                                      'Купить велосипед',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 6,
+                                      bottom: 6,
+                                    ),
+                                    child: Text(
+                                      'Сумма цели',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: _goalAmount,
+                                    keyboardType: TextInputType.number,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: kChildInk,
+                                    ),
+                                    decoration: _settingsField(
+                                      family.goalAmount > 0
+                                          ? '${family.goalAmount}'
+                                          : 'Купить велосипед',
                                     ),
                                   ),
                                   const SizedBox(height: 14),
                                   FilledButton(
-                                    onPressed: _busy ? null : _buyPremium,
+                                    onPressed: _busy ? null : _saveGoal,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: kBrandSky,
-                                      foregroundColor: kChildBrandBlue,
+                                      backgroundColor: kBrandMint,
+                                      foregroundColor: const Color(0xFF1F4F1B),
                                       elevation: 4,
                                       textStyle: kFigmaLandingCtaTextStyle
                                           .copyWith(
-                                            color: kChildBrandBlue,
-                                            letterSpacing: 0.4,
-                                            fontSize: 20,
+                                            color: const Color(0xFF1F4F1B),
                                           ),
                                     ),
-                                    child: const Text('УПРАВЛЯТЬ ПОДПИСКОЙ'),
+                                    child: const Text('Сохранить цель'),
                                   ),
-                                  const SizedBox(height: 24),
                                 ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
 
-                                // ── Economics ────────────────────────────────────────
-                                _SCard(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _SectionTitle(
-                                        'Экономика Клана',
-                                        trailing: GestureDetector(
-                                          onTap: () {},
-                                          child: const Icon(
-                                            Icons.edit_outlined,
-                                            color: kChildInk,
-                                            size: 20,
+                            // ── Subscription ─────────────────────────────────────────────
+                            FutureBuilder<List<FamilySubscriptionItem>>(
+                              future: ref
+                                  .read(subscriptionRepositoryProvider)
+                                  .getFamilySubscriptions(family.familyId),
+                              builder: (context, subSnap) {
+                                final subs =
+                                    subSnap.data ??
+                                    const <FamilySubscriptionItem>[];
+                                final current = subs.isNotEmpty
+                                    ? subs.first
+                                    : null;
+                                final isPremium =
+                                    current?.planCode.toLowerCase().contains(
+                                      'premium',
+                                    ) ==
+                                    true;
+
+                                return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (isPremium) ...[
+                                      Container(
+                                        padding: const EdgeInsets.all(18),
+                                        decoration: BoxDecoration(
+                                          color: kBrandLavender,
+                                          borderRadius: BorderRadius.circular(
+                                            22,
                                           ),
                                         ),
-                                      ),
-                                      const Text(
-                                        'Курс монет: 10 монет = 100₽',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                          color: kChildInk,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'Глобальный налог:',
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Мой тариф: PREMIUM',
                                               style: TextStyle(
-                                                fontSize: 14,
-                                                color: kChildInkMuted,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            '${(_taxRate * 100).round()}%',
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: kChildInk,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _TaxSegmentSlider(
-                                        value: _taxRate,
-                                        onChanged: (v) =>
-                                            setState(() => _taxRate = v),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      const Divider(
-                                        height: 1,
-                                        color: kChildOutline,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'PIN-код для Экономики',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w700,
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.w900,
                                                 color: kChildInk,
                                               ),
                                             ),
-                                          ),
-                                          Switch(
-                                            value: _pinEnabled,
-                                            activeTrackColor: kBrandMint,
-                                            activeThumbColor: Colors.white,
-                                            inactiveTrackColor: kChildOutline,
-                                            inactiveThumbColor: Colors.white,
-                                            onChanged: (v) =>
-                                                setState(() => _pinEnabled = v),
-                                          ),
-                                        ],
-                                      ),
-                                      const Divider(
-                                        height: 1,
-                                        color: kChildOutline,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'Родительский контроль обратных задач',
-                                              style: TextStyle(
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              current?.expiresAt != null
+                                                  ? 'Активен до ${current!.expiresAt!.year}г.'
+                                                  : 'Активен',
+                                              style: const TextStyle(
                                                 fontSize: 14,
-                                                fontWeight: FontWeight.w700,
                                                 color: kChildInk,
                                               ),
                                             ),
-                                          ),
-                                          Switch(
-                                            value: _parentalControl,
-                                            activeTrackColor: kBrandMint,
-                                            activeThumbColor: Colors.white,
-                                            inactiveTrackColor: kChildOutline,
-                                            inactiveThumbColor: Colors.white,
-                                            onChanged: (v) => setState(
-                                              () => _parentalControl = v,
+                                            const Text(
+                                              'Участников: 1/999',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: kChildInk,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-
-                                // ── Promo / subscription card ─────────────────────────
-                                _SCard(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      _SectionTitle(
-                                        'Подписка: ${current?.planCode ?? 'basic'}',
-                                      ),
-                                      const Padding(
-                                        padding: EdgeInsets.only(
-                                          left: 6,
-                                          bottom: 6,
+                                            const Text(
+                                              'Обратные и VIP задачи: доступны',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: kChildInk,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 14),
+                                            FilledButton(
+                                              onPressed: _busy
+                                                  ? null
+                                                  : _buyPremium,
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor: Colors.white,
+                                                foregroundColor: kChildInk,
+                                                elevation: 4,
+                                                textStyle: const TextStyle(
+                                                  fontFamily: 'Nunito',
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w800,
+                                                  height: 1.1,
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Управлять подпиской',
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        child: Text(
-                                          'Промокод',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
-                                            color: kChildInk,
-                                          ),
-                                        ),
-                                      ),
-                                      TextField(
-                                        controller: _promoCode,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          color: kChildInk,
-                                        ),
-                                        decoration: _settingsField('промокод'),
                                       ),
                                       const SizedBox(height: 14),
-                                      FilledButton(
-                                        onPressed: _busy
-                                            ? null
-                                            : _activatePromo,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: kBrandMint,
-                                          foregroundColor: const Color(
-                                            0xFF1F4F1B,
-                                          ),
-                                          elevation: 4,
-                                          textStyle: kFigmaLandingCtaTextStyle
-                                              .copyWith(
-                                                color: const Color(0xFF1F4F1B),
-                                              ),
-                                        ),
-                                        child: const Text(
-                                          'Активировать промокод',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
                                       FilledButton(
                                         onPressed: _busy ? null : _buyPremium,
                                         style: FilledButton.styleFrom(
@@ -1113,606 +972,851 @@ class _ParentFamilySettingsPageState
                                           foregroundColor: kChildBrandBlue,
                                           elevation: 4,
                                           textStyle: kFigmaLandingCtaTextStyle
-                                              .copyWith(color: kChildBrandBlue),
+                                              .copyWith(
+                                                color: kChildBrandBlue,
+                                                letterSpacing: 0.4,
+                                                fontSize: 20,
+                                              ),
                                         ),
-                                        child: const Text('Оплатить премиум'),
+                                        child: const Text(
+                                          'УПРАВЛЯТЬ ПОДПИСКОЙ',
+                                        ),
                                       ),
+                                      const SizedBox(height: 24),
                                     ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 24),
 
-                        // ── Members ──────────────────────────────────────────────────
-                        _SCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _SectionTitle('Участники клана'),
-                              // Member tiles (square cards with avatar)
-                              SizedBox(
-                                height: 96,
-                                child: ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: EdgeInsets.zero,
-                                  children: [
-                                    ...codes.take(8).map((c) {
-                                      final initial = c.displayName.isNotEmpty
-                                          ? c.displayName[0].toUpperCase()
-                                          : '?';
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 10,
-                                        ),
-                                        child: _MemberTile(
-                                          userKey: 'member:${c.id}',
-                                          avatarFallback: initial,
-                                          label: c.displayName,
-                                          remoteImageUrl: c.avatarImageUrl,
-                                          onAvatarTap: _busy
-                                              ? null
-                                              : () => unawaited(
-                                                  _editMemberAvatar(
-                                                    family.familyId,
-                                                    c,
+                                    // ── Economics ────────────────────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _SectionTitle(
+                                            'Экономика Клана',
+                                            trailing: GestureDetector(
+                                              onTap: () {},
+                                              child: const Icon(
+                                                Icons.edit_outlined,
+                                                color: kChildInk,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          ),
+                                          const Text(
+                                            'Курс монет: 10 монет = 100₽',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: kChildInk,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'Глобальный налог:',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: kChildInkMuted,
                                                   ),
                                                 ),
-                                        ),
-                                      );
-                                    }),
-                                    // Add button as square tile
-                                    Container(
-                                      width: 76,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(20),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.05,
-                                            ),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
+                                              ),
+                                              Text(
+                                                '${(_taxRate * 100).round()}%',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: kChildInk,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _TaxSegmentSlider(
+                                            value: _taxRate,
+                                            onChanged: (v) =>
+                                                setState(() => _taxRate = v),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          const Divider(
+                                            height: 1,
+                                            color: kChildOutline,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'PIN-код для Экономики',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: kChildInk,
+                                                  ),
+                                                ),
+                                              ),
+                                              Switch(
+                                                value: _pinEnabled,
+                                                activeTrackColor: kBrandMint,
+                                                activeThumbColor: Colors.white,
+                                                inactiveTrackColor:
+                                                    kChildOutline,
+                                                inactiveThumbColor:
+                                                    Colors.white,
+                                                onChanged: (v) => setState(
+                                                  () => _pinEnabled = v,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const Divider(
+                                            height: 1,
+                                            color: kChildOutline,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'Родительский контроль обратных задач',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: kChildInk,
+                                                  ),
+                                                ),
+                                              ),
+                                              Switch(
+                                                value: _parentalControl,
+                                                activeTrackColor: kBrandMint,
+                                                activeThumbColor: Colors.white,
+                                                inactiveTrackColor:
+                                                    kChildOutline,
+                                                inactiveThumbColor:
+                                                    Colors.white,
+                                                onChanged: (v) => setState(
+                                                  () => _parentalControl = v,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                      alignment: Alignment.center,
-                                      child: Container(
-                                        width: 56,
-                                        height: 56,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFE3ECF8),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: const Icon(
-                                          Icons.add,
-                                          color: kChildBrandBlue,
-                                          size: 24,
-                                        ),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // ── Promo / subscription card ─────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          _SectionTitle(
+                                            'Подписка: ${current?.planCode ?? 'basic'}',
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.only(
+                                              left: 6,
+                                              bottom: 6,
+                                            ),
+                                            child: Text(
+                                              'Промокод',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: kChildInk,
+                                              ),
+                                            ),
+                                          ),
+                                          TextField(
+                                            controller: _promoCode,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              color: kChildInk,
+                                            ),
+                                            decoration: _settingsField(
+                                              'промокод',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          FilledButton(
+                                            onPressed: _busy
+                                                ? null
+                                                : _activatePromo,
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: kBrandMint,
+                                              foregroundColor: const Color(
+                                                0xFF1F4F1B,
+                                              ),
+                                              elevation: 4,
+                                              textStyle:
+                                                  kFigmaLandingCtaTextStyle
+                                                      .copyWith(
+                                                        color: const Color(
+                                                          0xFF1F4F1B,
+                                                        ),
+                                                      ),
+                                            ),
+                                            child: const Text(
+                                              'Активировать промокод',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          FilledButton(
+                                            onPressed: _busy
+                                                ? null
+                                                : _buyPremium,
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: kBrandSky,
+                                              foregroundColor: kChildBrandBlue,
+                                              elevation: 4,
+                                              textStyle:
+                                                  kFigmaLandingCtaTextStyle
+                                                      .copyWith(
+                                                        color: kChildBrandBlue,
+                                                      ),
+                                            ),
+                                            child: const Text(
+                                              'Оплатить премиум',
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 6, bottom: 6),
-                                child: Text(
-                                  'Имя участника',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                              ),
-                              TextField(
-                                controller: _memberName,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: kChildInk,
-                                ),
-                                decoration: _settingsField('Никита'),
-                              ),
-                              const SizedBox(height: 14),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 6, bottom: 6),
-                                child: Text(
-                                  'Роль',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(26),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 4,
-                                ),
-                                child: DropdownButton<String>(
-                                  value: _memberRole,
-                                  underline: const SizedBox(),
-                                  isExpanded: true,
-                                  hint: const Text(
-                                    'Ребёнок',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: kChildInkMuted,
-                                    ),
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    color: kChildInk,
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'child',
-                                      child: Text('Ребёнок'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'mom',
-                                      child: Text('Мама'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'grandma',
-                                      child: Text('Бабушка'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'grandpa',
-                                      child: Text('Дедушка'),
-                                    ),
-                                  ],
-                                  onChanged: _busy
-                                      ? null
-                                      : (v) {
-                                          if (v != null) {
-                                            setState(() => _memberRole = v);
-                                          }
-                                        },
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              FilledButton(
-                                onPressed: _busy ? null : _createMemberCode,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: kBrandMint,
-                                  foregroundColor: const Color(0xFF1F4F1B),
-                                  elevation: 4,
-                                  textStyle: kFigmaLandingCtaTextStyle.copyWith(
-                                    color: const Color(0xFF1F4F1B),
-                                  ),
-                                ),
-                                child: const Text('Добавить участника'),
-                              ),
-                              if (codes.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                ...codes
-                                    .take(12)
-                                    .map(
-                                      (item) => Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 40,
-                                              height: 40,
-                                              decoration: const BoxDecoration(
-                                                color: Color(0xFFE3ECF8),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              clipBehavior: Clip.antiAlias,
-                                              alignment: Alignment.center,
-                                              child: UserAvatar(
-                                                userKey: 'member:${item.id}',
-                                                size: 40,
-                                                fallbackText:
-                                                    item.displayName.isNotEmpty
-                                                    ? item.displayName[0]
-                                                          .toUpperCase()
-                                                    : '?',
-                                                remoteImageUrl:
-                                                    item.avatarImageUrl,
-                                              ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 24),
+
+                            // ── Members ──────────────────────────────────────────────────
+                            _SCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _SectionTitle('Участники клана'),
+                                  // Member tiles (square cards with avatar)
+                                  SizedBox(
+                                    height: 96,
+                                    child: ListView(
+                                      scrollDirection: Axis.horizontal,
+                                      padding: EdgeInsets.zero,
+                                      children: [
+                                        ...codes.take(8).map((c) {
+                                          final initial =
+                                              c.displayName.isNotEmpty
+                                              ? c.displayName[0].toUpperCase()
+                                              : '?';
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 10,
                                             ),
-                                            const SizedBox(width: 10),
+                                            child: _MemberTile(
+                                              userKey: 'member:${c.id}',
+                                              avatarFallback: initial,
+                                              label: c.displayName,
+                                              remoteImageUrl: c.avatarImageUrl,
+                                              onAvatarTap: _busy
+                                                  ? null
+                                                  : () => unawaited(
+                                                      _editMemberAvatar(
+                                                        family.familyId,
+                                                        c,
+                                                      ),
+                                                    ),
+                                            ),
+                                          );
+                                        }),
+                                        // Add button as square tile
+                                        Container(
+                                          width: 76,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.05,
+                                                ),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Container(
+                                            width: 56,
+                                            height: 56,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFE3ECF8),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons.add,
+                                              color: kChildBrandBlue,
+                                              size: 24,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 6,
+                                      bottom: 6,
+                                    ),
+                                    child: Text(
+                                      'Имя участника',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: _memberName,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: kChildInk,
+                                    ),
+                                    decoration: _settingsField('Никита'),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 6,
+                                      bottom: 6,
+                                    ),
+                                    child: Text(
+                                      'Роль',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(26),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 4,
+                                    ),
+                                    child: DropdownButton<String>(
+                                      value: _memberRole,
+                                      underline: const SizedBox(),
+                                      isExpanded: true,
+                                      hint: const Text(
+                                        'Ребёнок',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: kChildInkMuted,
+                                        ),
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        color: kChildInk,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: 'child',
+                                          child: Text('Ребёнок'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'mom',
+                                          child: Text('Мама'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'grandma',
+                                          child: Text('Бабушка'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: 'grandpa',
+                                          child: Text('Дедушка'),
+                                        ),
+                                      ],
+                                      onChanged: _busy
+                                          ? null
+                                          : (v) {
+                                              if (v != null) {
+                                                setState(() => _memberRole = v);
+                                              }
+                                            },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  FilledButton(
+                                    onPressed: _busy ? null : _createMemberCode,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: kBrandMint,
+                                      foregroundColor: const Color(0xFF1F4F1B),
+                                      elevation: 4,
+                                      textStyle: kFigmaLandingCtaTextStyle
+                                          .copyWith(
+                                            color: const Color(0xFF1F4F1B),
+                                          ),
+                                    ),
+                                    child: const Text('Добавить участника'),
+                                  ),
+                                  if (codes.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    ...codes
+                                        .take(12)
+                                        .map(
+                                          (item) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 40,
+                                                  height: 40,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Color(
+                                                          0xFFE3ECF8,
+                                                        ),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                  clipBehavior: Clip.antiAlias,
+                                                  alignment: Alignment.center,
+                                                  child: UserAvatar(
+                                                    userKey:
+                                                        'member:${item.id}',
+                                                    size: 40,
+                                                    fallbackText:
+                                                        item
+                                                            .displayName
+                                                            .isNotEmpty
+                                                        ? item.displayName[0]
+                                                              .toUpperCase()
+                                                        : '?',
+                                                    remoteImageUrl:
+                                                        item.avatarImageUrl,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        '${item.displayName} — ${item.code}',
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: kChildInk,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        familyMemberTypeLabel(
+                                                          item.role,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: kChildInkMuted,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  padding: EdgeInsets.zero,
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 36,
+                                                        minHeight: 36,
+                                                      ),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  icon: const Icon(
+                                                    Icons.share_outlined,
+                                                    color: kChildBrandBlue,
+                                                    size: 20,
+                                                  ),
+                                                  onPressed: () =>
+                                                      SharePlus.instance.share(
+                                                        ShareParams(
+                                                          text:
+                                                              'Код входа для ${item.displayName}: ${item.code}',
+                                                        ),
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // ── Second parent ────────────────────────────────────────────
+                            _SCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _SectionTitle('Второй родитель'),
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 6,
+                                      bottom: 6,
+                                    ),
+                                    child: Text(
+                                      'Email',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: kChildInk,
+                                      ),
+                                    ),
+                                  ),
+                                  TextField(
+                                    controller: _inviteEmail,
+                                    keyboardType: TextInputType.emailAddress,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: kChildInk,
+                                    ),
+                                    decoration: _settingsField(
+                                      'Email',
+                                      prefixIcon: const Icon(
+                                        Icons.alternate_email,
+                                        color: kChildBrandBlue,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FilledButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _inviteByEmail(family),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: kBrandMint,
+                                      foregroundColor: const Color(0xFF1F4F1B),
+                                      elevation: 4,
+                                      textStyle: kFigmaLandingCtaTextStyle
+                                          .copyWith(
+                                            color: const Color(0xFF1F4F1B),
+                                          ),
+                                    ),
+                                    child: const Text('Пригласить'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // ── Support ──────────────────────────────────────────────────
+                            _SCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _SectionTitle('Поддержка клана'),
+                                  _SkyButton(
+                                    label: 'Уведомления и лента семьи',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const NotificationsPage(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _SkyButton(
+                                    label: 'Написать в поддержку',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const TechSupportPage(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // ── Legal ────────────────────────────────────────────────────
+                            _SCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const _SectionTitle(
+                                    'Юр. информация и Согласия',
+                                  ),
+                                  _SkyButton(
+                                    label: 'Пользовательское\nсоглашение',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const DocumentPage(
+                                          title: 'Соглашение',
+                                          body: userAgreementBody,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _SkyButton(
+                                    label: 'Политика\nконфиденциальности',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const DocumentPage(
+                                          title: 'Политика',
+                                          body: privacyPolicyBody,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _SkyButton(
+                                    label: 'Оферта о подписке\n(Premium)',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const DocumentPage(
+                                          title: 'Оферта',
+                                          body: premiumOfferBody,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  const _SectionTitle('Управление данными'),
+                                  _SkyButton(
+                                    label: 'Согласие на обработку\nПД',
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const DocumentPage(
+                                          title: 'Согласие на ПД',
+                                          body: dataConsentBody,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          'Согласие на обработку\nПД: принято',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: kChildInk,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ),
+                                      Switch(
+                                        value: true,
+                                        activeTrackColor: kBrandMint,
+                                        activeThumbColor: Colors.white,
+                                        inactiveTrackColor: kChildOutline,
+                                        inactiveThumbColor: Colors.white,
+                                        onChanged: (_) {},
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          'Разрешить сбор\nстатистики',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: kChildInk,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ),
+                                      Switch(
+                                        value: true,
+                                        activeTrackColor: kBrandMint,
+                                        activeThumbColor: Colors.white,
+                                        inactiveTrackColor: kChildOutline,
+                                        inactiveThumbColor: Colors.white,
+                                        onChanged: (_) {},
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // ── Analytics ────────────────────────────────────────────────
+                            const _ParentPremiumAnalyticsSection(),
+
+                            // ── Parents ──────────────────────────────────────────────────
+                            if (parents.isNotEmpty) ...[
+                              _SCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const _SectionTitle('Родители'),
+                                    ...parents.map(
+                                      (p) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    '${item.displayName} — ${item.code}',
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                    p.displayName.trim().isEmpty
+                                                        ? 'Без имени'
+                                                        : p.displayName,
                                                     style: const TextStyle(
-                                                      fontSize: 14,
                                                       fontWeight:
-                                                          FontWeight.w600,
+                                                          FontWeight.w800,
+                                                      fontSize: 15,
                                                       color: kChildInk,
                                                     ),
                                                   ),
                                                   Text(
-                                                    familyMemberTypeLabel(
-                                                      item.role,
-                                                    ),
+                                                    p.role == 'admin'
+                                                        ? 'Глава семьи • Родитель'
+                                                        : 'Родитель',
                                                     style: const TextStyle(
-                                                      fontSize: 12,
+                                                      fontSize: 13,
                                                       color: kChildInkMuted,
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             ),
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(
-                                                minWidth: 36,
-                                                minHeight: 36,
-                                              ),
-                                              visualDensity:
-                                                  VisualDensity.compact,
-                                              icon: const Icon(
-                                                Icons.share_outlined,
-                                                color: kChildBrandBlue,
-                                                size: 20,
-                                              ),
-                                              onPressed: () =>
-                                                  SharePlus.instance.share(
-                                                    ShareParams(
-                                                      text:
-                                                          'Код входа для ${item.displayName}: ${item.code}',
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            // ── Children ─────────────────────────────────────────────────
+                            if (children.isNotEmpty) ...[
+                              _SCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const _SectionTitle('Дети'),
+                                    ...children.map(
+                                      (c) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    c.displayName.trim().isEmpty
+                                                        ? 'Без имени'
+                                                        : c.displayName,
+                                                    style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: kChildInk,
+                                                      fontSize: 15,
                                                     ),
                                                   ),
+                                                  Text(
+                                                    c.isActive
+                                                        ? 'Активен'
+                                                        : 'Неактивен',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: c.isActive
+                                                          ? const Color(
+                                                              0xFF18B26B,
+                                                            )
+                                                          : kChildInkMuted,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            PopupMenuButton<String>(
+                                              icon: const Icon(
+                                                Icons.more_horiz,
+                                                color: kChildInkMuted,
+                                              ),
+                                              onSelected: (value) {
+                                                if (value == 'revoke') {
+                                                  _revokeChild(c.childId);
+                                                } else if (value ==
+                                                    'deactivate') {
+                                                  _deactivateChild(c.childId);
+                                                } else if (value == 'delete') {
+                                                  _deleteChild(c.childId);
+                                                }
+                                              },
+                                              itemBuilder: (context) => const [
+                                                PopupMenuItem(
+                                                  value: 'revoke',
+                                                  child: Text(
+                                                    'Сбросить устройства',
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'deactivate',
+                                                  child: Text('Деактивировать'),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Удалить'),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
                                       ),
                                     ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // ── Second parent ────────────────────────────────────────────
-                        _SCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _SectionTitle('Второй родитель'),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 6, bottom: 6),
-                                child: Text(
-                                  'Email',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                              ),
-                              TextField(
-                                controller: _inviteEmail,
-                                keyboardType: TextInputType.emailAddress,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: kChildInk,
-                                ),
-                                decoration: _settingsField(
-                                  'Email',
-                                  prefixIcon: const Icon(
-                                    Icons.alternate_email,
-                                    color: kChildBrandBlue,
-                                  ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              FilledButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _inviteByEmail(family),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: kBrandMint,
-                                  foregroundColor: const Color(0xFF1F4F1B),
-                                  elevation: 4,
-                                  textStyle: kFigmaLandingCtaTextStyle.copyWith(
-                                    color: const Color(0xFF1F4F1B),
-                                  ),
-                                ),
-                                child: const Text('Пригласить'),
-                              ),
                             ],
-                          ),
+                          ],
                         ),
-                        const SizedBox(height: 24),
-
-                        // ── Support ──────────────────────────────────────────────────
-                        _SCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _SectionTitle('Поддержка клана'),
-                              _SkyButton(
-                                label: 'Уведомления и лента семьи',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const NotificationsPage(),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _SkyButton(
-                                label: 'Написать в поддержку',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const TechSupportPage(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // ── Legal ────────────────────────────────────────────────────
-                        _SCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              const _SectionTitle('Юр. информация и Согласия'),
-                              _SkyButton(
-                                label: 'Пользовательское\nсоглашение',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const DocumentPage(
-                                      title: 'Соглашение',
-                                      body: userAgreementBody,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _SkyButton(
-                                label: 'Политика\nконфиденциальности',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const DocumentPage(
-                                      title: 'Политика',
-                                      body: privacyPolicyBody,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              _SkyButton(
-                                label: 'Оферта о подписке\n(Premium)',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const DocumentPage(
-                                      title: 'Оферта',
-                                      body: premiumOfferBody,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              const _SectionTitle('Управление данными'),
-                              _SkyButton(
-                                label: 'Согласие на обработку\nПД',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const DocumentPage(
-                                      title: 'Согласие на ПД',
-                                      body: dataConsentBody,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Согласие на обработку\nПД: принято',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: kChildInk,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: true,
-                                    activeTrackColor: kBrandMint,
-                                    activeThumbColor: Colors.white,
-                                    inactiveTrackColor: kChildOutline,
-                                    inactiveThumbColor: Colors.white,
-                                    onChanged: (_) {},
-                                  ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Разрешить сбор\nстатистики',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: kChildInk,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ),
-                                  Switch(
-                                    value: true,
-                                    activeTrackColor: kBrandMint,
-                                    activeThumbColor: Colors.white,
-                                    inactiveTrackColor: kChildOutline,
-                                    inactiveThumbColor: Colors.white,
-                                    onChanged: (_) {},
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // ── Analytics ────────────────────────────────────────────────
-                        const _ParentPremiumAnalyticsSection(),
-
-                        // ── Parents ──────────────────────────────────────────────────
-                        if (parents.isNotEmpty) ...[
-                          _SCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const _SectionTitle('Родители'),
-                                ...parents.map(
-                                  (p) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                p.displayName.trim().isEmpty
-                                                    ? 'Без имени'
-                                                    : p.displayName,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  fontSize: 15,
-                                                  color: kChildInk,
-                                                ),
-                                              ),
-                                              Text(
-                                                p.role == 'admin'
-                                                    ? 'Глава семьи • Родитель'
-                                                    : 'Родитель',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: kChildInkMuted,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        // ── Children ─────────────────────────────────────────────────
-                        if (children.isNotEmpty) ...[
-                          _SCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const _SectionTitle('Дети'),
-                                ...children.map(
-                                  (c) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                c.displayName.trim().isEmpty
-                                                    ? 'Без имени'
-                                                    : c.displayName,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w800,
-                                                  color: kChildInk,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              Text(
-                                                c.isActive
-                                                    ? 'Активен'
-                                                    : 'Неактивен',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: c.isActive
-                                                      ? const Color(0xFF18B26B)
-                                                      : kChildInkMuted,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(
-                                            Icons.more_horiz,
-                                            color: kChildInkMuted,
-                                          ),
-                                          onSelected: (value) {
-                                            if (value == 'revoke') {
-                                              _revokeChild(c.childId);
-                                            } else if (value == 'deactivate') {
-                                              _deactivateChild(c.childId);
-                                            } else if (value == 'delete') {
-                                              _deleteChild(c.childId);
-                                            }
-                                          },
-                                          itemBuilder: (context) => const [
-                                            PopupMenuItem(
-                                              value: 'revoke',
-                                              child: Text(
-                                                'Сбросить устройства',
-                                              ),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'deactivate',
-                                              child: Text('Деактивировать'),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              child: Text('Удалить'),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },

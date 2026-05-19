@@ -28,7 +28,7 @@ const double kFigmaAuthHeroMaxSide = 1024;
 
 /// Минимум на очень маленьком экране.
 
-const double kFigmaAuthHeroMinSide = 300;
+const double kFigmaAuthHeroMinSide = 244;
 
 
 
