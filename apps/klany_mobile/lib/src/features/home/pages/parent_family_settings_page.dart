@@ -6,7 +6,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../auth/auth_actions.dart';
 import '../../auth/parent_access_repository.dart';
@@ -15,11 +14,44 @@ import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../subscriptions/subscription_repository.dart';
+import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'document_page.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
+
+const Color _figmaSettingsMint = Color(0xFFD9F6C2);
+const Color _figmaSettingsSky = Color(0xFFC1D8F5);
+const Color _figmaSettingsSkyButton = Color(0xFF9EC4F6);
+const Color _figmaSettingsLavender = Color(0xFFD8CBF7);
+const Color _figmaSettingsFieldBorder = Color(0x14000000);
+
+double _settingsPageWidth(double screenWidth) {
+  if (screenWidth < 430) return math.max(0, screenWidth);
+  if (screenWidth < 700) return math.min(screenWidth - 32, 430);
+  return math.min(screenWidth * 0.72, 640);
+}
+
+ButtonStyle _figmaSettingsButtonStyle({
+  required Color backgroundColor,
+  Color foregroundColor = Colors.black,
+}) {
+  return FilledButton.styleFrom(
+    backgroundColor: backgroundColor,
+    foregroundColor: foregroundColor,
+    elevation: 4,
+    minimumSize: const Size.fromHeight(56),
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(62)),
+    textStyle: const TextStyle(
+      fontFamily: 'Nunito',
+      fontSize: 24,
+      fontWeight: FontWeight.w700,
+      height: 1.0,
+    ),
+  );
+}
 
 InputDecoration _settingsField(String hint, {Widget? prefixIcon}) {
   return InputDecoration(
@@ -37,11 +69,11 @@ InputDecoration _settingsField(String hint, {Widget? prefixIcon}) {
     prefixIcon: prefixIcon,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(62),
-      borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+      borderSide: const BorderSide(color: _figmaSettingsFieldBorder),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(62),
-      borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+      borderSide: const BorderSide(color: _figmaSettingsFieldBorder),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(62),
@@ -334,29 +366,10 @@ class _ParentFamilySettingsPageState
 
   Future<void> _buyPremium() async {
     if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final orderId = await ref
-          .read(subscriptionRepositoryProvider)
-          .createPaymentOrder(planCode: 'premium', amountRub: 499);
-      final checkoutUrl = await ref
-          .read(subscriptionRepositoryProvider)
-          .createYookassaCheckoutUrl(orderId);
-      if (!mounted) return;
-      if ((checkoutUrl ?? '').isNotEmpty) {
-        await launchUrlString(
-          checkoutUrl!,
-          mode: LaunchMode.externalApplication,
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка создания платежа: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const SubscriptionPlansPage()),
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _editMemberAvatar(
@@ -659,14 +672,28 @@ class _ParentFamilySettingsPageState
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
-                    final pageWidth = math.min(maxW, 390.0);
+                    final pageWidth = _settingsPageWidth(maxW);
+                    final sidePadding = maxW < 430 ? 19.0 : 24.0;
                     return Center(
                       child: SizedBox(
                         width: pageWidth,
-                        child: ListView(
-                          physics: const ClampingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(19, 31, 19, 40),
-                          children: [
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            filledButtonTheme: FilledButtonThemeData(
+                              style: _figmaSettingsButtonStyle(
+                                backgroundColor: _figmaSettingsMint,
+                              ),
+                            ),
+                          ),
+                          child: ListView(
+                            physics: const ClampingScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(
+                              sidePadding,
+                              31,
+                              sidePadding,
+                              40,
+                            ),
+                            children: [
                             Padding(
                               padding: EdgeInsets.zero,
                               child: SizedBox(
@@ -859,13 +886,9 @@ class _ParentFamilySettingsPageState
                                   FilledButton(
                                     onPressed: _busy ? null : _saveGoal,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: kBrandMint,
-                                      foregroundColor: const Color(0xFF1F4F1B),
-                                      elevation: 4,
-                                      textStyle: kFigmaLandingCtaTextStyle
-                                          .copyWith(
-                                            color: const Color(0xFF1F4F1B),
-                                          ),
+                                      style: _figmaSettingsButtonStyle(
+                                        backgroundColor: _figmaSettingsMint,
+                                      ),
                                     ),
                                     child: const Text('Сохранить цель'),
                                   ),
@@ -900,7 +923,7 @@ class _ParentFamilySettingsPageState
                                       Container(
                                         padding: const EdgeInsets.all(18),
                                         decoration: BoxDecoration(
-                                          color: kBrandLavender,
+                                          color: _figmaSettingsLavender,
                                           borderRadius: BorderRadius.circular(
                                             22,
                                           ),
@@ -947,14 +970,8 @@ class _ParentFamilySettingsPageState
                                                   ? null
                                                   : _buyPremium,
                                               style: FilledButton.styleFrom(
-                                                backgroundColor: Colors.white,
-                                                foregroundColor: kChildInk,
-                                                elevation: 4,
-                                                textStyle: const TextStyle(
-                                                  fontFamily: 'Nunito',
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w800,
-                                                  height: 1.1,
+                                                style: _figmaSettingsButtonStyle(
+                                                  backgroundColor: Colors.white,
                                                 ),
                                               ),
                                               child: const Text(
@@ -968,15 +985,10 @@ class _ParentFamilySettingsPageState
                                       FilledButton(
                                         onPressed: _busy ? null : _buyPremium,
                                         style: FilledButton.styleFrom(
-                                          backgroundColor: kBrandSky,
-                                          foregroundColor: kChildBrandBlue,
-                                          elevation: 4,
-                                          textStyle: kFigmaLandingCtaTextStyle
-                                              .copyWith(
-                                                color: kChildBrandBlue,
-                                                letterSpacing: 0.4,
-                                                fontSize: 20,
-                                              ),
+                                          style: _figmaSettingsButtonStyle(
+                                            backgroundColor:
+                                                _figmaSettingsSkyButton,
+                                          ),
                                         ),
                                         child: const Text(
                                           'УПРАВЛЯТЬ ПОДПИСКОЙ',
@@ -1058,7 +1070,8 @@ class _ParentFamilySettingsPageState
                                               ),
                                               Switch(
                                                 value: _pinEnabled,
-                                                activeTrackColor: kBrandMint,
+                                                activeTrackColor:
+                                                    _figmaSettingsMint,
                                                 activeThumbColor: Colors.white,
                                                 inactiveTrackColor:
                                                     kChildOutline,
@@ -1089,7 +1102,8 @@ class _ParentFamilySettingsPageState
                                               ),
                                               Switch(
                                                 value: _parentalControl,
-                                                activeTrackColor: kBrandMint,
+                                                activeTrackColor:
+                                                    _figmaSettingsMint,
                                                 activeThumbColor: Colors.white,
                                                 inactiveTrackColor:
                                                     kChildOutline,
@@ -1145,18 +1159,10 @@ class _ParentFamilySettingsPageState
                                                 ? null
                                                 : _activatePromo,
                                             style: FilledButton.styleFrom(
-                                              backgroundColor: kBrandMint,
-                                              foregroundColor: const Color(
-                                                0xFF1F4F1B,
+                                              style: _figmaSettingsButtonStyle(
+                                                backgroundColor:
+                                                    _figmaSettingsMint,
                                               ),
-                                              elevation: 4,
-                                              textStyle:
-                                                  kFigmaLandingCtaTextStyle
-                                                      .copyWith(
-                                                        color: const Color(
-                                                          0xFF1F4F1B,
-                                                        ),
-                                                      ),
                                             ),
                                             child: const Text(
                                               'Активировать промокод',
@@ -1168,14 +1174,10 @@ class _ParentFamilySettingsPageState
                                                 ? null
                                                 : _buyPremium,
                                             style: FilledButton.styleFrom(
-                                              backgroundColor: kBrandSky,
-                                              foregroundColor: kChildBrandBlue,
-                                              elevation: 4,
-                                              textStyle:
-                                                  kFigmaLandingCtaTextStyle
-                                                      .copyWith(
-                                                        color: kChildBrandBlue,
-                                                      ),
+                                              style: _figmaSettingsButtonStyle(
+                                                backgroundColor:
+                                                    _figmaSettingsSkyButton,
+                                              ),
                                             ),
                                             child: const Text(
                                               'Оплатить премиум',
@@ -1358,13 +1360,9 @@ class _ParentFamilySettingsPageState
                                   FilledButton(
                                     onPressed: _busy ? null : _createMemberCode,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: kBrandMint,
-                                      foregroundColor: const Color(0xFF1F4F1B),
-                                      elevation: 4,
-                                      textStyle: kFigmaLandingCtaTextStyle
-                                          .copyWith(
-                                            color: const Color(0xFF1F4F1B),
-                                          ),
+                                      style: _figmaSettingsButtonStyle(
+                                        backgroundColor: _figmaSettingsMint,
+                                      ),
                                     ),
                                     child: const Text('Добавить участника'),
                                   ),
@@ -1510,13 +1508,9 @@ class _ParentFamilySettingsPageState
                                         ? null
                                         : () => _inviteByEmail(family),
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: kBrandMint,
-                                      foregroundColor: const Color(0xFF1F4F1B),
-                                      elevation: 4,
-                                      textStyle: kFigmaLandingCtaTextStyle
-                                          .copyWith(
-                                            color: const Color(0xFF1F4F1B),
-                                          ),
+                                      style: _figmaSettingsButtonStyle(
+                                        backgroundColor: _figmaSettingsMint,
+                                      ),
                                     ),
                                     child: const Text('Пригласить'),
                                   ),
@@ -1626,7 +1620,7 @@ class _ParentFamilySettingsPageState
                                       ),
                                       Switch(
                                         value: true,
-                                        activeTrackColor: kBrandMint,
+                                        activeTrackColor: _figmaSettingsMint,
                                         activeThumbColor: Colors.white,
                                         inactiveTrackColor: kChildOutline,
                                         inactiveThumbColor: Colors.white,
@@ -1649,7 +1643,7 @@ class _ParentFamilySettingsPageState
                                       ),
                                       Switch(
                                         value: true,
-                                        activeTrackColor: kBrandMint,
+                                        activeTrackColor: _figmaSettingsMint,
                                         activeThumbColor: Colors.white,
                                         inactiveTrackColor: kChildOutline,
                                         inactiveThumbColor: Colors.white,
@@ -1809,7 +1803,8 @@ class _ParentFamilySettingsPageState
                               ),
                               const SizedBox(height: 12),
                             ],
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -2140,7 +2135,7 @@ class _SkyButton extends StatelessWidget {
       child: FilledButton(
         onPressed: onTap,
         style: FilledButton.styleFrom(
-          backgroundColor: kBrandSky,
+          backgroundColor: _figmaSettingsSkyButton,
           foregroundColor: kChildInk,
           elevation: 4,
           minimumSize: const Size.fromHeight(kFigmaLandingCtaHeight),

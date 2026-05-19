@@ -81,41 +81,48 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.sizeOf(ctx).width * 0.10,
+            vertical: 24,
+          ),
           title: const Text('Редактировать товар'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: titleCtl,
-                  decoration: const InputDecoration(labelText: 'Название'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descCtl,
-                  decoration: const InputDecoration(labelText: 'Описание'),
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: priceCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Цена'),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: isActive,
-                  title: const Text('Активен'),
-                  onChanged: (v) => setLocalState(() => isActive = v),
-                ),
-                const SizedBox(height: 16),
-                FigmaDialogActionStack(
-                  onCancel: () => Navigator.pop(ctx, false),
-                  onConfirm: () => Navigator.pop(ctx, true),
-                ),
-              ],
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: titleCtl,
+                    decoration: const InputDecoration(labelText: 'Название'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descCtl,
+                    decoration: const InputDecoration(labelText: 'Описание'),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: priceCtl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Цена'),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: isActive,
+                    title: const Text('Активен'),
+                    onChanged: (v) => setLocalState(() => isActive = v),
+                  ),
+                  const SizedBox(height: 16),
+                  FigmaDialogActionStack(
+                    onCancel: () => Navigator.pop(ctx, false),
+                    onConfirm: () => Navigator.pop(ctx, true),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -125,7 +132,9 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
     final price = int.tryParse(priceCtl.text.trim());
     if (price == null || price <= 0) {
       if (!mounted) return;
-      context.showKlanySnackBar(const SnackBar(content: Text('Цена должна быть > 0')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Цена должна быть > 0')),
+      );
       return;
     }
     final storedDescription = composeShopProductDescription(
@@ -217,7 +226,9 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
       await ref.read(shopRepositoryProvider).toggleProduct(p.id, !p.isActive);
       if (!mounted) return;
       _reload();
-      context.showKlanySnackBar(const SnackBar(content: Text('Статус товара обновлён')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Статус товара обновлён')),
+      );
     } else if (action == 'delete') {
       await _deleteProduct(p);
     }
@@ -378,7 +389,10 @@ class _FigmaProductCard extends StatelessWidget {
                               height: 76,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  ShopProductIconSvg(asset: iconAsset, size: 76),
+                                  ShopProductIconSvg(
+                                    asset: iconAsset,
+                                    size: 76,
+                                  ),
                             ),
                           )
                         : ShopProductIconSvg(asset: iconAsset, size: 76),
@@ -481,7 +495,9 @@ class _ParentCreateProductFormState
   Future<void> _save() async {
     final price = int.tryParse(_price.text.trim());
     if (price == null || price <= 0 || _title.text.trim().isEmpty) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Введите название и цену')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите название и цену')),
+      );
       return;
     }
 
@@ -501,7 +517,9 @@ class _ParentCreateProductFormState
             imageFile: _file,
           );
       if (!mounted) return;
-      context.showKlanySnackBar(const SnackBar(content: Text('Товар добавлен')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Товар добавлен')),
+      );
       _title.clear();
       _description.clear();
       _price.text = '100';
@@ -511,7 +529,9 @@ class _ParentCreateProductFormState
       });
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка добавления: $e')));
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Ошибка добавления: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

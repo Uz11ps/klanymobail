@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +8,17 @@ import '../../home/child_soft_ui.dart';
 import '../../quests/quests_repository.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
+
+const Color _figmaWhite = Color(0xFFFFFFFF);
+const Color _figmaMint = Color(0xFFD9F6C2);
+const Color _figmaSunny = Color(0xFFF9E8A5);
+const Color _figmaSky = Color(0xFFC1D8F5);
+
+double _figmaPageWidth(double screenWidth) {
+  if (screenWidth < 430) return math.max(0, screenWidth);
+  if (screenWidth < 700) return math.min(screenWidth - 32, 430);
+  return math.min(screenWidth * 0.72, 640);
+}
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -144,20 +157,29 @@ class _NotificationsHubScreenState
               const FigmaAuthScreenBackground(),
               SafeArea(
                 bottom: false,
-                child: Center(
-                  child: SizedBox(
-                    width: 390,
-                    child: ListView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(9, 31, 9, 32),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pageWidth = _figmaPageWidth(constraints.maxWidth);
+                    final sidePadding = constraints.maxWidth < 430 ? 9.0 : 19.0;
+                    return Center(
+                      child: SizedBox(
+                        width: pageWidth,
+                        child: ListView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                            sidePadding,
+                            31,
+                            sidePadding,
+                            32,
+                          ),
                       children: [
                         _NotificationsHeader(
                           onBack: () => Navigator.of(context).maybePop(),
                           onRefresh: _reload,
                         ),
                         const SizedBox(height: 31),
-                        ChildSoftCard(
-                          color: kChildSurfaceWhite,
+                        _FigmaFeedCard(
+                          color: _figmaWhite,
                           padding: const EdgeInsets.fromLTRB(10, 24, 10, 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,7 +359,7 @@ class _NotificationsHubScreenState
                           ...requests.map(
                             (n) => _NotificationCard(
                               item: n,
-                              bg: kBrandMint,
+                              bg: _figmaMint,
                               title: 'Новый запрос ребёнка',
                               subtitle: () {
                                 final name =
@@ -366,7 +388,7 @@ class _NotificationsHubScreenState
                           ...events.map(
                             (n) => _NotificationCard(
                               item: n,
-                              bg: kBrandSunny,
+                              bg: _figmaSunny,
                               title: 'Новое событие',
                               subtitle: _eventSubtitle(n),
                               icon: Icons.notifications_none_rounded,
@@ -386,7 +408,7 @@ class _NotificationsHubScreenState
                           ...updates.map(
                             (n) => _NotificationCard(
                               item: n,
-                              bg: kBrandSky,
+                              bg: _figmaSky,
                               title: 'Обновление данных',
                               subtitle:
                                   'Данные семьи были обновлены. Проверьте изменения.',
@@ -402,8 +424,10 @@ class _NotificationsHubScreenState
                           ),
                         ],
                       ],
-                    ),
-                  ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -489,6 +513,58 @@ class _NotificationsHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FigmaFeedCard extends StatelessWidget {
+  const _FigmaFeedCard({
+    required this.child,
+    required this.color,
+    this.padding = const EdgeInsets.fromLTRB(15, 20, 15, 20),
+    this.shadowColor,
+  });
+
+  final Widget child;
+  final Color color;
+  final EdgeInsetsGeometry padding;
+  final Color? shadowColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final glow = shadowColor ?? color;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: glow.withValues(alpha: 0.35),
+            blurRadius: 50,
+            offset: const Offset(0, 20),
+          ),
+          BoxShadow(
+            color: glow.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 13),
+          ),
+        ],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withValues(alpha: 0.04),
+            Colors.transparent,
+            Colors.white.withValues(alpha: 0.22),
+          ],
+        ),
+      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -733,7 +809,7 @@ class _NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: ChildSoftCard(
+      child: _FigmaFeedCard(
         color: bg,
         padding: const EdgeInsets.fromLTRB(15, 20, 15, 20),
         child: Column(
