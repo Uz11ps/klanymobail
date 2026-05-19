@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -445,9 +446,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
 
     /// Как у [ChildQuestsPage]: не выдумываем отдельный «хвост» скролла.
     final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
-    final name = session.childDisplayName.trim().isEmpty
-        ? 'Привет!'
-        : session.childDisplayName;
 
     late final List<Widget> body;
 
@@ -544,6 +542,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
         ChildDashboardProfileCard(
           layoutScale: s,
           completedCount: done,
+          displayNameWhenEmpty: 'Привет!',
           onAvatarTap: () => _avatarFlow(context),
           openWalletOnTap: false,
         ),
@@ -1171,9 +1170,7 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
     _refreshPinFuture();
-    context.showKlanySnackBar(
-      const SnackBar(content: Text('PIN сохранён')),
-    );
+    context.showKlanySnackBar(const SnackBar(content: Text('PIN сохранён')));
   }
 
   Future<void> _dropPin() async {
@@ -1202,9 +1199,7 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     await ChildPinStore.clear();
     if (!mounted) return;
     _refreshPinFuture();
-    context.showKlanySnackBar(
-      const SnackBar(content: Text('PIN удалён')),
-    );
+    context.showKlanySnackBar(const SnackBar(content: Text('PIN удалён')));
   }
 
   @override

@@ -21,13 +21,12 @@ TextStyle _profileNunito({
   FontWeight fontWeight = FontWeight.w400,
   Color? color,
   double height = 1.0,
-}) =>
-    GoogleFonts.nunito(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color ?? kChildInk,
-      height: height,
-    );
+}) => GoogleFonts.nunito(
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color ?? kChildInk,
+  height: height,
+);
 
 /// Аватар в карточке профиля (presign для загруженного фото ребёнка).
 class ChildDashboardAvatar extends StatelessWidget {
@@ -69,18 +68,22 @@ class ChildDashboardAvatar extends StatelessWidget {
   }
 }
 
-/// Белая карточка профиля — те же размеры, что [_DashboardProfileCard] на главной ребёнка.
+/// Белая карточка профиля — те же размеры, что карточка на главной ребёнка ([ChildHomePage]).
 class ChildDashboardProfileCard extends ConsumerStatefulWidget {
   const ChildDashboardProfileCard({
     super.key,
     required this.completedCount,
     required this.layoutScale,
+    this.displayNameWhenEmpty = 'Участник',
     this.onAvatarTap,
     this.openWalletOnTap = true,
   });
 
   final int completedCount;
   final double layoutScale;
+
+  /// Подпись вместо имени, если в сессии пусто («Привет!» на главной).
+  final String displayNameWhenEmpty;
   final VoidCallback? onAvatarTap;
 
   /// На главном экране карточка не открывает кошелёк целиком (аватар отдельно).
@@ -105,8 +108,7 @@ class _ChildDashboardProfileCardState
     }
     if (_walletMemoChildId != id) {
       _walletMemoChildId = id;
-      _walletFuture =
-          ref.read(walletRepositoryProvider).getChildWallet(id);
+      _walletFuture = ref.read(walletRepositoryProvider).getChildWallet(id);
     }
     return _walletFuture!;
   }
@@ -128,9 +130,7 @@ class _ChildDashboardProfileCardState
       );
     }
 
-    final fallback = name.isEmpty
-        ? '?'
-        : _firstDisplayChar(name).toUpperCase();
+    final fallback = name.isEmpty ? '?' : _firstDisplayChar(name).toUpperCase();
 
     if (widget.onAvatarTap != null) {
       return GestureDetector(
@@ -196,9 +196,10 @@ class _ChildDashboardProfileCardState
     final session = ref.watch(childSessionProvider).asData?.value;
     final name = session?.childDisplayName.trim().isNotEmpty == true
         ? session!.childDisplayName.trim()
-        : 'Участник';
-    final initial =
-        name.isNotEmpty ? _firstDisplayChar(name).toUpperCase() : '?';
+        : widget.displayNameWhenEmpty;
+    final initial = name.isNotEmpty
+        ? _firstDisplayChar(name).toUpperCase()
+        : '?';
 
     final layoutScale = widget.layoutScale;
     final r = BorderRadius.circular(18 * layoutScale);
@@ -260,8 +261,7 @@ class _ChildDashboardProfileCardState
                         ),
                         decoration: BoxDecoration(
                           color: kFigmaChildBalancePill,
-                          borderRadius:
-                              BorderRadius.circular(22 * layoutScale),
+                          borderRadius: BorderRadius.circular(22 * layoutScale),
                         ),
                         alignment: Alignment.centerLeft,
                         child: Row(
@@ -321,10 +321,7 @@ class _ChildDashboardProfileCardState
                       ),
                     ),
                   )
-                : ColoredBox(
-                    color: Colors.white,
-                    child: inner,
-                  ),
+                : ColoredBox(color: Colors.white, child: inner),
           ),
         );
       },

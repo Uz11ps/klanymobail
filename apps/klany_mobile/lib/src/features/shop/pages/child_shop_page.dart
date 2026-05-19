@@ -416,8 +416,8 @@ class _ChildShopProductCard extends StatelessWidget {
     final btnLabel = !active
         ? 'Недоступно'
         : insufficient
-            ? 'Недостаточно монет'
-            : 'Запросить награду';
+        ? 'Недостаточно монет'
+        : 'Запросить награду';
 
     return Opacity(
       opacity: active ? 1 : 0.72,

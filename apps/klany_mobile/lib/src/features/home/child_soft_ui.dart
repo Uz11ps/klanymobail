@@ -275,8 +275,7 @@ class FigmaAuthHeroCard extends StatelessWidget {
     }
 
     final maxSideFromH = figmaLandingSlideMaxSideFromScreenHeight(context);
-    var side =
-        landingSlideBypassScreenCap ? w : math.min(w, maxSideFromH);
+    var side = landingSlideBypassScreenCap ? w : math.min(w, maxSideFromH);
     if (maxHeight != null && maxHeight.isFinite) {
       side = math.min(side, maxHeight);
     }

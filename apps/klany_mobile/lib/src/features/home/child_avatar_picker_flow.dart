@@ -10,7 +10,10 @@ import 'avatar_store.dart';
 import 'child_soft_ui.dart';
 
 /// Выбор аватара ребёнка: галерея или пресеты — один поток для «Дом», «Биржа», «Магазин».
-Future<void> runChildAvatarPickerFlow(BuildContext origin, WidgetRef ref) async {
+Future<void> runChildAvatarPickerFlow(
+  BuildContext origin,
+  WidgetRef ref,
+) async {
   final session = ref.read(childSessionProvider).asData?.value;
   if (session == null) return;
 

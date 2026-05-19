@@ -66,31 +66,31 @@ List<BoxShadow> _questCardOuterShadows(Color bg) {
 
 /// Дубликат теней с [ChildHomePage] — `_scaledMintStatShadows`.
 List<BoxShadow> _questsScaledMintStatShadows(double scale) => [
-      BoxShadow(
-        color: const Color.fromRGBO(222, 247, 203, 0.26),
-        blurRadius: 40 * scale,
-        offset: Offset(0, 16 * scale),
-      ),
-      BoxShadow(
-        color: const Color.fromRGBO(173, 211, 165, 0.22),
-        blurRadius: 16 * scale,
-        offset: Offset(0, 10 * scale),
-      ),
-    ];
+  BoxShadow(
+    color: const Color.fromRGBO(222, 247, 203, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(173, 211, 165, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
 
 /// Дубликат `_scaledLavenderStatShadows`.
 List<BoxShadow> _questsScaledLavenderStatShadows(double scale) => [
-      BoxShadow(
-        color: const Color.fromRGBO(216, 203, 247, 0.26),
-        blurRadius: 40 * scale,
-        offset: Offset(0, 16 * scale),
-      ),
-      BoxShadow(
-        color: const Color.fromRGBO(179, 165, 211, 0.22),
-        blurRadius: 16 * scale,
-        offset: Offset(0, 10 * scale),
-      ),
-    ];
+  BoxShadow(
+    color: const Color.fromRGBO(216, 203, 247, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(179, 165, 211, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
 
 Widget _questsDividerLine() {
   return LayoutBuilder(
@@ -151,11 +151,9 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
     if (id == null) return;
     if (_assignmentsChildId != id) {
       _assignmentsChildId = id;
-      _future =
-          ref.read(questsRepositoryProvider).getChildAssignments(id);
+      _future = ref.read(questsRepositoryProvider).getChildAssignments(id);
     } else {
-      _future ??=
-          ref.read(questsRepositoryProvider).getChildAssignments(id);
+      _future ??= ref.read(questsRepositoryProvider).getChildAssignments(id);
     }
   }
 
@@ -305,8 +303,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                               value: '${personal.length}',
                               background: kFigmaChildStatMint,
                               verticalPaddingPx: 34,
-                              outerShadows:
-                                  _questsScaledMintStatShadows(s),
+                              outerShadows: _questsScaledMintStatShadows(s),
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
@@ -318,8 +315,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                               value: '${exchange.length}',
                               background: kFigmaChildStatLavender,
                               verticalPaddingPx: 30,
-                              outerShadows:
-                                  _questsScaledLavenderStatShadows(s),
+                              outerShadows: _questsScaledLavenderStatShadows(s),
                               onTap: () => setState(() => _tab = 1),
                             ),
                           ),
@@ -574,7 +570,9 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
       if (!mounted) return;
       setState(() => _takenLocally = true);
       widget.onClaimedFromMarket?.call();
-      context.showKlanySnackBar(const SnackBar(content: Text('Квест взят в работу')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Квест взят в работу')),
+      );
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
@@ -603,7 +601,9 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
           );
       if (!mounted) return;
       setState(() => _submittedLocally = true);
-      context.showKlanySnackBar(const SnackBar(content: Text('Отправлено на проверку')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Отправлено на проверку')),
+      );
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
