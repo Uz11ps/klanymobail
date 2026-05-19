@@ -93,11 +93,41 @@ String _hourRu(int h) {
   return 'часов';
 }
 
-class ChildWalletPage extends ConsumerWidget {
+class ChildWalletPage extends ConsumerStatefulWidget {
   const ChildWalletPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChildWalletPage> createState() => _ChildWalletPageState();
+}
+
+class _ChildWalletPageState extends ConsumerState<ChildWalletPage> {
+  String? _memoChildId;
+  Future<WalletSummary?>? _walletFuture;
+  String? _memoWalletIdForTx;
+  Future<List<WalletTxItem>>? _txFuture;
+
+  Future<WalletSummary?> _walletFutureFor(String childId) {
+    if (_memoChildId != childId) {
+      _memoChildId = childId;
+      _walletFuture =
+          ref.read(walletRepositoryProvider).getChildWallet(childId);
+      _memoWalletIdForTx = null;
+      _txFuture = null;
+    }
+    return _walletFuture!;
+  }
+
+  Future<List<WalletTxItem>> _txFutureFor(String walletId) {
+    if (_memoWalletIdForTx != walletId) {
+      _memoWalletIdForTx = walletId;
+      _txFuture =
+          ref.read(walletRepositoryProvider).getWalletTransactions(walletId);
+    }
+    return _txFuture!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
     if (session == null) {
       return const Scaffold(
@@ -111,9 +141,7 @@ class ChildWalletPage extends ConsumerWidget {
     final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
 
     return FutureBuilder<WalletSummary?>(
-      future: ref
-          .read(walletRepositoryProvider)
-          .getChildWallet(session.childId),
+      future: _walletFutureFor(session.childId),
       builder: (context, walletSnap) {
         final wallet = walletSnap.data;
         final balance = wallet?.balance ?? 0;
@@ -219,9 +247,7 @@ class ChildWalletPage extends ConsumerWidget {
                         ),
                       if (wallet != null)
                         FutureBuilder<List<WalletTxItem>>(
-                          future: ref
-                              .read(walletRepositoryProvider)
-                              .getWalletTransactions(wallet.walletId),
+                          future: _txFutureFor(wallet.walletId),
                           builder: (context, txSnap) {
                             final list =
                                 txSnap.data ?? const <WalletTxItem>[];
@@ -265,13 +291,31 @@ class ChildWalletPage extends ConsumerWidget {
   }
 }
 
-class _WalletProfileBlock extends ConsumerWidget {
+class _WalletProfileBlock extends ConsumerStatefulWidget {
   const _WalletProfileBlock({required this.balance});
 
   final int balance;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WalletProfileBlock> createState() =>
+      _WalletProfileBlockState();
+}
+
+class _WalletProfileBlockState extends ConsumerState<_WalletProfileBlock> {
+  String? _memoChildId;
+  Future<List<ChildQuestAssignmentItem>>? _assignmentsFuture;
+
+  Future<List<ChildQuestAssignmentItem>> _assignmentsFutureFor(String childId) {
+    if (_memoChildId != childId) {
+      _memoChildId = childId;
+      _assignmentsFuture =
+          ref.read(questsRepositoryProvider).getChildAssignments(childId);
+    }
+    return _assignmentsFuture!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
     final name = session?.childDisplayName.trim().isNotEmpty == true
         ? session!.childDisplayName.trim()
@@ -280,9 +324,7 @@ class _WalletProfileBlock extends ConsumerWidget {
     return FutureBuilder<List<ChildQuestAssignmentItem>>(
       future: session == null
           ? Future.value(const <ChildQuestAssignmentItem>[])
-          : ref
-              .read(questsRepositoryProvider)
-              .getChildAssignments(session.childId),
+          : _assignmentsFutureFor(session.childId),
       builder: (context, snap) {
         final completed = (snap.data ?? const <ChildQuestAssignmentItem>[])
             .where(
