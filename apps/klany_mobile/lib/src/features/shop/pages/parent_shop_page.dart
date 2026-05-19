@@ -60,6 +60,20 @@ class _ParentProductsList extends ConsumerStatefulWidget {
 class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
   Future<List<ShopProductItem>>? _future;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??= ref.read(shopRepositoryProvider).getProducts(widget.familyId);
+  }
+
+  @override
+  void didUpdateWidget(_ParentProductsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyId != widget.familyId) {
+      _future = ref.read(shopRepositoryProvider).getProducts(widget.familyId);
+    }
+  }
+
   Future<void> _reload() async {
     final future = ref
         .read(shopRepositoryProvider)
@@ -237,9 +251,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<ShopProductItem>>(
-      future:
-          _future ??
-          ref.read(shopRepositoryProvider).getProducts(widget.familyId),
+      future: _future,
       builder: (context, snapshot) {
         final products = snapshot.data ?? const <ShopProductItem>[];
         return SafeArea(
@@ -878,6 +890,24 @@ class _ParentPurchasesQueue extends ConsumerStatefulWidget {
 class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
   Future<List<ShopPurchaseItem>>? _future;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??= ref
+        .read(shopRepositoryProvider)
+        .getPendingPurchases(widget.familyId);
+  }
+
+  @override
+  void didUpdateWidget(_ParentPurchasesQueue oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyId != widget.familyId) {
+      _future = ref
+          .read(shopRepositoryProvider)
+          .getPendingPurchases(widget.familyId);
+    }
+  }
+
   Future<void> _reload() async {
     final future = ref
         .read(shopRepositoryProvider)
@@ -889,17 +919,9 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
-  }
-
-  @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<ShopPurchaseItem>>(
-      future:
-          _future ??
-          ref.read(shopRepositoryProvider).getPendingPurchases(widget.familyId),
+      future: _future,
       builder: (context, snapshot) {
         final purchases = snapshot.data ?? const <ShopPurchaseItem>[];
         return SafeArea(

@@ -31,6 +31,13 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
 
   int _selectedPeriod = 3;
   bool _busy = false;
+  Future<bool>? _premiumFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _premiumFuture ??= _isPremium();
+  }
 
   Future<bool> _isPremium() async {
     final subs = await ref
@@ -77,7 +84,7 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: _isPremium(),
+      future: _premiumFuture,
       builder: (context, snapshot) {
         final isPremium = snapshot.data ?? false;
 

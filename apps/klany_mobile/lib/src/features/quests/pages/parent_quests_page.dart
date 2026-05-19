@@ -896,6 +896,22 @@ class _QuestsList extends ConsumerStatefulWidget {
 class _QuestsListState extends ConsumerState<_QuestsList> {
   Future<List<ParentQuestItem>>? _future;
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??=
+        ref.read(questsRepositoryProvider).getParentQuests(widget.familyId);
+  }
+
+  @override
+  void didUpdateWidget(_QuestsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyId != widget.familyId) {
+      _future =
+          ref.read(questsRepositoryProvider).getParentQuests(widget.familyId);
+    }
+  }
+
   void _reload() {
     setState(() {
       _future =
@@ -1241,8 +1257,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
     };
 
     return FutureBuilder<List<ParentQuestItem>>(
-      future: _future ??
-          ref.read(questsRepositoryProvider).getParentQuests(widget.familyId),
+      future: _future,
       builder: (context, snapshot) {
         final list = snapshot.data ?? const <ParentQuestItem>[];
         final shown = list
@@ -1442,6 +1457,7 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
   final Set<String> _scheduleDays = {};
   final Set<String> _selectedChildren = {};
   bool _busy = false;
+  Future<List<FamilyChildLite>>? _childrenFuture;
 
   static const Map<String, List<String>> _presets = {
     'recurring': [
@@ -1486,14 +1502,30 @@ class _QuestCreateFormState extends ConsumerState<_QuestCreateForm> {
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _childrenFuture ??= ref
+        .read(questsRepositoryProvider)
+        .getFamilyChildren(widget.familyId);
+  }
+
+  @override
+  void didUpdateWidget(_QuestCreateForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyId != widget.familyId) {
+      _childrenFuture = ref
+          .read(questsRepositoryProvider)
+          .getFamilyChildren(widget.familyId);
+    }
+  }
+
   List<String> get _presetItems => ['custom', ...(_presets[_type] ?? [])];
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<FamilyChildLite>>(
-      future: ref
-          .read(questsRepositoryProvider)
-          .getFamilyChildren(widget.familyId),
+      future: _childrenFuture,
       builder: (context, snapshot) {
         final children = snapshot.data ?? const <FamilyChildLite>[];
         return Form(
@@ -2183,15 +2215,44 @@ Color _figmaReviewCardShadow2(Color bg) {
   }
 }
 
-class _QuestReviewList extends ConsumerWidget {
+class _QuestReviewList extends ConsumerStatefulWidget {
   const _QuestReviewList({required this.familyId});
   final String familyId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_QuestReviewList> createState() => _QuestReviewListState();
+}
+
+class _QuestReviewListState extends ConsumerState<_QuestReviewList> {
+  Future<List<ParentReviewItem>>? _future;
+
+  void _reload() {
+    setState(() {
+      _future =
+          ref.read(questsRepositoryProvider).getSubmittedForReview(widget.familyId);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _future ??=
+        ref.read(questsRepositoryProvider).getSubmittedForReview(widget.familyId);
+  }
+
+  @override
+  void didUpdateWidget(_QuestReviewList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.familyId != widget.familyId) {
+      _future =
+          ref.read(questsRepositoryProvider).getSubmittedForReview(widget.familyId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ParentReviewItem>>(
-      future:
-          ref.read(questsRepositoryProvider).getSubmittedForReview(familyId),
+      future: _future,
       builder: (context, snapshot) {
         final list = snapshot.data ?? const <ParentReviewItem>[];
         return ListView(
@@ -2221,6 +2282,7 @@ class _QuestReviewList extends ConsumerWidget {
                     child: _ReviewCard(
                       item: e.value,
                       bg: _reviewCardColors[e.key % _reviewCardColors.length],
+                      onReviewCompleted: _reload,
                     ),
                   ),
                 ),
@@ -2232,9 +2294,14 @@ class _QuestReviewList extends ConsumerWidget {
 }
 
 class _ReviewCard extends ConsumerStatefulWidget {
-  const _ReviewCard({required this.item, required this.bg});
+  const _ReviewCard({
+    required this.item,
+    required this.bg,
+    this.onReviewCompleted,
+  });
   final ParentReviewItem item;
   final Color bg;
+  final VoidCallback? onReviewCompleted;
 
   @override
   ConsumerState<_ReviewCard> createState() => _ReviewCardState();
@@ -2254,6 +2321,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
             comment: comment,
           );
       if (!mounted) return;
+      widget.onReviewCompleted?.call();
       context.showKlanySnackBar(
         SnackBar(
           content:

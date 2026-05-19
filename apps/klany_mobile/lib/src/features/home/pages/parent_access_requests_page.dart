@@ -18,21 +18,6 @@ class ParentAccessRequestsPage extends ConsumerStatefulWidget {
 
 class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsPage> {
   bool _busy = false;
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
 
   Future<void> _shareInvite(ParentFamilyContext contextData) async {
     final clanName = (contextData.clanName ?? '').trim().isEmpty
@@ -102,7 +87,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
   }
 }
 
-class _PendingRequestsBody extends ConsumerWidget {
+class _PendingRequestsBody extends ConsumerStatefulWidget {
   const _PendingRequestsBody({
     required this.family,
     required this.busy,
@@ -118,9 +103,59 @@ class _PendingRequestsBody extends ConsumerWidget {
   final VoidCallback onInviteShare;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PendingRequestsBody> createState() =>
+      _PendingRequestsBodyState();
+}
+
+class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody> {
+  Future<List<ChildAccessRequestItem>>? _requestsFuture;
+  Timer? _pollTimer;
+
+  void _reloadRequests() {
+    final fut = ref
+        .read(parentAccessRepositoryProvider)
+        .getPendingRequests(widget.family.familyId);
+    setState(() => _requestsFuture = fut);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final fut = ref
+        .read(parentAccessRepositoryProvider)
+        .getPendingRequests(widget.family.familyId);
+    _requestsFuture = fut;
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      _reloadRequests();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PendingRequestsBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.family.familyId != widget.family.familyId) {
+      final fut = ref
+          .read(parentAccessRepositoryProvider)
+          .getPendingRequests(widget.family.familyId);
+      setState(() => _requestsFuture = fut);
+      return;
+    }
+    if (oldWidget.busy && !widget.busy) {
+      _reloadRequests();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ChildAccessRequestItem>>(
-      future: ref.read(parentAccessRepositoryProvider).getPendingRequests(family.familyId),
+      future: _requestsFuture,
       builder: (context, snapshot) {
         final list = snapshot.data ?? const <ChildAccessRequestItem>[];
 
@@ -143,7 +178,7 @@ class _PendingRequestsBody extends ConsumerWidget {
               actions: [
                 IconButton(
                   tooltip: 'Пригласить участника',
-                  onPressed: onInviteShare,
+                  onPressed: widget.onInviteShare,
                   icon: const Icon(Icons.share, color: kChildInk),
                 ),
               ],
@@ -158,9 +193,9 @@ class _PendingRequestsBody extends ConsumerWidget {
                       child: ListTile(
                         leading: const Icon(Icons.family_restroom),
                         title: const Text('Family ID'),
-                        subtitle: Text(family.familyCode),
+                        subtitle: Text(widget.family.familyCode),
                         trailing: TextButton(
-                          onPressed: onInviteShare,
+                          onPressed: widget.onInviteShare,
                           child: const Text('Поделиться'),
                         ),
                       ),
@@ -198,14 +233,20 @@ class _PendingRequestsBody extends ConsumerWidget {
                                   children: [
                                     Expanded(
                                       child: OutlinedButton(
-                                        onPressed: busy ? null : () => onReject(item.id),
+                                        onPressed: widget.busy
+                                            ? null
+                                            : () =>
+                                                widget.onReject(item.id),
                                         child: const Text('Отклонить'),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: FilledButton(
-                                        onPressed: busy ? null : () => onApprove(item.id),
+                                        onPressed: widget.busy
+                                            ? null
+                                            : () =>
+                                                widget.onApprove(item.id),
                                         child: const Text('Подтвердить'),
                                       ),
                                     ),

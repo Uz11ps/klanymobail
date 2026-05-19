@@ -130,6 +130,7 @@ class ChildQuestsPage extends ConsumerStatefulWidget {
 
 class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
   Future<List<ChildQuestAssignmentItem>>? _future;
+  String? _assignmentsChildId;
   int _tab = 0; // 0 = Мои задачи, 1 = Биржа
 
   Future<void> _reload() async {
@@ -139,15 +140,26 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         .read(questsRepositoryProvider)
         .getChildAssignments(session.childId);
     setState(() {
+      _assignmentsChildId = session.childId;
       _future = f;
     });
     await f;
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final session = ref.read(childSessionProvider).asData?.value;
+    final id = session?.childId;
+    if (id == null) return;
+    if (_assignmentsChildId != id) {
+      _assignmentsChildId = id;
+      _future =
+          ref.read(questsRepositoryProvider).getChildAssignments(id);
+    } else {
+      _future ??=
+          ref.read(questsRepositoryProvider).getChildAssignments(id);
+    }
   }
 
   @override
@@ -158,11 +170,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
     }
 
     return FutureBuilder<List<ChildQuestAssignmentItem>>(
-      future:
-          _future ??
-          ref
-              .read(questsRepositoryProvider)
-              .getChildAssignments(session.childId),
+      future: _future,
       builder: (context, snapshot) {
         final all = snapshot.data ?? const <ChildQuestAssignmentItem>[];
         final personal = all
@@ -480,8 +488,9 @@ String _ruSecondWord(int n) {
   final mod10 = n % 10;
   final mod100 = n % 100;
   if (mod10 == 1 && mod100 != 11) return 'секунда';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14))
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
     return 'секунды';
+  }
   return 'секунд';
 }
 

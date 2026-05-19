@@ -1392,6 +1392,19 @@ class _ChildAccountSheet extends ConsumerStatefulWidget {
 class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
   Future<String?>? _authCodeFuture;
   String? _authCodeToken;
+  late Future<bool> _pinFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _pinFuture = ChildPinStore.hasPin();
+  }
+
+  void _refreshPinFuture() {
+    setState(() {
+      _pinFuture = ChildPinStore.hasPin();
+    });
+  }
 
   Future<String?> _authCode(String accessToken) {
     return ref
@@ -1469,7 +1482,7 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
 
     await ChildPinStore.setPin(pin);
     if (!mounted) return;
-    setState(() {});
+    _refreshPinFuture();
     context.showKlanySnackBar(
       const SnackBar(content: Text('PIN сохранён')),
     );
@@ -1500,7 +1513,7 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     if (ok != true) return;
     await ChildPinStore.clear();
     if (!mounted) return;
-    setState(() {});
+    _refreshPinFuture();
     context.showKlanySnackBar(
       const SnackBar(content: Text('PIN удалён')),
     );
@@ -1516,7 +1529,7 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     }
 
     return FutureBuilder<bool>(
-      future: ChildPinStore.hasPin(),
+      future: _pinFuture,
       builder: (context, snap) {
         final hasPin = snap.data ?? false;
         return SafeArea(

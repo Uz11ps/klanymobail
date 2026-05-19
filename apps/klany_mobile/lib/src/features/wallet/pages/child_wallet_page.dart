@@ -406,7 +406,7 @@ class _WalletProfileBlockState extends ConsumerState<_WalletProfileBlock> {
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                _formatNumber(balance),
+                                _formatNumber(widget.balance),
                                 style: GoogleFonts.nunito(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800,

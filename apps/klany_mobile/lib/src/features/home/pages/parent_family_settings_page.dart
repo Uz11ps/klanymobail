@@ -231,6 +231,34 @@ class _ParentFamilySettingsPageState
   double _taxRate = 0.20;
   bool _pinEnabled = true;
   bool _parentalControl = true;
+  Future<List<FamilySubscriptionItem>>? _familySubscriptionsFuture;
+  String? _subscriptionsFamilyId;
+
+  void _reloadFamilySubscriptions(String familyId) {
+    setState(() {
+      _subscriptionsFamilyId = familyId;
+      _familySubscriptionsFuture = ref
+          .read(subscriptionRepositoryProvider)
+          .getFamilySubscriptions(familyId);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final fid = ref.read(parentFamilyContextProvider).value?.familyId;
+    if (fid == null) return;
+    if (_subscriptionsFamilyId != fid) {
+      _subscriptionsFamilyId = fid;
+      _familySubscriptionsFuture = ref
+          .read(subscriptionRepositoryProvider)
+          .getFamilySubscriptions(fid);
+    } else {
+      _familySubscriptionsFuture ??= ref
+          .read(subscriptionRepositoryProvider)
+          .getFamilySubscriptions(fid);
+    }
+  }
 
   @override
   void dispose() {
@@ -345,7 +373,8 @@ class _ParentFamilySettingsPageState
         const SnackBar(content: Text('Промокод активирован')),
       );
       _promoCode.clear();
-      setState(() {});
+      final fid = ref.read(parentFamilyContextProvider).value?.familyId;
+      if (fid != null) _reloadFamilySubscriptions(fid);
     } catch (e) {
       if (!mounted) return;
       context.showKlanySnackBar(
@@ -361,7 +390,9 @@ class _ParentFamilySettingsPageState
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const SubscriptionPlansPage()),
     );
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final fidAfter = ref.read(parentFamilyContextProvider).value?.familyId;
+    if (fidAfter != null) _reloadFamilySubscriptions(fidAfter);
   }
 
   Future<void> _editMemberAvatar(
@@ -897,9 +928,7 @@ class _ParentFamilySettingsPageState
 
                               // ── Subscription ─────────────────────────────────────────────
                               FutureBuilder<List<FamilySubscriptionItem>>(
-                                future: ref
-                                    .read(subscriptionRepositoryProvider)
-                                    .getFamilySubscriptions(family.familyId),
+                                future: _familySubscriptionsFuture,
                                 builder: (context, subSnap) {
                                   final subs =
                                       subSnap.data ??
