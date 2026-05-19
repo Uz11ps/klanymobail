@@ -1,0 +1,24 @@
+# Root context is used by infra/nginx/Dockerfile — keep this tiny so `docker compose build`
+# does not tar the whole monorepo (Flutter apps, multiple node_modules, etc.) and OOM small VPS.
+#
+# Only infra/nginx/** is copied by that Dockerfile.
+
+.git
+.github
+.cursor
+**/.dart_tool
+**/build
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+
+apps
+backend
+supabase
+scripts
+infra/deploy
+
+*.md
+*.iml
+*.log

@@ -28,7 +28,6 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2025-01-20T14-49-07Z
-    container_name: klany-minio
     environment:
       # Presigned uploads from any origin (Flutter web / localhost); nginx still adds CORS too.
       MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_API_CORS_ALLOW_ORIGIN:-*}
@@ -45,6 +44,9 @@ services:
   api:
     build:
       context: ./backend
+      args:
+        # Raise (e.g. 1536) on weak CPUs if build fails with "JavaScript heap out of memory"
+        NODE_BUILD_MEMORY_MB: ${NODE_BUILD_MEMORY_MB:-768}
     environment:
       PORT: "3000"
       DATABASE_URL: "postgresql://${POSTGRES_USER:-klany}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-klany}"

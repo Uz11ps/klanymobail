@@ -8,6 +8,9 @@ RUN --mount=type=cache,target=/root/.npm \
 
 FROM node:20-alpine AS build
 WORKDIR /app
+# Small VPS often OOMs during tsc/prisma — cap Node heap (override in compose if needed).
+ARG NODE_BUILD_MEMORY_MB=768
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_BUILD_MEMORY_MB}
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY tsconfig.json nest-cli.json ./
