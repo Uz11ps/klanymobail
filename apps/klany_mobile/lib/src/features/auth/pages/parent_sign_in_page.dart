@@ -568,14 +568,7 @@ class ParentActivationKeyPage extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: kChildBrandBlue,
                   foregroundColor: Colors.white,
-                  textStyle: const TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    height: 1.05,
-                    letterSpacing: 0.4,
-                  ),
+                  textStyle: kKlanyBrandBluePillTextStyle,
                 ),
                 child: const Text('ПЕРЕЙТИ НА ГЛАВНЫЙ ЭКРАН'),
               ),

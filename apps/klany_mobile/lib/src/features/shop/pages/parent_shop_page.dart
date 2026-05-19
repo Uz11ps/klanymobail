@@ -850,7 +850,7 @@ class _ParentCreateProductFormState
                           'Сохранить товар',
                           style: TextStyle(
                             fontFamily: 'Nunito',
-                            fontSize: 24,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: Colors.black,
                             height: 1.0,

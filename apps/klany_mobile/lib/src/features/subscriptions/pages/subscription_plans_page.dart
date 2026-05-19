@@ -537,11 +537,7 @@ class _PremiumActionButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(39),
           ),
-          textStyle: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: kFigmaLandingCtaTextStyle,
         ),
         child: Text(
           isPremium

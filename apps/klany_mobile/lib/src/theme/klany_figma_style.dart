@@ -90,15 +90,25 @@ const double kFigmaLandingDotsToButtonsGap = 20;
 /// Общий множитель размера квадрата иллюстрации (лендинг и регистрация): тот же стиль, крупнее объект.
 const double kFigmaLandingSlideVisualScale = 1.22;
 
-/// Высота CTA на лендинге (запас под Nunito 24 / w700).
+/// Высота CTA на лендинге (пилюля).
 const double kFigmaLandingCtaHeight = 72;
 
-/// Текст на кнопках лендинга — как в Figma (Nunito, 24, Bold / w700, line 100%).
+/// Единый текст мятных / градиентных primary «таблеток» и тематических зелёных CTA.
 const TextStyle kFigmaLandingCtaTextStyle = TextStyle(
   fontFamily: 'Nunito',
-  fontSize: 24,
+  fontSize: 16,
   fontWeight: FontWeight.w700,
   color: Color(0xFF000000),
+  height: 1.0,
+  letterSpacing: 0,
+);
+
+/// Тот же кегль и начертание, белый текст на синих (и др. тёмных) заливках.
+const TextStyle kKlanyBrandBluePillTextStyle = TextStyle(
+  fontFamily: 'Nunito',
+  fontSize: 16,
+  fontWeight: FontWeight.w700,
+  color: Colors.white,
   height: 1.0,
   letterSpacing: 0,
 );
@@ -216,7 +226,7 @@ const TextStyle kFigmaAuthInputTextStyle = TextStyle(
 );
 
 const double kFigmaCtaHeight = 56;
-const double kFigmaCtaFontSize = 17;
+const double kFigmaCtaFontSize = 16;
 
 // ─── Главный экран родителя [0-81](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-81&m=dev) ─
 

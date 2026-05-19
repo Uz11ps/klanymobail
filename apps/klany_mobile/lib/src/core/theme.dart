@@ -49,7 +49,7 @@ ThemeData _build(ColorScheme colorScheme) {
         color: Color(0xFF1E2D52),
       ),
     ),
-    // Primary FilledButton — как CTA лендинга 0-602: высота 72, Nunito 24/w700, «таблетка».
+    // Primary FilledButton — как CTA лендинга: высота 72, Nunito 16/w700, «таблетка».
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(
         backgroundColor: const WidgetStatePropertyAll(Color(0xFFC5F2C0)),
@@ -85,8 +85,8 @@ ThemeData _build(ColorScheme colorScheme) {
         ),
         textStyle: const WidgetStatePropertyAll(TextStyle(
           fontFamily: 'Nunito',
-          fontSize: 17,
-          fontWeight: FontWeight.w800,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
         )),
       ),
     ),

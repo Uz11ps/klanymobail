@@ -38,7 +38,7 @@ ButtonStyle _figmaSettingsButtonStyle({
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(62)),
     textStyle: const TextStyle(
       fontFamily: 'Nunito',
-      fontSize: 24,
+      fontSize: 16,
       fontWeight: FontWeight.w700,
       height: 1.0,
     ),
@@ -2173,7 +2173,7 @@ class _SkyButton extends StatelessWidget {
           textStyle: const TextStyle(
             fontFamily: 'Nunito',
             fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             height: 1.2,
           ),
         ),

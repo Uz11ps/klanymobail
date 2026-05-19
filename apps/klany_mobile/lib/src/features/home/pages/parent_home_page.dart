@@ -1817,13 +1817,7 @@ class _ChildDetailsPanel extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       backgroundColor: kChildBrandBlue,
                       foregroundColor: Colors.white,
-                      textStyle: const TextStyle(
-                        fontFamily: 'Nunito',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.0,
-                      ),
+                      textStyle: kKlanyBrandBluePillTextStyle,
                     ),
                   ),
                 ),

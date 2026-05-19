@@ -153,13 +153,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                     backgroundColor: const Color(0xFF7B6FD0),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: const Color(0xFF4A4580),
-                    textStyle: const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      height: 1.0,
-                      color: Colors.white,
-                    ),
+                    textStyle: kKlanyBrandBluePillTextStyle,
                   ),
                   child: _busy
                       ? const SizedBox(
@@ -170,14 +164,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Отправить',
-                          style: TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      : const Text('Отправить'),
                 ),
               ),
               const SizedBox(height: 12),

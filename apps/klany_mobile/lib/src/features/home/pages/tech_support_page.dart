@@ -234,7 +234,7 @@ class _SupportSkyButton extends StatelessWidget {
           textStyle: const TextStyle(
             fontFamily: 'Nunito',
             fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             height: 1.2,
           ),
         ),

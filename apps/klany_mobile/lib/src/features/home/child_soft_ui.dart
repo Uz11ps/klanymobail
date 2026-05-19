@@ -1596,7 +1596,7 @@ class ClanPrimaryButton extends StatelessWidget {
           label,
           style: const TextStyle(
             fontFamily: 'Nunito',
-            fontSize: 24,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
             color: Colors.white,
             height: 1.0,
@@ -1637,7 +1637,11 @@ class ClanSecondaryButton extends StatelessWidget {
         icon: icon != null ? Icon(icon) : const SizedBox.shrink(),
         label: Text(
           label,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: kChildBrandBlue,
