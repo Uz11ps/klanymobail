@@ -10,7 +10,10 @@ String userFriendlyErrorMessage(Object? error) {
   if (raw.isEmpty) return 'Что-то пошло не так. Попробуйте ещё раз.';
 
   raw = raw
-      .replaceFirst(RegExp(r'^(Exception|TimeoutException|FormatException):\s*'), '')
+      .replaceFirst(
+        RegExp(r'^(Exception|TimeoutException|FormatException):\s*'),
+        '',
+      )
       .replaceFirst(RegExp(r'^Ошибка\s*:\s*', caseSensitive: false), '')
       .replaceFirst(
         RegExp(r'^Не удалось войти\s*:\s*', caseSensitive: false),
@@ -38,13 +41,15 @@ String userFriendlyErrorMessage(Object? error) {
       lower.contains('network error') ||
       lower.contains('network is unreachable') ||
       lower.contains('failed to fetch') ||
+      lower.contains('httpexception') ||
+      lower.contains('handshakeexception') ||
+      lower.contains('certificate_verify_failed') ||
+      lower.contains('os error') ||
       lower.contains('ошибка сети')) {
     return 'Не удалось подключиться. Проверьте интернет и попробуйте ещё раз.';
   }
 
   if (lower.contains('api не настроен') ||
-      lower.contains('api не настроен') ||
-      lower.contains('api не настроен') ||
       lower.contains('api not configured')) {
     return 'Сервис временно недоступен. Попробуйте позже.';
   }
@@ -97,7 +102,11 @@ String userFriendlyErrorMessage(Object? error) {
       lower.contains('504') ||
       lower.contains('internal server error') ||
       lower.contains('bad gateway') ||
-      lower.contains('service unavailable')) {
+      lower.contains('service unavailable') ||
+      lower.contains('cannot get') ||
+      lower.contains('cannot post') ||
+      lower.contains('cannot patch') ||
+      lower.contains('cannot delete')) {
     return 'Сервер временно недоступен. Попробуйте позже.';
   }
 
@@ -122,7 +131,28 @@ String userFriendlyErrorMessage(Object? error) {
     return 'Не удалось загрузить файл. Попробуйте ещё раз позже.';
   }
 
-  return firstLine.isEmpty ? 'Что-то пошло не так. Попробуйте ещё раз.' : firstLine;
+  if (lower.startsWith('ошибка промокода') ||
+      lower.contains('invalid promo') ||
+      lower.contains('promo')) {
+    return 'Промокод не подошёл. Проверьте код и попробуйте ещё раз.';
+  }
+
+  if (lower.startsWith('ошибка создания платежа') ||
+      lower.contains('payment')) {
+    return 'Не удалось открыть оплату. Попробуйте ещё раз.';
+  }
+
+  if (lower.startsWith('ошибка создания кода')) {
+    return 'Не удалось создать код. Попробуйте ещё раз.';
+  }
+
+  if (lower.startsWith('ошибка')) {
+    return 'Не получилось выполнить действие. Попробуйте ещё раз.';
+  }
+
+  return firstLine.isEmpty
+      ? 'Что-то пошло не так. Попробуйте ещё раз.'
+      : firstLine;
 }
 
 Widget _sanitizeSnackBarContent(Widget content) {
@@ -191,7 +221,8 @@ SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
     clipBehavior: s.clipBehavior,
     padding: s.padding,
     width: s.width,
-    shape: s.shape ??
+    shape:
+        s.shape ??
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     behavior: SnackBarBehavior.floating,
     dismissDirection: s.dismissDirection,
