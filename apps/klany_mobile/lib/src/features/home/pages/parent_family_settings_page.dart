@@ -1306,49 +1306,6 @@ class _ParentFamilySettingsPageState
                                                     ),
                                                   );
                                                 }),
-                                                // Add button as square tile
-                                                Container(
-                                                  width: 76,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
-                                                        ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withValues(
-                                                              alpha: 0.05,
-                                                            ),
-                                                        blurRadius: 8,
-                                                        offset: const Offset(
-                                                          0,
-                                                          2,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  alignment: Alignment.center,
-                                                  child: Container(
-                                                    width: 56,
-                                                    height: 56,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                          color: Color(
-                                                            0xFFE3ECF8,
-                                                          ),
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                    alignment: Alignment.center,
-                                                    child: const Icon(
-                                                      Icons.add,
-                                                      color: kChildBrandBlue,
-                                                      size: 24,
-                                                    ),
-                                                  ),
-                                                ),
                                               ],
                                             ),
                                           ),

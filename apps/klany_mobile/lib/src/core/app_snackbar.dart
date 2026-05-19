@@ -193,14 +193,23 @@ String _currentGoRoutePath(BuildContext context) {
 }
 
 /// Отступ от **физического низа экрана** до нижней границы плавающего SnackBar.
-/// На `/child` и `/parent` — у самого низа, **поверх** капсулы навигации
-/// (оставляем только воздух под safe area / home indicator).
+///
+/// На `/child` и `/parent` нижняя навигация — высокая «капсула»; без учёта её высоты
+/// SnackBar оказывается по центру экрана. Значения держать в синхроне с
+/// [ChildBottomClanBar] и слотом `_ParentBottomBar` в `parent_home_page.dart`.
 double snackBarFloatingBottomInset(BuildContext context) {
   final mq = MediaQuery.of(context);
   final bottomSafe = math.max(mq.viewPadding.bottom, mq.padding.bottom);
   final path = _currentGoRoutePath(context);
-  if (path.startsWith('/child') || path.startsWith('/parent')) {
-    return bottomSafe + 12;
+  if (path.startsWith('/child')) {
+    const capsuleHeight = 96.0;
+    const capsuleSlotBottomPadding = 14.0;
+    return capsuleHeight + capsuleSlotBottomPadding + bottomSafe + 10;
+  }
+  if (path.startsWith('/parent')) {
+    const pillHeight = 76.0;
+    const slotBottomPadding = 16.0;
+    return pillHeight + slotBottomPadding + bottomSafe + 10;
   }
   return bottomSafe + 16;
 }
@@ -230,7 +239,7 @@ SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
 }
 
 extension KlanySnackBarOnContext on BuildContext {
-  /// Показывает SnackBar у нижнего края экрана, **поверх** нижней навигации (капсула).
+  /// Показывает SnackBar у нижнего края, **над** капсулой навигации ребёнка/родителя.
   /// Сбрасывает очередь — новое сообщение не «встаёт» третьим после двух минут показов.
   void showKlanySnackBar(SnackBar snackBar) {
     final messenger = ScaffoldMessenger.of(this);
