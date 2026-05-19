@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/home/child_soft_ui.dart';
-
 String userFriendlyErrorMessage(Object? error) {
   var raw = (error ?? '').toString().trim();
   if (raw.isEmpty) return 'Что-то пошло не так. Попробуйте ещё раз.';
@@ -190,21 +188,15 @@ String _currentGoRoutePath(BuildContext context) {
   }
 }
 
-/// Отступ от **низа экрана** до нижней границы плавающего SnackBar.
-/// На `/child` и `/parent` — выше фирменной капсулы навигации; на `/auth/*` —
-/// только safe area + воздух.
+/// Отступ от **физического низа экрана** до нижней границы плавающего SnackBar.
+/// На `/child` и `/parent` — у самого низа, **поверх** капсулы навигации
+/// (оставляем только воздух под safe area / home indicator).
 double snackBarFloatingBottomInset(BuildContext context) {
   final mq = MediaQuery.of(context);
   final bottomSafe = math.max(mq.viewPadding.bottom, mq.padding.bottom);
   final path = _currentGoRoutePath(context);
-  if (path.startsWith('/child')) {
-    return ChildBottomClanBar.scrollBottomClearance(context) + 10;
-  }
-  if (path.startsWith('/parent')) {
-    // Как высота слота `_ParentBottomBar`: капсула + паддинг снизу.
-    const capsuleH = 76.0;
-    const capsuleBottomPad = 16.0;
-    return capsuleH + capsuleBottomPad + bottomSafe + 10;
+  if (path.startsWith('/child') || path.startsWith('/parent')) {
+    return bottomSafe + 12;
   }
   return bottomSafe + 16;
 }
@@ -234,7 +226,7 @@ SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
 }
 
 extension KlanySnackBarOnContext on BuildContext {
-  /// Показывает SnackBar **поверх контента**, **над нижней навигацией** (если она есть).
+  /// Показывает SnackBar у нижнего края экрана, **поверх** нижней навигации (капсула).
   /// Сбрасывает очередь — новое сообщение не «встаёт» третьим после двух минут показов.
   void showKlanySnackBar(SnackBar snackBar) {
     final messenger = ScaffoldMessenger.of(this);
