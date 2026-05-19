@@ -38,3 +38,4 @@
 
 # built admin web for deploy
 infra/nginx/admin_web/
+infra/deploy/SERVER_BUILD.md

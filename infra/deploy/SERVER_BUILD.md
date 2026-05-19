@@ -54,6 +54,14 @@ DOCKER_BUILDKIT=1 docker compose --env-file .env.server build api --progress=pla
 
 Если обрыв на `npm ci` — сеть/registry; если на `npm run build` — CPU/RAM.
 
+### Долго висит только строка `> klany-backend@0.0.1 build`
+
+Nest по умолчанию собирает через **Webpack**. На слабом CPU это легко **3–15+ минут**, при этом в логе долго ничего нового — это норма, если **растёт время шага** в выводе BuildKit (`RUN npm run build ... Xm Ys`).
+
+В репозитории подключён `backend/webpack.config.js` с **`ProgressPlugin`**: в логе сборки должны появляться строки `[nest/webpack] …% …` каждые ~10% — так видно, что процесс живой.
+
+Если время шага **не растёт десятки минут**, CPU в `top` нулевой и лога нет — тогда уже смотреть OOM/диск (`dmesg`, `df`).
+
 ## Поднять только базы без сборки API (если образ уже был)
 
 Если образ `api` уже собран раньше:
