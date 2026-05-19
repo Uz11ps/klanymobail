@@ -230,28 +230,13 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       await prefs.setString(_kBiometricLogin, _email.text.trim());
       await prefs.setString(_kBiometricPassword, _password.text);
       if (mounted) context.go('/parent');
-    } catch (_) {
-      // Sign-in failed → automatically register (email в API — только в email/recovery, не в phone)
-      try {
-        final login = _email.text.trim();
-        final asEmail = login.contains('@');
-        await ref
-            .read(authActionsProvider)
-            .parentSignUp(
-              phone: asEmail ? '' : login,
-              password: _password.text,
-              recoveryEmail: asEmail ? login : null,
-            );
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_kBiometricLogin, _email.text.trim());
-        await prefs.setString(_kBiometricPassword, _password.text);
-        if (mounted) context.go('/parent');
-      } catch (signUpError) {
-        if (!mounted) return;
-        context.showKlanySnackBar(
-          SnackBar(content: Text('Ошибка: $signUpError')),
-        );
-      }
+    } catch (e) {
+      // Не подставляем sign-up после неудачного входа: при неверном пароле сервер даёт 401,
+      // а повтор как регистрация для уже существующего email даёт 409 → ложное «email занят».
+      if (!mounted) return;
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Не удалось войти: $e')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

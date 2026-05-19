@@ -31,17 +31,21 @@ class ApiException implements Exception {
   /// Перевод типовых API-сообщений на понятный русский.
   String _friendly(String raw) {
     final lower = raw.toLowerCase();
+    // Сначала типичные ответы входа (401), чтобы не перепутать с конфликтом регистрации (409).
+    if (lower.contains('invalid credentials') ||
+        lower.contains('invalid login') ||
+        (lower.contains('неверн') &&
+            (lower.contains('парол') ||
+                lower.contains('телефон') ||
+                lower.contains('email/')))) {
+      return 'Неверный email или пароль.';
+    }
     if (lower.contains('пользователь уже существует') ||
         lower.contains('user already exists') ||
         lower.contains('email already') ||
         lower.contains('already registered') ||
         statusCode == 409) {
       return 'Этот email уже зарегистрирован. Войдите или используйте другой.';
-    }
-    if (lower.contains('invalid credentials') ||
-        lower.contains('invalid login') ||
-        lower.contains('неверн') && lower.contains('парол')) {
-      return 'Неверный email или пароль.';
     }
     if (lower.contains('not found') || statusCode == 404) {
       return 'Не найдено.';
@@ -146,7 +150,7 @@ class ApiClient {
           _timeout,
           onTimeout: () => throw TimeoutException('network_timeout'),
         );
-    return _decode(res);
+    return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
   Future<Map<String, dynamic>> postJson(
@@ -169,7 +173,7 @@ class ApiClient {
           _timeout,
           onTimeout: () => throw TimeoutException('network_timeout'),
         );
-    return _decode(res);
+    return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
   Future<Map<String, dynamic>> patchJson(
@@ -192,7 +196,7 @@ class ApiClient {
           _timeout,
           onTimeout: () => throw TimeoutException('network_timeout'),
         );
-    return _decode(res);
+    return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
   Future<Map<String, dynamic>> deleteJson(
@@ -215,10 +219,10 @@ class ApiClient {
           _timeout,
           onTimeout: () => throw TimeoutException('network_timeout'),
         );
-    return _decode(res);
+    return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
-  Map<String, dynamic> _decode(http.Response res) {
+  Map<String, dynamic> _decode(http.Response res, {required bool hadBearer}) {
     final text = res.body;
     Object? parsed;
     try {
@@ -231,7 +235,8 @@ class ApiClient {
       if (parsed is Map<String, dynamic>) return parsed;
       return <String, dynamic>{'data': parsed};
     }
-    if (res.statusCode == 401) {
+    // Неверный пароль при /auth/sign-in идёт без Bearer — не считаем это истечением сессии.
+    if (res.statusCode == 401 && hadBearer) {
       _scheduleUnauthorized();
     }
     throw ApiException(res.statusCode, parsed);
