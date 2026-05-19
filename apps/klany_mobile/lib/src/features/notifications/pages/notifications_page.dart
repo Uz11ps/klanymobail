@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,12 +11,6 @@ const Color _figmaWhite = Color(0xFFFFFFFF);
 const Color _figmaMint = Color(0xFFD9F6C2);
 const Color _figmaSunny = Color(0xFFF9E8A5);
 const Color _figmaSky = Color(0xFFC1D8F5);
-
-double _figmaPageWidth(double screenWidth) {
-  if (screenWidth < 430) return math.max(0, screenWidth);
-  if (screenWidth < 700) return math.min(screenWidth - 32, 430);
-  return math.min(screenWidth * 0.72, 640);
-}
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -159,7 +151,7 @@ class _NotificationsHubScreenState
                 bottom: false,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    final pageWidth = _figmaPageWidth(constraints.maxWidth);
+                    final pageWidth = klanyResponsiveContentWidth(constraints.maxWidth);
                     final sidePadding = constraints.maxWidth < 430 ? 9.0 : 19.0;
                     return Center(
                       child: SizedBox(

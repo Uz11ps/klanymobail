@@ -248,3 +248,21 @@ const List<BoxShadow> kFigmaInfoPanelCardShadows = [
 /// Кольцо выбранного участника на главной.
 const double kFigmaMemberAvatarRing = 3;
 const double kFigmaMemberAvatarDiameter = 72;
+
+// ─── Ширина колонки (web / планшет): настройки, тарифы, уведомления ─────────
+
+/// На очень широких мониторах ограничиваем колонку для читаемости строк.
+const double kKlanyResponsiveContentMaxWidth = 1200;
+
+/// Отступ от краёв экрана до белой колонки ([klanyResponsiveContentWidth]).
+const double _kKlanyResponsiveOuterGutterNarrow = 12;
+const double _kKlanyResponsiveOuterGutterWide = 16;
+
+/// Почти на всю ширину окна (минус поля), без искусственного «коридора» 390–640 px.
+double klanyResponsiveContentWidth(double screenWidth) {
+  final gutter = screenWidth < 360
+      ? _kKlanyResponsiveOuterGutterNarrow
+      : _kKlanyResponsiveOuterGutterWide;
+  final usable = math.max(0.0, screenWidth - gutter * 2);
+  return math.min(usable, kKlanyResponsiveContentMaxWidth);
+}

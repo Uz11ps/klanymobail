@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -91,13 +89,24 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
               const FigmaAuthScreenBackground(),
               SafeArea(
                 bottom: false,
-                child: Center(
-                  child: SizedBox(
-                    width: math.min(MediaQuery.sizeOf(context).width, 390),
-                    child: ListView(
-                      physics: const ClampingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(19, 31, 19, 34),
-                      children: [
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final pageWidth =
+                        klanyResponsiveContentWidth(constraints.maxWidth);
+                    final sidePadding =
+                        constraints.maxWidth < 430 ? 19.0 : 24.0;
+                    return Center(
+                      child: SizedBox(
+                        width: pageWidth,
+                        child: ListView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: EdgeInsets.fromLTRB(
+                            sidePadding,
+                            31,
+                            sidePadding,
+                            34,
+                          ),
+                          children: [
                         _PlansHeader(
                           onBack: () => Navigator.of(context).maybePop(),
                         ),
@@ -127,6 +136,8 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
                       ],
                     ),
                   ),
+                );
+                  },
                 ),
               ),
             ],

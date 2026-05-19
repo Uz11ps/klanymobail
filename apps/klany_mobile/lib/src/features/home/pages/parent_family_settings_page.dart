@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -25,12 +24,6 @@ const Color _figmaSettingsMint = Color(0xFFD9F6C2);
 const Color _figmaSettingsSkyButton = Color(0xFF9EC4F6);
 const Color _figmaSettingsLavender = Color(0xFFD8CBF7);
 const Color _figmaSettingsFieldBorder = Color(0x14000000);
-
-double _settingsPageWidth(double screenWidth) {
-  if (screenWidth < 430) return math.max(0, screenWidth);
-  if (screenWidth < 700) return math.min(screenWidth - 32, 430);
-  return math.min(screenWidth * 0.72, 640);
-}
 
 ButtonStyle _figmaSettingsButtonStyle({
   required Color backgroundColor,
@@ -671,7 +664,7 @@ class _ParentFamilySettingsPageState
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
-                    final pageWidth = _settingsPageWidth(maxW);
+                    final pageWidth = klanyResponsiveContentWidth(maxW);
                     final sidePadding = maxW < 430 ? 19.0 : 24.0;
                     return Center(
                       child: SizedBox(
