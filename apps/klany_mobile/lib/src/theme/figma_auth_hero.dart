@@ -110,7 +110,7 @@ class FigmaAuthHeroSection extends StatelessWidget {
   }
 }
 
-/// Форма под hero: только своя высота; скролл если не влезает.
+/// Форма под hero: только своя высота, как CTA-блок на лендинге.
 
 class FigmaAuthFormSection extends StatelessWidget {
   const FigmaAuthFormSection({super.key, required this.child});
@@ -119,19 +119,11 @@ class FigmaAuthFormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      fit: FlexFit.loose,
-
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        reverse: true,
-
-        padding: const EdgeInsets.symmetric(
-          horizontal: kFigmaAuthHeroFormPaddingH,
-        ),
-
-        child: child,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: kFigmaAuthHeroFormPaddingH,
       ),
+      child: child,
     );
   }
 }

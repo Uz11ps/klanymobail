@@ -5,6 +5,150 @@ import 'package:go_router/go_router.dart';
 
 import '../features/home/child_soft_ui.dart';
 
+String userFriendlyErrorMessage(Object? error) {
+  var raw = (error ?? '').toString().trim();
+  if (raw.isEmpty) return 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  raw = raw
+      .replaceFirst(RegExp(r'^(Exception|TimeoutException|FormatException):\s*'), '')
+      .replaceFirst(RegExp(r'^Ошибка\s*:\s*', caseSensitive: false), '')
+      .replaceFirst(
+        RegExp(r'^Не удалось войти\s*:\s*', caseSensitive: false),
+        '',
+      )
+      .trim();
+
+  final firstLine = raw.split('\n').first.trim();
+  final lower = raw.toLowerCase();
+
+  if (lower.contains('network_timeout') ||
+      lower.contains('timed out') ||
+      lower.contains('timeoutexception') ||
+      lower.contains('timeout')) {
+    return 'Сервер долго не отвечает. Проверьте интернет и попробуйте ещё раз.';
+  }
+
+  if (lower.contains('socketexception') ||
+      lower.contains('clientexception') ||
+      lower.contains('xmlhttprequest') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('connection refused') ||
+      lower.contains('connection reset') ||
+      lower.contains('connection closed') ||
+      lower.contains('network error') ||
+      lower.contains('network is unreachable') ||
+      lower.contains('failed to fetch') ||
+      lower.contains('ошибка сети')) {
+    return 'Не удалось подключиться. Проверьте интернет и попробуйте ещё раз.';
+  }
+
+  if (lower.contains('api не настроен') ||
+      lower.contains('api не настроен') ||
+      lower.contains('api не настроен') ||
+      lower.contains('api not configured')) {
+    return 'Сервис временно недоступен. Попробуйте позже.';
+  }
+
+  if (lower.contains('unauthorized') ||
+      lower.contains('не авторизован') ||
+      lower.contains('jwt') ||
+      lower.contains('401')) {
+    return 'Сессия истекла. Войдите ещё раз.';
+  }
+
+  if (lower.contains('forbidden') ||
+      lower.contains('доступ запрещ') ||
+      lower.contains('403')) {
+    return 'У вас нет доступа к этому действию.';
+  }
+
+  if (lower.contains('not found') || lower.contains('404')) {
+    return 'Не удалось найти нужные данные. Обновите экран и попробуйте ещё раз.';
+  }
+
+  if (lower.contains('user already exists') ||
+      lower.contains('email already') ||
+      lower.contains('already registered') ||
+      lower.contains('пользователь уже существует')) {
+    return 'Этот email уже зарегистрирован. Войдите или используйте другой.';
+  }
+
+  if (lower.contains('invalid credentials') ||
+      lower.contains('invalid login') ||
+      (lower.contains('неверн') && lower.contains('парол'))) {
+    return 'Неверный email или пароль.';
+  }
+
+  if (lower.contains('insufficient') ||
+      (lower.contains('недостаточно') &&
+          (lower.contains('средств') || lower.contains('монет')))) {
+    return 'Не хватает монет на этом счёте.';
+  }
+
+  if (lower.contains('validation') ||
+      lower.contains('bad request') ||
+      lower.contains('400')) {
+    return 'Проверьте введённые данные.';
+  }
+
+  if (lower.contains('500') ||
+      lower.contains('502') ||
+      lower.contains('503') ||
+      lower.contains('504') ||
+      lower.contains('internal server error') ||
+      lower.contains('bad gateway') ||
+      lower.contains('service unavailable')) {
+    return 'Сервер временно недоступен. Попробуйте позже.';
+  }
+
+  if (lower.contains('formatexception') ||
+      lower.contains('unexpected character') ||
+      lower.contains('unexpected token')) {
+    return 'Сервер прислал некорректный ответ. Попробуйте позже.';
+  }
+
+  if (lower.contains('type ') ||
+      lower.contains('nosuchmethoderror') ||
+      lower.contains('stack trace') ||
+      lower.contains('package:') ||
+      lower.contains('dart:') ||
+      RegExp(r'#\d+\s+').hasMatch(raw)) {
+    return 'Что-то пошло не так. Попробуйте ещё раз.';
+  }
+
+  if (lower.contains('bucket') ||
+      lower.contains('minio') ||
+      lower.contains('загрузка файла')) {
+    return 'Не удалось загрузить файл. Попробуйте ещё раз позже.';
+  }
+
+  return firstLine.isEmpty ? 'Что-то пошло не так. Попробуйте ещё раз.' : firstLine;
+}
+
+Widget _sanitizeSnackBarContent(Widget content) {
+  if (content is Text && content.data != null) {
+    final text = content.data!;
+    final friendly = userFriendlyErrorMessage(text);
+    return Text(
+      friendly,
+      style: content.style,
+      strutStyle: content.strutStyle,
+      textAlign: content.textAlign,
+      textDirection: content.textDirection,
+      locale: content.locale,
+      softWrap: content.softWrap,
+      overflow: content.overflow,
+      textScaler: content.textScaler,
+      maxLines: content.maxLines,
+      semanticsLabel: content.semanticsLabel,
+      textWidthBasis: content.textWidthBasis,
+      textHeightBehavior: content.textHeightBehavior,
+      selectionColor: content.selectionColor,
+    );
+  }
+  return content;
+}
+
 /// Текущий path маршрута (корневой GoRouter), безопасно если виджет не под роутером.
 String _currentGoRoutePath(BuildContext context) {
   final go = GoRouter.maybeOf(context);
@@ -38,7 +182,7 @@ double snackBarFloatingBottomInset(BuildContext context) {
 SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
   final bottom = snackBarFloatingBottomInset(context);
   return SnackBar(
-    content: s.content,
+    content: _sanitizeSnackBarContent(s.content),
     action: s.action,
     backgroundColor: s.backgroundColor,
     duration: s.duration,
