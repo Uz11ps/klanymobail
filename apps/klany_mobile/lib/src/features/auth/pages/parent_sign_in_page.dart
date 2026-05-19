@@ -331,7 +331,6 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                       asset: isEmailStep
                           ? 'assets/figma/hero_birzha.png'
                           : 'assets/figma/hero_economika.png',
-                      fallbackColor: isEmailStep ? kBrandLavender : kBrandSunny,
                       showDots: true,
                       dotCount: 3,
                       activeDotIndex: _step.clamp(0, 2),

@@ -95,8 +95,8 @@ TELEGRAM_BOT_TOKEN=
 EOF
 
 echo "[bootstrap] starting services"
-cd "$APP_DIR"
-docker compose --env-file .env.server up -d --build
+chmod +x "$APP_DIR/scripts/server/stack-up.sh"
+"$APP_DIR/scripts/server/stack-up.sh" "$APP_DIR" "$APP_DIR/.env.server"
 
 echo "[bootstrap] done"
 echo "[bootstrap] admin: http://$SERVER_IP:8782  (login 123@mail.ru / 123)"

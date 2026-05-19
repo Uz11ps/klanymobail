@@ -175,7 +175,8 @@ if ! docker compose version >/dev/null 2>&1; then
   fi
 fi
 
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+chmod +x scripts/server/stack-up.sh
+./scripts/server/stack-up.sh "$(pwd)" "$ENV_FILE"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps
 
 if [ -d "$APP_DIR/releases" ]; then

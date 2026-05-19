@@ -180,7 +180,6 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                   child: FigmaAuthPageBody(
                     hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_birzha.png',
-                      fallbackColor: kBrandLavender,
                       showDots: true,
                       dotCount: 2,
                       activeDotIndex: 0,

@@ -59,7 +59,12 @@ fi
 
 mkdir -p "$PG_DIR" "$MINIO_DIR/$STAMP"
 
-docker exec klany-postgres sh -lc "pg_dump -U \"$POSTGRES_USER\" \"$POSTGRES_DB\"" | gzip > "$PG_DIR/${STAMP}.sql.gz"
+COMPOSE_DIR="$APP_DIR/current"
+if [[ ! -f "$COMPOSE_DIR/docker-compose.yml" ]]; then
+  COMPOSE_DIR="/opt/klanymobail"
+fi
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_DIR/docker-compose.yml" exec -T postgres \
+  sh -lc "pg_dump -U \"$POSTGRES_USER\" \"$POSTGRES_DB\"" | gzip > "$PG_DIR/${STAMP}.sql.gz"
 
 docker run --rm --network host \
   -e MC_HOST_src="http://$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY@127.0.0.1:${MINIO_PORT}" \

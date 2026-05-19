@@ -103,7 +103,6 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                   child: FigmaAuthPageBody(
                     hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_flag.png',
-                      fallbackColor: kBrandSky,
                     ),
                     form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,

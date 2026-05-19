@@ -49,7 +49,6 @@ class AuthLandingPage extends StatelessWidget {
                   child: FigmaAuthHeroSection(
                     child: FigmaAuthHeroCarousel(
                       assets: _slides,
-                      fallbackColor: kBrandMint,
                     ),
                   ),
                 ),

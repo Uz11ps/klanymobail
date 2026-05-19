@@ -222,9 +222,7 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
     required this.side,
 
-    this.fallbackColor = Colors.transparent,
-
-    this.fit = BoxFit.cover,
+    this.fit = BoxFit.contain,
 
     this.alignment = Alignment.center,
   });
@@ -233,28 +231,21 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
   final double side;
 
-  final Color fallbackColor;
-
   final BoxFit fit;
 
   final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: side,
-      height: side,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: fallbackColor,
-        borderRadius: BorderRadius.circular(kFigmaAuthHeroCornerRadius),
-      ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kFigmaAuthHeroCornerRadius),
+
       child: Image.asset(
         asset,
 
-        width: double.infinity,
+        width: side,
 
-        height: double.infinity,
+        height: side,
 
         fit: fit,
 
@@ -264,14 +255,12 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
         gaplessPlayback: true,
 
-        errorBuilder: (context, error, stackTrace) => ColoredBox(
-          color: fallbackColor,
-
+        errorBuilder: (context, error, stackTrace) => SizedBox(
+          width: side,
+          height: side,
           child: const Icon(
             Icons.image_not_supported_outlined,
-
             size: 42,
-
             color: Color(0x665B6B85),
           ),
         ),
@@ -286,20 +275,16 @@ class FigmaAuthHero extends StatelessWidget {
 
     required this.asset,
 
-    this.fallbackColor = Colors.transparent,
-
     this.showDots = false,
 
     this.dotCount = 3,
 
     this.activeDotIndex = 0,
 
-    this.imageFit = BoxFit.cover,
+    this.imageFit = BoxFit.contain,
   });
 
   final String asset;
-
-  final Color fallbackColor;
 
   final bool showDots;
 
@@ -346,11 +331,7 @@ class FigmaAuthHero extends StatelessWidget {
             Center(
               child: FigmaAuthHeroImage(
                 asset: asset,
-
                 side: side,
-
-                fallbackColor: fallbackColor,
-
                 fit: imageFit,
               ),
             ),
@@ -383,8 +364,6 @@ class FigmaAuthHeroCarousel extends StatefulWidget {
 
     required this.assets,
 
-    this.fallbackColor = Colors.transparent,
-
     this.autoAdvanceSeconds = 5,
 
     this.initialIndex = 0,
@@ -393,8 +372,6 @@ class FigmaAuthHeroCarousel extends StatefulWidget {
   });
 
   final List<String> assets;
-
-  final Color fallbackColor;
 
   final int autoAdvanceSeconds;
 
@@ -487,29 +464,22 @@ class _FigmaAuthHeroCarouselState extends State<FigmaAuthHeroCarousel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
 
           children: [
-            SizedBox(
-              height: side,
-
-              child: PageView.builder(
-                controller: _pageController,
-
-                padEnds: true,
-
-                clipBehavior: Clip.none,
-
-                itemCount: widget.assets.length,
-
-                onPageChanged: (i) => setState(() => _index = i),
-
-                itemBuilder: (_, i) => Center(
-                  child: FigmaAuthHeroImage(
-                    asset: widget.assets[i],
-
-                    side: side,
-
-                    fallbackColor: widget.fallbackColor,
-
-                    fit: widget.imageFit,
+            ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(kFigmaAuthHeroCornerRadius),
+              child: SizedBox(
+                height: side,
+                child: PageView.builder(
+                  controller: _pageController,
+                  padEnds: true,
+                  itemCount: widget.assets.length,
+                  onPageChanged: (i) => setState(() => _index = i),
+                  itemBuilder: (_, i) => Center(
+                    child: FigmaAuthHeroImage(
+                      asset: widget.assets[i],
+                      side: side,
+                      fit: widget.imageFit,
+                    ),
                   ),
                 ),
               ),

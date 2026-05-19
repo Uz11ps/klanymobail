@@ -1,7 +1,9 @@
+# Same project/volume names from any deploy dir (e.g. /opt/klany/current vs /opt/klanymobail).
+name: klanymobail
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: klany-postgres
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
     environment:
@@ -19,7 +21,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: klany-redis
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
@@ -44,7 +45,6 @@ services:
   api:
     build:
       context: ./backend
-    container_name: klany-api
     environment:
       PORT: "3000"
       DATABASE_URL: "postgresql://${POSTGRES_USER:-klany}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-klany}"
@@ -89,7 +89,6 @@ services:
     build:
       context: .
       dockerfile: ./infra/nginx/Dockerfile
-    container_name: klany-nginx
     ports:
       - "${HTTP_PORT:-8782}:80"
       # Telegram allows webhooks on 8443 (HTTPS required)
@@ -108,6 +107,9 @@ services:
 
 volumes:
   postgres_data:
+    name: klanymobail_postgres_data
   redis_data:
+    name: klanymobail_redis_data
   minio_data:
+    name: klanymobail_minio_data
 
