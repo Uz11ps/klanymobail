@@ -983,7 +983,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
         physics: const AlwaysScrollableScrollPhysics(
           parent: ClampingScrollPhysics(),
         ),
-        padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad),
+        padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPad),
         children: listChildren,
       ),
     );
