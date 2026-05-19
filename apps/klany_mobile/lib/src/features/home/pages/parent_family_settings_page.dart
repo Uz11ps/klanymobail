@@ -19,6 +19,7 @@ import '../child_soft_ui.dart';
 import 'document_page.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/storage_presign.dart';
 
 const Color _figmaSettingsMint = Color(0xFFD9F6C2);
 const Color _figmaSettingsSkyButton = Color(0xFF9EC4F6);
@@ -696,7 +697,9 @@ class _ParentFamilySettingsPageState
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
                     final pageWidth = klanyResponsiveContentWidth(maxW);
-                    final sidePadding = maxW < 430 ? 19.0 : 24.0;
+                    // Карточка «Клан» — прежние поля; контент ниже — шире (меньший inset).
+                    final clanHorizontal = maxW < 430 ? 18.0 : 22.0;
+                    final settingsHorizontal = maxW < 430 ? 8.0 : 11.0;
                     return Center(
                       child: SizedBox(
                         width: pageWidth,
@@ -710,16 +713,18 @@ class _ParentFamilySettingsPageState
                           ),
                           child: ListView(
                             physics: const ClampingScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
-                              sidePadding,
-                              31,
-                              sidePadding,
-                              40,
-                            ),
+                            padding: const EdgeInsets.fromLTRB(0, 31, 0, 40),
                             children: [
                               Padding(
-                                padding: EdgeInsets.zero,
-                                child: SizedBox(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: clanHorizontal,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                              SizedBox(
                                   height: 48,
                                   child: Row(
                                     crossAxisAlignment:
@@ -789,7 +794,6 @@ class _ParentFamilySettingsPageState
                                     ],
                                   ),
                                 ),
-                              ),
                               const SizedBox(height: 20),
 
                               // ── Clan card (3 rows in one card) ───────────────────────────
@@ -1246,6 +1250,8 @@ class _ParentFamilySettingsPageState
                                                 userKey: 'member:${c.id}',
                                                 avatarFallback: initial,
                                                 label: c.displayName,
+                                                avatarObjectKey:
+                                                    c.avatarObjectKey,
                                                 remoteImageUrl:
                                                     c.avatarImageUrl,
                                                 onAvatarTap: _busy
@@ -1437,6 +1443,18 @@ class _ParentFamilySettingsPageState
                                                           : '?',
                                                       remoteImageUrl:
                                                           item.avatarImageUrl,
+                                                      remoteDiskCacheKey:
+                                                          (item.avatarObjectKey ??
+                                                                      '')
+                                                                  .trim()
+                                                                  .isEmpty
+                                                              ? null
+                                                              : storageObjectDiskCacheKey(
+                                                                  'member-avatars',
+                                                                  item
+                                                                      .avatarObjectKey!
+                                                                      .trim(),
+                                                                ),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 10),
@@ -2107,12 +2125,14 @@ class _MemberTile extends StatelessWidget {
     required this.userKey,
     required this.avatarFallback,
     required this.label,
+    this.avatarObjectKey,
     this.remoteImageUrl,
     this.onAvatarTap,
   });
   final String userKey;
   final String avatarFallback;
   final String label;
+  final String? avatarObjectKey;
   final String? remoteImageUrl;
   final VoidCallback? onAvatarTap;
 
@@ -2149,6 +2169,13 @@ class _MemberTile extends StatelessWidget {
               size: 56,
               fallbackText: avatarFallback,
               remoteImageUrl: remoteImageUrl,
+              remoteDiskCacheKey:
+                  (avatarObjectKey ?? '').trim().isEmpty
+                      ? null
+                      : storageObjectDiskCacheKey(
+                          'member-avatars',
+                          avatarObjectKey!.trim(),
+                        ),
             ),
           ),
           const SizedBox(height: 4),

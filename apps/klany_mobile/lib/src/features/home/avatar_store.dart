@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -223,12 +225,16 @@ class UserAvatar extends StatefulWidget {
     required this.size,
     this.fallbackText,
     this.remoteImageUrl,
+    /// Стабильный ключ для [CachedNetworkImage] (bucket + objectKey или свой идентификатор).
+    /// Если null при наличии [remoteImageUrl], используется `avatar-remote::<userKey>`.
+    this.remoteDiskCacheKey,
   });
   final String userKey;
   final double size;
   final String? fallbackText;
   /// Прямая или presigned HTTPS-ссылка на аватар с сервера (приоритетнее локального файла).
   final String? remoteImageUrl;
+  final String? remoteDiskCacheKey;
 
   @override
   State<UserAvatar> createState() => _UserAvatarState();
@@ -258,7 +264,9 @@ class _UserAvatarState extends State<UserAvatar> {
   @override
   void didUpdateWidget(covariant UserAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.userKey != widget.userKey) {
+    if (oldWidget.userKey != widget.userKey ||
+        oldWidget.remoteImageUrl != widget.remoteImageUrl ||
+        oldWidget.remoteDiskCacheKey != widget.remoteDiskCacheKey) {
       _load();
     }
   }
@@ -283,6 +291,13 @@ class _UserAvatarState extends State<UserAvatar> {
   Widget build(BuildContext context) {
     final remote = widget.remoteImageUrl;
     if (remote != null && remote.isNotEmpty) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      final mw = (widget.size * dpr).round().clamp(1, 4096);
+      final cacheKey =
+          (widget.remoteDiskCacheKey ?? '').trim().isEmpty
+              ? 'avatar-remote::${widget.userKey}'
+              : widget.remoteDiskCacheKey!.trim();
+
       return Container(
         width: widget.size,
         height: widget.size,
@@ -292,14 +307,21 @@ class _UserAvatarState extends State<UserAvatar> {
         ),
         clipBehavior: Clip.antiAlias,
         alignment: Alignment.center,
-        child: Image.network(
-          remote,
-          fit: BoxFit.cover,
+        child: CachedNetworkImage(
+          imageUrl: remote,
+          cacheKey: cacheKey,
           width: widget.size,
           height: widget.size,
-          gaplessPlayback: true,
-          filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) => _localBody(),
+          fit: BoxFit.cover,
+          memCacheWidth: mw,
+          memCacheHeight: mw,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          placeholder: (context, url) => ColoredBox(
+            color: const Color(0xFFEFF2F8),
+            child: SizedBox(width: widget.size, height: widget.size),
+          ),
+          errorWidget: (context, url, error) => _localBody(),
         ),
       );
     }

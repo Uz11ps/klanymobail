@@ -20,6 +20,7 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
+import '../../../core/storage_presign.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'parent_family_settings_page.dart';
@@ -1306,6 +1307,13 @@ class _MembersStripState extends State<_MembersStrip> {
             size: 73,
             fallbackText: initial,
             remoteImageUrl: e.value.avatarImageUrl,
+            remoteDiskCacheKey:
+                (e.value.avatarObjectKey ?? '').trim().isEmpty
+                    ? null
+                    : storageObjectDiskCacheKey(
+                        'member-avatars',
+                        e.value.avatarObjectKey!.trim(),
+                      ),
           ),
         ),
       );
@@ -1725,6 +1733,16 @@ class _ChildDetailsPanel extends StatelessWidget {
                               userKey: 'child:${wallet.childId}',
                               size: 56,
                               fallbackText: childInitial,
+                              remoteImageUrl: wallet.avatarImageUrl,
+                              remoteDiskCacheKey:
+                                  (wallet.avatarObjectKey ?? '')
+                                          .trim()
+                                          .isEmpty
+                                      ? null
+                                      : storageObjectDiskCacheKey(
+                                          'member-avatars',
+                                          wallet.avatarObjectKey!.trim(),
+                                        ),
                             ),
                             Positioned(
                               right: -2,

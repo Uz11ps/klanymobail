@@ -141,3 +141,8 @@ void invalidatePresignStorageDownload({
     PresignStorageDownloadCache.invalidate(bucket: bucket, objectKey: objectKey);
 
 void clearPresignStorageDownloadCache() => PresignStorageDownloadCache.clear();
+
+/// Ключ для дискового кэша изображений ([CachedNetworkImage]): один объект в bucket —
+/// один файл на устройстве, пока не сменится [objectKey] (presigned URL при этом может меняться).
+String storageObjectDiskCacheKey(String bucket, String objectKey) =>
+    '${bucket.trim()}::${objectKey.trim()}';

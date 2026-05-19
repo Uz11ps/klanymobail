@@ -61,6 +61,8 @@ class _PresignedMemberAvatarState extends State<PresignedMemberAvatar> {
           size: widget.size,
           fallbackText: widget.fallbackText,
           remoteImageUrl: snap.data,
+          remoteDiskCacheKey:
+              storageObjectDiskCacheKey(widget.bucket, widget.objectKey),
         );
       },
     );
