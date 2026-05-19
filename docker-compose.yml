@@ -35,7 +35,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     command: ["server", "/data", "--console-address", ":9001"]
     ports:
-      - "${MINIO_PORT:-9000}:9000"
+      # Host port only — inside the compose network MinIO API is always :9000 (see api.MINIO_PORT).
+      - "${MINIO_HOST_PORT:-${MINIO_PORT:-9000}}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio_data:/data
@@ -59,7 +60,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       CRON_SECRET: ${CRON_SECRET:-}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
-      MINIO_PORT: ${MINIO_PORT:-9000}
+      # Always container-internal API port (service name `minio`). Do not use host publish port here.
+      MINIO_PORT: "9000"
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}

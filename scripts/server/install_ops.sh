@@ -42,13 +42,14 @@ POSTGRES_USER="$(get_env POSTGRES_USER)"
 POSTGRES_DB="$(get_env POSTGRES_DB)"
 MINIO_ACCESS_KEY="$(get_env MINIO_ACCESS_KEY)"
 MINIO_SECRET_KEY="$(get_env MINIO_SECRET_KEY)"
-MINIO_PORT="$(get_env MINIO_PORT)"
+MINIO_HOST_PORT="$(get_env MINIO_HOST_PORT)"
+MINIO_PORT_LEGACY="$(get_env MINIO_PORT)"
 MINIO_BUCKET_QUEST_EVIDENCE="$(get_env MINIO_BUCKET_QUEST_EVIDENCE)"
 MINIO_BUCKET_SHOP_PRODUCTS="$(get_env MINIO_BUCKET_SHOP_PRODUCTS)"
 
 POSTGRES_USER="${POSTGRES_USER:-klany}"
 POSTGRES_DB="${POSTGRES_DB:-klany}"
-MINIO_PORT="${MINIO_PORT:-9000}"
+MINIO_MC_HOST="${MINIO_HOST_PORT:-${MINIO_PORT_LEGACY:-9000}}"
 MINIO_BUCKET_QUEST_EVIDENCE="${MINIO_BUCKET_QUEST_EVIDENCE:-quest-evidence}"
 MINIO_BUCKET_SHOP_PRODUCTS="${MINIO_BUCKET_SHOP_PRODUCTS:-shop-products}"
 
@@ -67,13 +68,13 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_DIR/docker-compose.yml" exec 
   sh -lc "pg_dump -U \"$POSTGRES_USER\" \"$POSTGRES_DB\"" | gzip > "$PG_DIR/${STAMP}.sql.gz"
 
 docker run --rm --network host \
-  -e MC_HOST_src="http://$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY@127.0.0.1:${MINIO_PORT}" \
+  -e MC_HOST_src="http://$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY@127.0.0.1:${MINIO_MC_HOST}" \
   -v "$MINIO_DIR/$STAMP:/backup" \
   minio/mc:latest \
   mirror --overwrite "src/$MINIO_BUCKET_QUEST_EVIDENCE" "/backup/$MINIO_BUCKET_QUEST_EVIDENCE"
 
 docker run --rm --network host \
-  -e MC_HOST_src="http://$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY@127.0.0.1:${MINIO_PORT}" \
+  -e MC_HOST_src="http://$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY@127.0.0.1:${MINIO_MC_HOST}" \
   -v "$MINIO_DIR/$STAMP:/backup" \
   minio/mc:latest \
   mirror --overwrite "src/$MINIO_BUCKET_SHOP_PRODUCTS" "/backup/$MINIO_BUCKET_SHOP_PRODUCTS"
