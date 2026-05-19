@@ -52,6 +52,23 @@ String userFriendlyErrorMessage(Object? error) {
     return 'Сервис временно недоступен. Попробуйте позже.';
   }
 
+  // Неверный пароль до эвристик «401 / unauthorized», иначе текст входа может стать «сессия истекла».
+  if (lower.contains('invalid credentials') ||
+      lower.contains('invalid login') ||
+      (lower.contains('неверн') &&
+          (lower.contains('парол') ||
+              lower.contains('телефон') ||
+              lower.contains('email/')))) {
+    return 'Неверный email или пароль.';
+  }
+
+  if (lower.contains('user already exists') ||
+      lower.contains('email already') ||
+      lower.contains('already registered') ||
+      lower.contains('пользователь уже существует')) {
+    return 'Этот email уже зарегистрирован. Войдите или используйте другой.';
+  }
+
   if (lower.contains('unauthorized') ||
       lower.contains('не авторизован') ||
       lower.contains('jwt') ||
@@ -67,19 +84,6 @@ String userFriendlyErrorMessage(Object? error) {
 
   if (lower.contains('not found') || lower.contains('404')) {
     return 'Не удалось найти нужные данные. Обновите экран и попробуйте ещё раз.';
-  }
-
-  if (lower.contains('user already exists') ||
-      lower.contains('email already') ||
-      lower.contains('already registered') ||
-      lower.contains('пользователь уже существует')) {
-    return 'Этот email уже зарегистрирован. Войдите или используйте другой.';
-  }
-
-  if (lower.contains('invalid credentials') ||
-      lower.contains('invalid login') ||
-      (lower.contains('неверн') && lower.contains('парол'))) {
-    return 'Неверный email или пароль.';
   }
 
   if (lower.contains('insufficient') ||
