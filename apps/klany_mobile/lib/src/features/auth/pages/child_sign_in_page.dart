@@ -108,105 +108,86 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                     form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  'Ввод ключа',
-                                  style: kFigmaAuthFieldLabelStyle,
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 8),
-                                child: Text(
-                                  '6 цифр — персональный код от Главы Клана',
-                                  style: TextStyle(
-                                    fontFamily: 'Nunito',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: kChildInkMuted,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                              FigmaAuthInputShell(
-                                child: TextField(
-                                  controller: _authCode,
-                                  keyboardType: TextInputType.number,
-                                  maxLength: 6,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(6),
-                                  ],
-                                  obscureText: _obscure,
-                                  decoration: _authInput(
-                                    '000000',
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscure
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
-                                        color: kChildInkMuted,
-                                      ),
-                                      onPressed: () =>
-                                          setState(() => _obscure = !_obscure),
-                                    ),
-                                  ).copyWith(counterText: ''),
-                                  style: kFigmaAuthInputTextStyle.copyWith(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 6,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              if (_busy)
-                                const SizedBox(
-                                  height: kFigmaAuthPrimaryCtaHeight,
-                                  child: Center(
-                                    child: SizedBox(
-                                      width: 28,
-                                      height: 28,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Color(0xFF1F4F1B),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              else
-                                FigmaGradientButton(
-                                  label: 'Продолжить',
-                                  gradient:
-                                      FigmaGradientButton.mintGradientVertical,
-                                  height: kFigmaAuthPrimaryCtaHeight,
-                                  labelStyle: kFigmaLandingCtaTextStyle,
-                                  boxShadow: kFigmaLandingCtaBoxShadows,
-                                  textHeightBehavior: const TextHeightBehavior(
-                                    applyHeightToFirstAscent: false,
-                                    applyHeightToLastDescent: false,
-                                  ),
-                                  onTap: _busy ? null : _codeSignIn,
-                                ),
-                              const SizedBox(height: 12),
-                              Center(
-                                child: TextButton(
-                                  onPressed: () {},
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: kChildBrandBlue,
-                                  ),
-                                  child: const Text(
-                                    'Забыли ключ?',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            'Ввод ключа',
+                            style: kFigmaAuthFieldLabelStyle,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            '6 цифр — персональный код от Главы Клана',
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: kChildInkMuted,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _authCode,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
                             ],
+                            obscureText: _obscure,
+                            decoration: _authInput(
+                              '000000',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: kChildInkMuted,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                              ),
+                            ).copyWith(counterText: ''),
+                            style: kFigmaAuthInputTextStyle.copyWith(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 6,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (_busy)
+                          const SizedBox(
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            child: Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF1F4F1B),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          FigmaGradientButton(
+                            label: 'Продолжить',
+                            gradient: FigmaGradientButton.mintGradientVertical,
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            labelStyle: kFigmaLandingCtaTextStyle,
+                            boxShadow: kFigmaLandingCtaBoxShadows,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: false,
+                              applyHeightToLastDescent: false,
+                            ),
+                            onTap: _busy ? null : _codeSignIn,
+                          ),
+                      ],
                     ),
                   ),
                 ),

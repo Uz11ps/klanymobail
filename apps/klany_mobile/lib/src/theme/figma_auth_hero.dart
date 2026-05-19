@@ -241,15 +241,20 @@ class FigmaAuthHeroImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kFigmaAuthHeroCornerRadius),
-
+    return Container(
+      width: side,
+      height: side,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: fallbackColor,
+        borderRadius: BorderRadius.circular(kFigmaAuthHeroCornerRadius),
+      ),
       child: Image.asset(
         asset,
 
-        width: side,
+        width: double.infinity,
 
-        height: side,
+        height: double.infinity,
 
         fit: fit,
 

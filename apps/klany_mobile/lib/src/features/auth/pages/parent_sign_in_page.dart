@@ -49,7 +49,11 @@ class _SmyshlCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(5),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 14),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 14,
+                ),
               ),
               const SizedBox(width: 7),
               Text(
@@ -75,7 +79,10 @@ class _SmyshlCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 alignment: Alignment.center,
-                child: Text('$emoji1$emoji2', style: const TextStyle(fontSize: 28)),
+                child: Text(
+                  '$emoji1$emoji2',
+                  style: const TextStyle(fontSize: 28),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -174,7 +181,8 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       final savedPassword = prefs.getString(_kBiometricPassword);
       if (!mounted) return;
       setState(() {
-        _biometricReady = canUse &&
+        _biometricReady =
+            canUse &&
             (savedLogin ?? '').isNotEmpty &&
             (savedPassword ?? '').isNotEmpty;
         _savedLogin = savedLogin;
@@ -203,13 +211,17 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     }
     if (!Env.hasApiConfig) {
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Заполните .env (API_BASE_URL) чтобы войти')),
+        const SnackBar(
+          content: Text('Заполните .env (API_BASE_URL) чтобы войти'),
+        ),
       );
       return;
     }
     setState(() => _busy = true);
     try {
-      await ref.read(authActionsProvider).parentSignIn(
+      await ref
+          .read(authActionsProvider)
+          .parentSignIn(
             login: _email.text.trim(),
             password: _password.text,
             inviteToken: '',
@@ -223,7 +235,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       try {
         final login = _email.text.trim();
         final asEmail = login.contains('@');
-        await ref.read(authActionsProvider).parentSignUp(
+        await ref
+            .read(authActionsProvider)
+            .parentSignUp(
               phone: asEmail ? '' : login,
               password: _password.text,
               recoveryEmail: asEmail ? login : null,
@@ -249,10 +263,15 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     try {
       final ok = await _auth.authenticate(
         localizedReason: 'Подтвердите вход в приложение',
-        options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
       );
       if (!ok) return;
-      await ref.read(authActionsProvider).parentSignIn(
+      await ref
+          .read(authActionsProvider)
+          .parentSignIn(
             login: _savedLogin ?? '',
             password: _savedPassword ?? '',
             inviteToken: '',
@@ -312,8 +331,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                       asset: isEmailStep
                           ? 'assets/figma/hero_birzha.png'
                           : 'assets/figma/hero_economika.png',
-                      fallbackColor:
-                          isEmailStep ? kBrandLavender : kBrandSunny,
+                      fallbackColor: isEmailStep ? kBrandLavender : kBrandSunny,
                       showDots: true,
                       dotCount: 3,
                       activeDotIndex: _step.clamp(0, 2),
@@ -321,83 +339,31 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                     form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                          if (isEmailStep) ...[
-                        const Padding(
-                          padding:
-                              EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
-                          child: Text('Email', style: kFigmaAuthFieldLabelStyle),
-                        ),
-                        FigmaAuthInputShell(
-                          child: TextField(
-                            controller: _email,
-                            keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [
-                              AutofillHints.username,
-                              AutofillHints.email,
-                            ],
-                            style: kFigmaAuthInputTextStyle,
-                            decoration: _authInput('email@gmail.com'),
-                          ),
-                        ),
-                        const SizedBox(height: kFigmaAuthFieldStackGap),
-                        FigmaGradientButton(
-                          label: 'Продолжить',
-                          gradient: FigmaGradientButton.mintGradientVertical,
-                          height: kFigmaAuthPrimaryCtaHeight,
-                          labelStyle: kFigmaLandingCtaTextStyle,
-                          boxShadow: kFigmaLandingCtaBoxShadows,
-                          textHeightBehavior: const TextHeightBehavior(
-                            applyHeightToFirstAscent: false,
-                            applyHeightToLastDescent: false,
-                          ),
-                          onTap: _busy ? null : _proceed,
-                        ),
-                      ] else ...[
-                        const Padding(
-                          padding:
-                              EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
-                          child:
-                              Text('Пароль', style: kFigmaAuthFieldLabelStyle),
-                        ),
-                        FigmaAuthInputShell(
-                          child: TextField(
-                            controller: _password,
-                            obscureText: _obscure,
-                            autofillHints: const [AutofillHints.password],
-                            style: kFigmaAuthInputTextStyle,
-                            decoration: _authInput(
-                              '••••••••',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscure
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: kChildInkMuted,
-                                ),
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
-                              ),
+                        if (isEmailStep) ...[
+                          const Padding(
+                            padding: EdgeInsets.only(
+                              bottom: kFigmaAuthLabelToFieldGap,
+                            ),
+                            child: Text(
+                              'Email',
+                              style: kFigmaAuthFieldLabelStyle,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: kFigmaAuthFieldStackGap),
-                        if (_busy)
-                          const SizedBox(
-                            height: kFigmaAuthPrimaryCtaHeight,
-                            child: Center(
-                              child: SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF1F4F1B),
-                                ),
-                              ),
+                          FigmaAuthInputShell(
+                            child: TextField(
+                              controller: _email,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                              ],
+                              style: kFigmaAuthInputTextStyle,
+                              decoration: _authInput('email@gmail.com'),
                             ),
-                          )
-                        else
+                          ),
+                          const SizedBox(height: kFigmaAuthFieldStackGap),
                           FigmaGradientButton(
-                            label: 'Войти в управление',
+                            label: 'Продолжить',
                             gradient: FigmaGradientButton.mintGradientVertical,
                             height: kFigmaAuthPrimaryCtaHeight,
                             labelStyle: kFigmaLandingCtaTextStyle,
@@ -406,28 +372,69 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                               applyHeightToFirstAscent: false,
                               applyHeightToLastDescent: false,
                             ),
-                            onTap: _submit,
+                            onTap: _busy ? null : _proceed,
                           ),
-                        const SizedBox(height: kFigmaAuthFieldStackGap),
-                        Center(
-                          child: TextButton(
-                            onPressed:
-                                _busy ? null : () => context.go('/auth/recover'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: kChildInkMuted,
+                        ] else ...[
+                          const Padding(
+                            padding: EdgeInsets.only(
+                              bottom: kFigmaAuthLabelToFieldGap,
                             ),
-                            child: const Text(
-                              'Забыли пароль?',
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
+                            child: Text(
+                              'Пароль',
+                              style: kFigmaAuthFieldLabelStyle,
+                            ),
+                          ),
+                          FigmaAuthInputShell(
+                            child: TextField(
+                              controller: _password,
+                              obscureText: _obscure,
+                              autofillHints: const [AutofillHints.password],
+                              style: kFigmaAuthInputTextStyle,
+                              decoration: _authInput(
+                                '••••••••',
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    color: kChildInkMuted,
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: kFigmaAuthFieldStackGap),
+                          if (_busy)
+                            const SizedBox(
+                              height: kFigmaAuthPrimaryCtaHeight,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Color(0xFF1F4F1B),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            FigmaGradientButton(
+                              label: 'Войти в управление',
+                              gradient:
+                                  FigmaGradientButton.mintGradientVertical,
+                              height: kFigmaAuthPrimaryCtaHeight,
+                              labelStyle: kFigmaLandingCtaTextStyle,
+                              boxShadow: kFigmaLandingCtaBoxShadows,
+                              textHeightBehavior: const TextHeightBehavior(
+                                applyHeightToFirstAscent: false,
+                                applyHeightToLastDescent: false,
+                              ),
+                              onTap: _submit,
+                            ),
+                        ],
                       ],
                     ),
                   ),
