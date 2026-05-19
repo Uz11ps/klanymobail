@@ -17,6 +17,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+      start_period: 15s
     restart: unless-stopped
 
   redis:
@@ -37,7 +38,8 @@ services:
     ports:
       # Host port only — inside the compose network MinIO API is always :9000 (see api.MINIO_PORT).
       - "${MINIO_HOST_PORT:-${MINIO_PORT:-9000}}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      # Host ports only — inside the stack console stays on container :9001.
+      - "${MINIO_CONSOLE_HOST_PORT:-${MINIO_CONSOLE_PORT:-9001}}:9001"
     volumes:
       - minio_data:/data
     restart: unless-stopped

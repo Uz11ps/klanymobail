@@ -59,6 +59,27 @@ MINIO_HOST_PORT=9002
 
 После правки: `docker compose --env-file .env.server up -d`.
 
+### 4b. Занят порт консоли MinIO (`Bind ... :9001 failed`)
+
+На хосте уже что‑то слушает **9001**. В **`.env.server`** задай другой проброс (внутри контейнера консоль всё равно **9001**):
+
+```bash
+MINIO_CONSOLE_HOST_PORT=9011
+```
+
+### 4c. Prisma `P1001 Can't reach database server at postgres:5432`
+
+Часто это гонка при старте (особенно после рестарта Postgres). В образе API **`docker-entrypoint`** несколько раз повторяет `prisma migrate deploy`, пока БД не ответит.
+
+После обновления репозитория пересобери API и поднись заново:
+
+```bash
+docker compose --env-file .env.server build api --no-cache
+docker compose --env-file .env.server up -d
+```
+
+Если ошибка не уходит — проверь, что контейнер **`postgres` healthy**: `docker compose ps`, логи `docker compose logs postgres`.
+
 ### 5. Смотреть, на чём реально стопорится сборка API
 
 ```bash
