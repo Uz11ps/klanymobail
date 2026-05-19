@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import 'child_session.dart';
 import 'parent_session.dart';
 
@@ -14,6 +15,7 @@ class AuthActions {
   Future<void> signOut() async {
     await ref.read(parentSessionProvider.notifier).clear();
     await ref.read(childSessionProvider.notifier).clear();
+    clearPresignStorageDownloadCache();
   }
 
   Future<void> parentSignIn({

@@ -297,6 +297,8 @@ class _UserAvatarState extends State<UserAvatar> {
           fit: BoxFit.cover,
           width: widget.size,
           height: widget.size,
+          gaplessPlayback: true,
+          filterQuality: FilterQuality.medium,
           errorBuilder: (_, _, _) => _localBody(),
         ),
       );

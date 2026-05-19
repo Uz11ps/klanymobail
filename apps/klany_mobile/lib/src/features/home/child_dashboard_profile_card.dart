@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../wallet/pages/child_wallet_page.dart';
 import '../wallet/wallet_repository.dart';
 import 'avatar_store.dart';
 import 'child_soft_ui.dart';
+import 'presigned_member_avatar.dart';
 
 /// Масштаб аватара 107 px относительно дашборда 92 px (Figma).
 const double kChildDashboardProfileScale = 107 / 92;
@@ -47,33 +47,51 @@ class ChildDashboardAvatar extends StatelessWidget {
         ),
       );
     }
-    return FutureBuilder<String?>(
-      key: ValueKey<String>(key),
-      future: presignStorageDownload(
+    return ClipOval(
+      child: PresignedMemberAvatar(
         accessToken: session.accessToken,
-        bucket: 'member-avatars',
         objectKey: key,
-      ),
-      builder: (context, snap) => ClipOval(
-        child: UserAvatar(
-          userKey: 'child:${session.childId}',
-          size: size,
-          fallbackText: initial,
-          remoteImageUrl: snap.data,
-        ),
+        userKey: 'child:${session.childId}',
+        size: size,
+        fallbackText: initial,
       ),
     );
   }
 }
 
 /// Белая карточка профиля: как на вкладках «Дом», «Задачи», «Магазин» ребёнка.
-class ChildDashboardProfileCard extends ConsumerWidget {
+class ChildDashboardProfileCard extends ConsumerStatefulWidget {
   const ChildDashboardProfileCard({super.key, required this.completedCount});
 
   final int completedCount;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChildDashboardProfileCard> createState() =>
+      _ChildDashboardProfileCardState();
+}
+
+class _ChildDashboardProfileCardState
+    extends ConsumerState<ChildDashboardProfileCard> {
+  String? _walletMemoChildId;
+  Future<WalletSummary?>? _walletFuture;
+
+  Future<WalletSummary?> _walletFutureForSession(ChildSession? session) {
+    final id = session?.childId;
+    if (id == null || id.isEmpty) {
+      _walletMemoChildId = null;
+      _walletFuture = Future.value(null);
+      return _walletFuture!;
+    }
+    if (_walletMemoChildId != id) {
+      _walletMemoChildId = id;
+      _walletFuture =
+          ref.read(walletRepositoryProvider).getChildWallet(id);
+    }
+    return _walletFuture!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
     final name = session?.childDisplayName.trim().isNotEmpty == true
         ? session!.childDisplayName.trim()
@@ -85,9 +103,7 @@ class ChildDashboardProfileCard extends ConsumerWidget {
     final avatarSize = 92 * s;
 
     return FutureBuilder<WalletSummary?>(
-      future: session == null
-          ? Future.value(null)
-          : ref.read(walletRepositoryProvider).getChildWallet(session.childId),
+      future: _walletFutureForSession(session),
       builder: (context, walletSnap) {
         final balance = walletSnap.data?.balance ?? 0;
         return DecoratedBox(
@@ -149,7 +165,7 @@ class ChildDashboardProfileCard extends ConsumerWidget {
                               ),
                               SizedBox(height: 6 * s),
                               Text(
-                                '$completedCount ${_taskWord(completedCount)} выполнено',
+                                '${widget.completedCount} ${_taskWord(widget.completedCount)} выполнено',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.nunito(

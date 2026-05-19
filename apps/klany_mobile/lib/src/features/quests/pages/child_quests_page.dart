@@ -63,6 +63,38 @@ List<BoxShadow> _questCardOuterShadows(Color bg) {
   ];
 }
 
+/// Как [_ChildHomeDashboardState._layoutScale] на домашнем дашборде ребёнка.
+double _childDashboardLayoutScale(double contentWidth) =>
+    ((contentWidth / 353) * 0.87).clamp(0.74, 1.0).toDouble();
+
+/// Дубликат теней с [ChildHomePage] — `_scaledMintStatShadows`.
+List<BoxShadow> _questsScaledMintStatShadows(double scale) => [
+      BoxShadow(
+        color: const Color.fromRGBO(222, 247, 203, 0.26),
+        blurRadius: 40 * scale,
+        offset: Offset(0, 16 * scale),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(173, 211, 165, 0.22),
+        blurRadius: 16 * scale,
+        offset: Offset(0, 10 * scale),
+      ),
+    ];
+
+/// Дубликат `_scaledLavenderStatShadows`.
+List<BoxShadow> _questsScaledLavenderStatShadows(double scale) => [
+      BoxShadow(
+        color: const Color.fromRGBO(216, 203, 247, 0.26),
+        blurRadius: 40 * scale,
+        offset: Offset(0, 16 * scale),
+      ),
+      BoxShadow(
+        color: const Color.fromRGBO(179, 165, 211, 0.22),
+        blurRadius: 16 * scale,
+        offset: Offset(0, 10 * scale),
+      ),
+    ];
+
 Widget _questsDividerLine() {
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -152,6 +184,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final screenW = MediaQuery.sizeOf(context).width;
         final cw = kFigmaChildDashboardContentWidth(screenW);
         final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+        final s = _childDashboardLayoutScale(cw);
         final bottomPad =
             ChildBottomClanBar.scrollBottomClearance(context) + 28;
 
@@ -256,21 +289,27 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
                       Row(
                         children: [
                           Expanded(
-                            child: _ChildStatTile(
+                            child: _ChildQuestsStatTile(
+                              scale: s,
                               label: 'Мои задачи',
-                              count: personal.length,
-                              selected: _tab == 0,
-                              activeVariant: _StatTileVariant.mint,
+                              value: '${personal.length}',
+                              background: kFigmaChildStatMint,
+                              verticalPaddingPx: 34,
+                              outerShadows:
+                                  _questsScaledMintStatShadows(s),
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: _ChildStatTile(
+                            child: _ChildQuestsStatTile(
+                              scale: s,
                               label: 'Биржа',
-                              count: exchange.length,
-                              selected: _tab == 1,
-                              activeVariant: _StatTileVariant.lavender,
+                              value: '${exchange.length}',
+                              background: kFigmaChildStatLavender,
+                              verticalPaddingPx: 30,
+                              outerShadows:
+                                  _questsScaledLavenderStatShadows(s),
                               onTap: () => setState(() => _tab = 1),
                             ),
                           ),
@@ -324,78 +363,32 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
   }
 }
 
-enum _StatTileVariant { mint, lavender }
-
-List<BoxShadow> _statTileMintShadows() => [
-  BoxShadow(
-    color: const Color.fromRGBO(222, 247, 203, 0.26),
-    blurRadius: 40,
-    offset: const Offset(0, 16),
-  ),
-  BoxShadow(
-    color: const Color.fromRGBO(173, 211, 165, 0.22),
-    blurRadius: 16,
-    offset: const Offset(0, 10),
-  ),
-];
-
-List<BoxShadow> _statTileLavenderShadows() => [
-  BoxShadow(
-    color: const Color.fromRGBO(216, 203, 247, 0.26),
-    blurRadius: 40,
-    offset: const Offset(0, 16),
-  ),
-  BoxShadow(
-    color: const Color.fromRGBO(179, 165, 211, 0.22),
-    blurRadius: 16,
-    offset: const Offset(0, 10),
-  ),
-];
-
-class _ChildStatTile extends StatelessWidget {
-  const _ChildStatTile({
+/// Визуально совпадает с `_StatTile` на [ChildHomePage]; добавлен [InkWell] для вкладок.
+class _ChildQuestsStatTile extends StatelessWidget {
+  const _ChildQuestsStatTile({
+    required this.scale,
     required this.label,
-    required this.count,
-    required this.selected,
-    required this.activeVariant,
+    required this.value,
+    required this.background,
+    required this.outerShadows,
+    required this.verticalPaddingPx,
     required this.onTap,
   });
 
+  final double scale;
   final String label;
-  final int count;
-  final bool selected;
-  final _StatTileVariant activeVariant;
+  final String value;
+  final Color background;
+  final List<BoxShadow> outerShadows;
+  final double verticalPaddingPx;
   final VoidCallback onTap;
-
-  Color _activeFill() {
-    switch (activeVariant) {
-      case _StatTileVariant.mint:
-        return kFigmaChildStatMint;
-      case _StatTileVariant.lavender:
-        return kFigmaChildStatLavender;
-    }
-  }
-
-  List<BoxShadow> _activeOuterShadows() {
-    switch (activeVariant) {
-      case _StatTileVariant.mint:
-        return _statTileMintShadows();
-      case _StatTileVariant.lavender:
-        return _statTileLavenderShadows();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    const r = 25.0;
+    final r = 22.0 * scale;
     final borderRadius = BorderRadius.circular(r);
-    final surface = selected
-        ? _activeFill()
-        : Colors.white.withValues(alpha: 0.58);
-    final borderAlpha = selected ? 0.08 : 0.34;
-
     return SizedBox(
-      height: 177,
+      height: 142 * scale,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -404,19 +397,17 @@ class _ChildStatTile extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: borderRadius,
-              border: Border.all(
-                color: Colors.black.withValues(alpha: borderAlpha),
-              ),
-              boxShadow: selected ? _activeOuterShadows() : const [],
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              boxShadow: outerShadows,
             ),
             child: ClipRRect(
               borderRadius: borderRadius,
               child: ColoredBox(
-                color: surface,
+                color: background,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 28,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 8 * scale,
+                    vertical: verticalPaddingPx * scale,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -424,27 +415,20 @@ class _ChildStatTile extends StatelessWidget {
                       Text(
                         label,
                         textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.nunito(
-                          fontSize: 17,
+                          fontSize: 17 * scale,
                           fontWeight: FontWeight.w400,
-                          color: Colors.black.withValues(
-                            alpha: selected ? 1.0 : 0.55,
-                          ),
-                          height: 1.1,
+                          color: Colors.black,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      SizedBox(height: 11 * scale),
                       Text(
-                        '$count',
+                        value,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.nunito(
-                          fontSize: 34,
+                          fontSize: 34 * scale,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black.withValues(
-                            alpha: selected ? 1.0 : 0.42,
-                          ),
+                          color: Colors.black,
                           height: 1,
                         ),
                       ),

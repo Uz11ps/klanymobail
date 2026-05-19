@@ -10,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_snackbar.dart';
-import '../../../core/storage_presign.dart';
+import '../presigned_member_avatar.dart';
 import '../../auth/child_self_avatar.dart';
 import '../../auth/child_session.dart';
 import '../../auth/child_pin_store.dart';
@@ -959,21 +959,14 @@ class _DashboardProfileCard extends StatelessWidget {
                                   : displayName.characters.first.toUpperCase(),
                             );
                           }
-                          return FutureBuilder<String?>(
-                            key: ValueKey(key),
-                            future: presignStorageDownload(
-                              accessToken: session.accessToken,
-                              bucket: 'member-avatars',
-                              objectKey: key,
-                            ),
-                            builder: (context, snap) => UserAvatar(
-                              userKey: 'child:${session.childId}',
-                              size: size,
-                              fallbackText: displayName.isEmpty
-                                  ? '?'
-                                  : displayName.characters.first.toUpperCase(),
-                              remoteImageUrl: snap.data,
-                            ),
+                          return PresignedMemberAvatar(
+                            accessToken: session.accessToken,
+                            objectKey: key,
+                            userKey: 'child:${session.childId}',
+                            size: size,
+                            fallbackText: displayName.isEmpty
+                                ? '?'
+                                : displayName.characters.first.toUpperCase(),
                           );
                         },
                       ),

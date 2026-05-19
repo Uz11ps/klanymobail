@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import 'child_session.dart';
 
 const _uuid = Uuid();
@@ -17,6 +18,7 @@ Future<void> uploadChildAvatarXFile(WidgetRef ref, XFile imageFile) async {
   if (session == null || api == null) {
     throw Exception('Нет сессии ребёнка');
   }
+  final previousKey = session.avatarObjectKey;
 
   final bytes = await imageFile.readAsBytes();
   var ext = imageFile.path.split('.').last.toLowerCase();
@@ -47,6 +49,7 @@ Future<void> uploadChildAvatarXFile(WidgetRef ref, XFile imageFile) async {
     body: <String, dynamic>{'objectKey': key},
   );
   await ref.read(childSessionProvider.notifier).setAvatarObjectKey(key);
+  _invalidateAvatarPresign(previousKey, key);
 }
 
 Future<void> uploadChildAvatarPngBytes(WidgetRef ref, Uint8List pngBytes) async {
@@ -55,6 +58,7 @@ Future<void> uploadChildAvatarPngBytes(WidgetRef ref, Uint8List pngBytes) async 
   if (session == null || api == null) {
     throw Exception('Нет сессии ребёнка');
   }
+  final previousKey = session.avatarObjectKey;
 
   final key =
       'avatars/families/${session.familyId}/children/${session.childId}/${_uuid.v4()}.png';
@@ -82,4 +86,14 @@ Future<void> uploadChildAvatarPngBytes(WidgetRef ref, Uint8List pngBytes) async 
     body: <String, dynamic>{'objectKey': key},
   );
   await ref.read(childSessionProvider.notifier).setAvatarObjectKey(key);
+  _invalidateAvatarPresign(previousKey, key);
+}
+
+void _invalidateAvatarPresign(String? previousKey, String newKey) {
+  const bucket = 'member-avatars';
+  final prev = previousKey?.trim();
+  if (prev != null && prev.isNotEmpty) {
+    invalidatePresignStorageDownload(bucket: bucket, objectKey: prev);
+  }
+  invalidatePresignStorageDownload(bucket: bucket, objectKey: newKey);
 }
