@@ -20,6 +20,7 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
+import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
@@ -2067,9 +2068,19 @@ class _LoadErrorCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            error.toString(),
+            userFriendlyErrorMessage(error),
             style: const TextStyle(fontSize: 13, color: kChildInkMuted),
           ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 12),
+            Text(
+              error.toString(),
+              style: TextStyle(
+                fontSize: 11,
+                color: kChildInkMuted.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           ClanPrimaryButton(
             label: 'Повторить',

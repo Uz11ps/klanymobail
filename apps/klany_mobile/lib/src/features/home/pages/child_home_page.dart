@@ -493,14 +493,27 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
         SizedBox(height: 12 * s),
         if (_loadError != null) ...[
           Text(
-            _loadError.toString(),
+            userFriendlyErrorMessage(_loadError),
             textAlign: TextAlign.center,
             style: _nunito(
               fontSize: 12 * s,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               color: kChildInkMuted,
+              height: 1.35,
             ),
           ),
+          if (kDebugMode) ...[
+            SizedBox(height: 8 * s),
+            Text(
+              _loadError.toString(),
+              textAlign: TextAlign.center,
+              style: _nunito(
+                fontSize: 11 * s,
+                fontWeight: FontWeight.w400,
+                color: kChildInkMuted.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
           SizedBox(height: 12 * s),
         ],
         TextButton(
