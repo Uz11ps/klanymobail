@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../auth/auth_actions.dart';
 import '../../auth/parent_access_repository.dart';
+import '../../auth/parent_session.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
@@ -234,6 +235,8 @@ class _ParentFamilySettingsPageState
   bool _parentalControl = true;
   Future<List<FamilySubscriptionItem>>? _familySubscriptionsFuture;
   String? _subscriptionsFamilyId;
+  /// Обновляет FutureBuilder родителей/детей после PATCH профиля.
+  int _familyRosterNonce = 0;
 
   void _reloadFamilySubscriptions(String familyId) {
     setState(() {
@@ -646,6 +649,109 @@ class _ParentFamilySettingsPageState
     );
   }
 
+  /// Диалог в стиле [showAvatarPicker] — белая карточка, заголовок Nunito, нижний стек кнопок.
+  Future<void> _editMyDisplayNameSheet({
+    required String shownNameLabel,
+    required String editableSeed,
+  }) async {
+    if (_busy) return;
+    final controller = TextEditingController(text: editableSeed);
+
+    String? savedName;
+    try {
+      savedName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Ваше имя',
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: kChildInk,
+          ),
+        ),
+        content: SizedBox(
+          width: 320,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                shownNameLabel == 'Без имени'
+                    ? 'Подставится в семью и экран учётной записи'
+                    : 'Так будет отображаться в семье',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 14,
+                  color: kChildInkMuted.withValues(alpha: 0.95),
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: kChildInk,
+                ),
+                decoration: _settingsField('Например, Мария'),
+              ),
+              const SizedBox(height: 24),
+              FigmaDialogActionStack(
+                onCancel: () => Navigator.pop(ctx, null),
+                onConfirm: () {
+                  final t = controller.text.trim();
+                  if (t.isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('Введите имя')),
+                    );
+                    return;
+                  }
+                  if (t.length > 120) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(
+                        content: Text('Не длиннее 120 символов'),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx, t);
+                },
+                confirmLabel: 'Сохранить',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    } finally {
+      controller.dispose();
+    }
+
+    if (savedName == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(parentAccessRepositoryProvider)
+          .updateMyProfileDisplayName(savedName);
+      if (!mounted) return;
+      setState(() => _familyRosterNonce++);
+      context.showKlanySnackBar(const SnackBar(content: Text('Имя сохранено')));
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -673,6 +779,7 @@ class _ParentFamilySettingsPageState
         List<FamilyMemberCodeItem>,
       )
     >(
+      key: ValueKey<String>('fam-${family.familyId}-$_familyRosterNonce'),
       future: () async {
         final repo = ref.read(parentAccessRepositoryProvider);
         final parents = await repo.getParentMembers(family.familyId);
@@ -684,6 +791,42 @@ class _ParentFamilySettingsPageState
         final parents = snapshot.data?.$1 ?? const <ParentMemberItem>[];
         final children = snapshot.data?.$2 ?? const <ChildMemberItem>[];
         final codes = snapshot.data?.$3 ?? const <FamilyMemberCodeItem>[];
+
+        final sessionUid =
+            ref.watch(parentSessionProvider).asData?.value?.userId;
+        ParentMemberItem? accountSelf;
+        if (sessionUid != null && sessionUid.isNotEmpty) {
+          for (final p in parents) {
+            if (p.userId == sessionUid) {
+              accountSelf = p;
+              break;
+            }
+          }
+        }
+        final waitingRoster =
+            snapshot.connectionState == ConnectionState.waiting &&
+                snapshot.data == null;
+        final rawName = accountSelf?.displayName.trim() ?? '';
+        final isNamePlaceholder =
+            rawName.isEmpty ||
+                rawName == 'Без имени' ||
+                rawName == 'Родитель';
+        final profileNameLine =
+            waitingRoster
+                ? 'Загрузка…'
+                : (isNamePlaceholder ? 'Без имени' : rawName);
+        final roleFamilyLine =
+            waitingRoster
+                ? ''
+                : (accountSelf == null
+                      ? 'Родитель'
+                      : (accountSelf.role == 'admin'
+                            ? 'Глава семьи'
+                            : 'Родитель'));
+        final accountSubtitle =
+            roleFamilyLine.isEmpty
+                ? profileNameLine
+                : '$profileNameLine\n$roleFamilyLine';
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -839,7 +982,24 @@ class _ParentFamilySettingsPageState
                                           _IconRow(
                                             icon: Icons.badge_outlined,
                                             title: 'Текущая учётная запись',
-                                            subtitle: 'Без имени\nГлава семьи',
+                                            subtitle: accountSubtitle,
+                                            trailing: Icon(
+                                              Icons.edit_outlined,
+                                              size: 22,
+                                              color: kChildInkMuted,
+                                            ),
+                                            onTap: waitingRoster
+                                                ? null
+                                                : () {
+                                                    _editMyDisplayNameSheet(
+                                                      shownNameLabel:
+                                                          profileNameLine,
+                                                      editableSeed:
+                                                          isNamePlaceholder
+                                                              ? ''
+                                                              : rawName,
+                                                    );
+                                                  },
                                           ),
                                           const Padding(
                                             padding: EdgeInsets.symmetric(
@@ -2069,11 +2229,13 @@ class _IconRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
+    this.trailing,
   });
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -2122,6 +2284,7 @@ class _IconRow extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing case final tw?) tw,
             ],
           ),
         ),

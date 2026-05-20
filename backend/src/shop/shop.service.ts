@@ -146,7 +146,7 @@ export class ShopService {
 
     const childProfile = await this.prisma.child.findUnique({
       where: { id: user.childId },
-      select: { firstName: true, lastName: true },
+      select: { firstName: true, lastName: true, avatarObjectKey: true },
     });
     const childDisplayName =
       [childProfile?.firstName?.trim(), childProfile?.lastName?.trim()]
@@ -201,6 +201,9 @@ export class ShopService {
             totalPrice: purchase.totalPrice,
             childId: user.childId,
             ...(childDisplayName ? { displayName: childDisplayName } : {}),
+            ...(childProfile?.avatarObjectKey
+              ? { avatarObjectKey: childProfile.avatarObjectKey }
+              : {}),
           },
         })),
       });
@@ -249,6 +252,23 @@ export class ShopService {
     if (!purchase || purchase.familyId !== familyId) throw new NotFoundException("Покупка не найдена");
     if (purchase.status !== "requested") throw new BadRequestException("Покупка уже обработана");
 
+    const childBrief = await this.prisma.child.findUnique({
+      where: { id: purchase.childId },
+      select: { firstName: true, lastName: true, avatarObjectKey: true },
+    });
+    const childDisplayName = [childBrief?.firstName?.trim(), childBrief?.lastName?.trim()]
+      .filter((s): s is string => !!s && s.length > 0)
+      .join(" ")
+      .trim();
+    const shopNotifyPayloadCommon = {
+      purchaseId: purchase.id,
+      productTitle: purchase.product.title,
+      totalPrice: purchase.totalPrice,
+      childId: purchase.childId,
+      ...(childDisplayName ? { displayName: childDisplayName } : {}),
+      ...(childBrief?.avatarObjectKey ? { avatarObjectKey: childBrief.avatarObjectKey } : {}),
+    };
+
     if (approve) {
       const parentProfiles = await this.prisma.profile.findMany({
         where: {
@@ -269,11 +289,7 @@ export class ShopService {
             familyId,
             toUserId: userId,
             nType: "shop_purchase_approved",
-            payload: {
-              purchaseId: purchase.id,
-              productTitle: purchase.product.title,
-              totalPrice: purchase.totalPrice,
-            },
+            payload: { ...shopNotifyPayloadCommon },
           })),
         });
       }
@@ -321,11 +337,7 @@ export class ShopService {
           familyId,
           toUserId: userId,
           nType: "shop_purchase_rejected",
-          payload: {
-            purchaseId: purchase.id,
-            productTitle: purchase.product.title,
-            totalPrice: purchase.totalPrice,
-          },
+          payload: { ...shopNotifyPayloadCommon },
         })),
       });
     }

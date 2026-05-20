@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 
 bool _ruFemaleNameHint(String name) {
   final t = name.trim().toLowerCase();
@@ -57,22 +60,47 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 }
 
-/// Загружает ленту + активные спеццели без побочных эффектов в `build` родителя.
-class _NotificationsHubScreen extends ConsumerStatefulWidget {
+/// Каркас: фон + `Scaffold` не пересобираются при обновлении ленты, только слой ниже.
+class _NotificationsHubScreen extends StatelessWidget {
   const _NotificationsHubScreen({required this.familyId});
+
   final String familyId;
 
   @override
-  ConsumerState<_NotificationsHubScreen> createState() =>
-      _NotificationsHubScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned.fill(child: FigmaAuthScreenBackground()),
+          Positioned.fill(
+            child: _NotificationsInteractiveContent(familyId: familyId),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _NotificationsHubScreenState
-    extends ConsumerState<_NotificationsHubScreen> {
-  Future<_NotificationsHubSnapshot>? _future;
+/// Лента и секции карточек — живой `State` + тихий опрос API.
+class _NotificationsInteractiveContent extends ConsumerStatefulWidget {
+  const _NotificationsInteractiveContent({required this.familyId});
 
-  final Set<String> _removedNotificationIds = <String>{};
-  final Set<String> _exitingNotificationIds = <String>{};
+  final String familyId;
+
+  @override
+  ConsumerState<_NotificationsInteractiveContent> createState() =>
+      _NotificationsInteractiveContentState();
+}
+
+class _NotificationsInteractiveContentState
+    extends ConsumerState<_NotificationsInteractiveContent> {
+  _NotificationsHubSnapshot? _hub;
+  bool _initialLoading = true;
+  Object? _loadError;
+  bool _refreshInProgress = false;
+  Timer? _livePoll;
 
   Future<_NotificationsHubSnapshot> _fetchHub(String familyId) async {
     final notifications = await ref
@@ -94,17 +122,84 @@ class _NotificationsHubScreenState
     );
   }
 
-  bool _scheduledFirstLoad = false;
+  Future<void> _bootstrap() async {
+    try {
+      final s = await _fetchHub(widget.familyId);
+      if (!mounted) return;
+      setState(() {
+        _hub = s;
+        _initialLoading = false;
+        _loadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _hub = null;
+        _initialLoading = false;
+        _loadError = e;
+      });
+    }
+  }
 
-  void _reload() {
+  Future<void> _reload() async {
     setState(() {
-      _removedNotificationIds.clear();
-      _exitingNotificationIds.clear();
-      _future = _fetchHub(widget.familyId);
+      _refreshInProgress = true;
+      _loadError = null;
+    });
+    try {
+      final s = await _fetchHub(widget.familyId);
+      if (!mounted) return;
+      setState(() {
+        _hub = s;
+        _refreshInProgress = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _refreshInProgress = false);
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Не удалось обновить ленту: $e')),
+      );
+    }
+  }
+
+  Future<void> _silentPoll() async {
+    if (!mounted || _refreshInProgress) return;
+    try {
+      final s = await _fetchHub(widget.familyId);
+      if (!mounted || _refreshInProgress) return;
+      setState(() {
+        _hub = s;
+        _loadError = null;
+      });
+    } catch (_) {}
+  }
+
+  void _patchNotificationRead(String id) {
+    final h = _hub;
+    if (h == null) return;
+    setState(() {
+      _hub = _NotificationsHubSnapshot(
+        notifications: [
+          for (final e in h.notifications)
+            if (e.id == id)
+              InAppNotificationItem(
+                id: e.id,
+                type: e.type,
+                status: 'read',
+                createdAt: e.createdAt,
+                payload: e.payload,
+              )
+            else
+              e,
+        ],
+        reverseQuests: h.reverseQuests,
+        childNamesById: h.childNamesById,
+      );
     });
   }
 
   Future<void> _markNotificationRead(InAppNotificationItem n) async {
+    if (n.status == 'read') return;
     try {
       await ref.read(notificationsRepositoryProvider).markRead(n.id);
     } catch (e) {
@@ -115,13 +210,20 @@ class _NotificationsHubScreenState
       return;
     }
     if (!mounted) return;
-    setState(() => _exitingNotificationIds.add(n.id));
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    _patchNotificationRead(n.id);
+  }
+
+  Future<void> _openNotificationThenNavigate(InAppNotificationItem n) async {
+    if (n.status != 'read') {
+      try {
+        await ref.read(notificationsRepositoryProvider).markRead(n.id);
+        if (mounted) _patchNotificationRead(n.id);
+      } catch (_) {
+        // Не блокируем переход: пользователь всё равно открыл цель.
+      }
+    }
     if (!mounted) return;
-    setState(() {
-      _exitingNotificationIds.remove(n.id);
-      _removedNotificationIds.add(n.id);
-    });
+    _openNotificationTarget(n);
   }
 
   void _openNotificationTarget(InAppNotificationItem n) {
@@ -164,367 +266,368 @@ class _NotificationsHubScreenState
     }
   }
 
-  Widget _animatedNotificationWrap(InAppNotificationItem n, Widget child) {
-    final exiting = _exitingNotificationIds.contains(n.id);
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 290),
-      curve: Curves.easeInOutCubic,
-      alignment: Alignment.topCenter,
-      clipBehavior: Clip.hardEdge,
-      child: exiting ? const SizedBox.shrink() : child,
-    );
-  }
-
   @override
   void initState() {
     super.initState();
+    Future<void>.microtask(_bootstrap);
+    _livePoll = Timer.periodic(kParentLivePollInterval, (_) {
+      Future<void>.microtask(_silentPoll);
+    });
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_scheduledFirstLoad) {
-      _scheduledFirstLoad = true;
-      _future = _fetchHub(widget.familyId);
-    }
+  void dispose() {
+    _livePoll?.cancel();
+    super.dispose();
   }
 
   @override
-  void didUpdateWidget(covariant _NotificationsHubScreen oldWidget) {
+  void didUpdateWidget(covariant _NotificationsInteractiveContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.familyId != widget.familyId) {
-      _reload();
+      setState(() {
+        _hub = null;
+        _initialLoading = true;
+        _loadError = null;
+        _refreshInProgress = false;
+      });
+      Future<void>.microtask(_bootstrap);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_NotificationsHubSnapshot>(
-      future: _future,
-      builder: (context, snapshot) {
-        final hub =
-            snapshot.data ??
-            _NotificationsHubSnapshot(
-              notifications: const <InAppNotificationItem>[],
-              reverseQuests: const <ParentQuestItem>[],
-              childNamesById: const <String, String>{},
-            );
-        final listVisible = hub.notifications
-            .where((n) => !_removedNotificationIds.contains(n.id))
-            .toList();
-        final reverseQuests = hub.reverseQuests;
-        final totalItems = listVisible.length + reverseQuests.length;
-        final requests = <InAppNotificationItem>[];
-        final events = <InAppNotificationItem>[];
-        final updates = <InAppNotificationItem>[];
-        for (final n in listVisible) {
-          if (n.type == 'access_request') {
-            requests.add(n);
-          } else if (n.type.startsWith('quest_') ||
-              n.type.startsWith('shop_') ||
-              n.type == 'wallet_adjusted') {
-            events.add(n);
-          } else {
-            updates.add(n);
-          }
-        }
-        return Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              const FigmaAuthScreenBackground(),
-              SafeArea(
-                bottom: false,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final pageWidth = klanyResponsiveContentWidth(constraints.maxWidth);
-                    final sidePadding = constraints.maxWidth < 430 ? 9.0 : 19.0;
-                    return Center(
-                      child: SizedBox(
-                        width: pageWidth,
-                        child: ListView(
-                          physics: const ClampingScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(
-                            sidePadding,
-                            31,
-                            sidePadding,
-                            32,
+    if (_initialLoading && _hub == null && _loadError == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_loadError != null && _hub == null) {
+      return Center(child: Text('Ошибка: $_loadError'));
+    }
+
+    final hub = _hub ??
+        _NotificationsHubSnapshot(
+          notifications: const <InAppNotificationItem>[],
+          reverseQuests: const <ParentQuestItem>[],
+          childNamesById: const <String, String>{},
+        );
+
+    final listVisible = hub.notifications
+        .where((n) => n.status != 'read')
+        .toList();
+    final reverseQuests = hub.reverseQuests;
+    final totalItems = listVisible.length + reverseQuests.length;
+    const bumpCap = 48;
+    final feedBumpKey =
+        '$totalItems|${reverseQuests.map((q) => '${q.id}:${q.status}').join(',')}|${listVisible.take(bumpCap).map((n) => '${n.id}:${n.status}').join(',')}';
+    final requests = <InAppNotificationItem>[];
+    final events = <InAppNotificationItem>[];
+    final updates = <InAppNotificationItem>[];
+    for (final n in listVisible) {
+      if (n.type == 'access_request') {
+        requests.add(n);
+      } else if (n.type.startsWith('quest_') ||
+          n.type.startsWith('shop_') ||
+          n.type == 'wallet_adjusted') {
+        events.add(n);
+      } else {
+        updates.add(n);
+      }
+    }
+
+    return SafeArea(
+      bottom: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final pageWidth = klanyResponsiveContentWidth(constraints.maxWidth);
+          final sidePadding = constraints.maxWidth < 430 ? 9.0 : 19.0;
+          return Center(
+            child: SizedBox(
+              width: pageWidth,
+              child: RepaintBoundary(
+                child: ListView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    sidePadding,
+                    31,
+                    sidePadding,
+                    32,
+                  ),
+                  children: [
+                    _NotificationsHeader(
+                      onBack: () => Navigator.of(context).maybePop(),
+                      onRefresh: _reload,
+                    ),
+                    if (_refreshInProgress) ...[
+                      const SizedBox(height: 6),
+                      const LinearProgressIndicator(
+                        color: kChildBrandBlue,
+                        backgroundColor: kChildOutline,
+                      ),
+                    ],
+                    const SizedBox(height: 31),
+                    _FigmaFeedCard(
+                      color: _figmaWhite,
+                      padding: const EdgeInsets.fromLTRB(
+                        10,
+                        24,
+                        10,
+                        24,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Лента семьи',
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: kChildInk,
+                            ),
                           ),
-                          children: [
-                            _NotificationsHeader(
-                              onBack: () => Navigator.of(context).maybePop(),
-                              onRefresh: _reload,
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Здесь собраны покупки, задачи и важные изменения по семье.',
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: kChildInk,
+                              height: 1.18,
                             ),
-                            const SizedBox(height: 31),
-                            _FigmaFeedCard(
-                              color: _figmaWhite,
-                              padding: const EdgeInsets.fromLTRB(
-                                10,
-                                24,
-                                10,
-                                24,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const Text(
-                                    'Лента семьи',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      color: kChildInk,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    'Здесь собраны покупки, задачи и важные изменения по семье.',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: kChildInk,
-                                      height: 1.18,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
-                                      vertical: 14,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(62),
-                                      border: Border.all(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.22,
-                                        ),
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      'Всего событий: $totalItems',
-                                      style: const TextStyle(
-                                        fontFamily: 'Nunito',
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
-                                        color: kChildInk,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(62),
+                              border: Border.all(
+                                color: Colors.black.withValues(
+                                  alpha: 0.22,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting)
-                              const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(20),
-                                  child: CircularProgressIndicator(),
+                            alignment: Alignment.center,
+                            child: ValueBumpWrap(
+                              changeKey: feedBumpKey,
+                              child: Text(
+                                'Всего событий: $totalItems',
+                                style: const TextStyle(
+                                  fontFamily: 'Nunito',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: kChildInk,
                                 ),
                               ),
-                            if (totalItems == 0 &&
-                                snapshot.connectionState !=
-                                    ConnectionState.waiting)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: Center(
-                                  child: Text(
-                                    'Пока пусто: нет задач от детей к вам '
-                                    '(с открытым статусом) и записей ленты',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      color: kChildInkMuted,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (reverseQuests.isNotEmpty) ...[
-                              const _GroupTitle('К вам от ребёнка'),
-                              const Padding(
-                                padding: EdgeInsets.only(
-                                  left: 4,
-                                  right: 4,
-                                  bottom: 14,
-                                ),
-                                child: Text(
-                                  'Ваши задачи — ребёнок попросил, исполняете вы. Это '
-                                  'не задачи для ребёнка.',
-                                  style: TextStyle(
-                                    fontFamily: 'Nunito',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: kChildInkMuted,
-                                    height: 1.38,
-                                  ),
-                                ),
-                              ),
-                              ...reverseQuests.map(
-                                (q) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _ReverseQuestParentCard(
-                                    quest: q,
-                                    childHint: () {
-                                      final id = q.childIds.isEmpty
-                                          ? ''
-                                          : q.childIds.first;
-                                      if (id.isEmpty) return 'ребёнка';
-                                      final name = hub.childNamesById[id];
-                                      return name == null || name.isEmpty
-                                          ? 'ребёнка'
-                                          : name;
-                                    }(),
-                                    onComplete: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text(
-                                            'Задача от ребёнка выполнена?',
-                                          ),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              const Text(
-                                                'Вы отметаете выполнение той задачи, '
-                                                'которую поручили вам, а не ребёнку.',
-                                              ),
-                                              const SizedBox(height: 12),
-                                              Text(
-                                                'Монеты (${q.rewardAmount}) уже списаны с '
-                                                'счёта ребёнка при создании задачи. После '
-                                                'подтверждения повторно не начисляются.',
-                                              ),
-                                              const SizedBox(height: 16),
-                                              FigmaDialogActionStack(
-                                                onCancel: () =>
-                                                    Navigator.pop(ctx, false),
-                                                onConfirm: () =>
-                                                    Navigator.pop(ctx, true),
-                                                confirmLabel:
-                                                    'Сделано — закрыть',
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                      if (confirm != true || !context.mounted) {
-                                        return;
-                                      }
-                                      try {
-                                        await ref
-                                            .read(questsRepositoryProvider)
-                                            .closeQuest(questId: q.id);
-                                        if (!context.mounted) return;
-                                        _reload();
-                                        context.showKlanySnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Задача от ребёнка закрыта. Оплата уже была '
-                                              'списана с счёта ребёнка при создании.',
-                                            ),
-                                          ),
-                                        );
-                                      } catch (e) {
-                                        if (!context.mounted) return;
-                                        context.showKlanySnackBar(
-                                          SnackBar(content: Text('Ошибка: $e')),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            if (requests.isNotEmpty) ...[
-                              const _GroupTitle('Запросы'),
-                              ...requests.map(
-                                (n) =>
-                                    _animatedNotificationWrap(
-                                      n,
-                                      _NotificationCard(
-                                        bg: _figmaMint,
-                                        title: 'Новый запрос ребёнка',
-                                        subtitle: () {
-                                          final name =
-                                              (n.payload['displayName'] ??
-                                                      n.payload['childName'] ??
-                                                      '')
-                                                  .toString();
-                                          return name.isEmpty
-                                              ? 'Ребёнок запросил доступ к семье.'
-                                              : '$name запросил(а) доступ к семье.';
-                                        }(),
-                                        icon: Icons.child_care_outlined,
-                                        onOpen: () =>
-                                            _openNotificationTarget(n),
-                                        onMarkRead: () =>
-                                            _markNotificationRead(n),
-                                      ),
-                                    ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            if (events.isNotEmpty) ...[
-                              const _GroupTitle('События'),
-                              ...events.map(
-                                (n) =>
-                                    _animatedNotificationWrap(
-                                      n,
-                                      _NotificationCard(
-                                        bg: _figmaSunny,
-                                        title: 'Новое событие',
-                                        subtitle: _eventSubtitle(n),
-                                        icon:
-                                            Icons.notifications_none_rounded,
-                                        onOpen: () =>
-                                            _openNotificationTarget(n),
-                                        onMarkRead: () =>
-                                            _markNotificationRead(n),
-                                      ),
-                                    ),
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-                            if (updates.isNotEmpty) ...[
-                              const _GroupTitle('Обновления'),
-                              ...updates.map(
-                                (n) =>
-                                    _animatedNotificationWrap(
-                                      n,
-                                      _NotificationCard(
-                                        bg: _figmaSky,
-                                        title: 'Обновление данных',
-                                        subtitle:
-                                            'Данные семьи были обновлены. '
-                                            'Проверьте изменения.',
-                                        icon: Icons.refresh,
-                                        onOpen: () =>
-                                            _openNotificationTarget(n),
-                                        onMarkRead: () =>
-                                            _markNotificationRead(n),
-                                      ),
-                                    ),
-                              ),
-                            ],
-                          ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (totalItems == 0 &&
+                        !_initialLoading &&
+                        !_refreshInProgress)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Text(
+                            'Пока пусто: нет задач от детей к вам '
+                            '(с открытым статусом) и записей ленты',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Nunito',
+                              color: kChildInkMuted,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
                       ),
-                    );
-                  },
+                    if (reverseQuests.isNotEmpty) ...[
+                      const _GroupTitle('К вам от ребёнка'),
+                      const Padding(
+                        padding: EdgeInsets.only(
+                          left: 4,
+                          right: 4,
+                          bottom: 14,
+                        ),
+                        child: Text(
+                          'Ваши задачи — ребёнок попросил, исполняете вы. Это '
+                          'не задачи для ребёнка.',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: kChildInkMuted,
+                            height: 1.38,
+                          ),
+                        ),
+                      ),
+                      ...reverseQuests.map(
+                        (q) => Padding(
+                          key: ValueKey<String>('reverse-${q.id}'),
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ReverseQuestParentCard(
+                            quest: q,
+                            childHint: () {
+                              final id = q.childIds.isEmpty
+                                  ? ''
+                                  : q.childIds.first;
+                              if (id.isEmpty) return 'ребёнка';
+                              final name = hub.childNamesById[id];
+                              return name == null || name.isEmpty
+                                  ? 'ребёнка'
+                                  : name;
+                            }(),
+                            onComplete: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text(
+                                    'Задача от ребёнка выполнена?',
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      const Text(
+                                        'Вы отметаете выполнение той задачи, '
+                                        'которую поручили вам, а не ребёнку.',
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Монеты (${q.rewardAmount}) уже списаны с '
+                                        'счёта ребёнка при создании задачи. После '
+                                        'подтверждения повторно не начисляются.',
+                                      ),
+                                      const SizedBox(height: 16),
+                                      FigmaDialogActionStack(
+                                        onCancel: () =>
+                                            Navigator.pop(ctx, false),
+                                        onConfirm: () =>
+                                            Navigator.pop(ctx, true),
+                                        confirmLabel:
+                                            'Сделано — закрыть',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                              if (confirm != true || !context.mounted) {
+                                return;
+                              }
+                              try {
+                                await ref
+                                    .read(questsRepositoryProvider)
+                                    .closeQuest(questId: q.id);
+                                if (!context.mounted) return;
+                                await _reload();
+                                if (!context.mounted) return;
+                                context.showKlanySnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Задача от ребёнка закрыта. Оплата уже была '
+                                      'списана с счёта ребёнка при создании.',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                context.showKlanySnackBar(
+                                  SnackBar(content: Text('Ошибка: $e')),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (requests.isNotEmpty) ...[
+                      const _GroupTitle('Запросы'),
+                      ...requests.map(
+                        (n) => KeyedSubtree(
+                          key: ValueKey<String>('nf-req-${n.id}'),
+                          child: _NotificationCard(
+                            bg: _figmaMint,
+                            title: 'Новый запрос ребёнка',
+                            subtitle: () {
+                              final name =
+                                  (n.payload['displayName'] ??
+                                          n.payload['childName'] ??
+                                          '')
+                                      .toString();
+                              return name.isEmpty
+                                  ? 'Ребёнок запросил доступ к семье.'
+                                  : '$name запросил(а) доступ к семье.';
+                            }(),
+                            icon: Icons.child_care_outlined,
+                            onOpen: () {
+                              unawaited(_openNotificationThenNavigate(n));
+                            },
+                            onMarkRead: () {
+                              unawaited(_markNotificationRead(n));
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (events.isNotEmpty) ...[
+                      const _GroupTitle('События'),
+                      ...events.map(
+                        (n) => KeyedSubtree(
+                          key: ValueKey<String>('nf-ev-${n.id}'),
+                          child: _NotificationCard(
+                            bg: _figmaSunny,
+                            title: 'Новое событие',
+                            subtitle: _eventSubtitle(n),
+                            icon: Icons.notifications_none_rounded,
+                            onOpen: () {
+                              unawaited(_openNotificationThenNavigate(n));
+                            },
+                            onMarkRead: () {
+                              unawaited(_markNotificationRead(n));
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (updates.isNotEmpty) ...[
+                      const _GroupTitle('Обновления'),
+                      ...updates.map(
+                        (n) => KeyedSubtree(
+                          key: ValueKey<String>('nf-up-${n.id}'),
+                          child: _NotificationCard(
+                            bg: _figmaSky,
+                            title: 'Обновление данных',
+                            subtitle:
+                                'Данные семьи были обновлены. '
+                                'Проверьте изменения.',
+                            icon: Icons.refresh,
+                            onOpen: () {
+                              unawaited(_openNotificationThenNavigate(n));
+                            },
+                            onMarkRead: () {
+                              unawaited(_markNotificationRead(n));
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,6 +12,7 @@ import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 
 const Color _kEconomyTitleBlue = Color(0xFF4563B1);
 const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
@@ -47,6 +50,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   List<ParentChildWalletItem> _wallets = const [];
 
   bool _walletsListenerSet = false;
+  Timer? _economyPoll;
 
   @override
   void initState() {
@@ -54,6 +58,13 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     _tab =
         widget.initialEconomySegment == 2 ? 2 : widget.initialEconomySegment.clamp(0, 2);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWallets());
+    _economyPoll = Timer.periodic(kParentLivePollInterval, (_) => _loadWallets());
+  }
+
+  @override
+  void dispose() {
+    _economyPoll?.cancel();
+    super.dispose();
   }
 
   @override
@@ -379,53 +390,62 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
 
                     Padding(
                       padding: const EdgeInsets.fromLTRB(19, 20, 19, 20),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Image.asset(
-                                'assets/figma/coin_stack.png',
-                                width: 32,
-                                height: 29,
-                                fit: BoxFit.contain,
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                _formatBalance(totalCoins),
-                                style: const TextStyle(
-                                  fontFamily: 'Nunito',
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.w800,
-                                  color: _kEconomyTitleBlue,
-                                  height: 1.0,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black.withValues(alpha: 0.3),
-                              ),
+                      child: ValueBumpWrap(
+                        changeKey:
+                            '${totalCoins}_${_rublesPer10Coins}_${sel?.childId ?? -1}',
+                        alignment: Alignment.center,
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                TextSpan(text: '${_formatBalance(rubles)} '),
-                                const TextSpan(
-                                  text: '₽',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w400,
+                                Image.asset(
+                                  'assets/figma/coin_stack.png',
+                                  width: 32,
+                                  height: 29,
+                                  fit: BoxFit.contain,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _formatBalance(totalCoins),
+                                  style: const TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w800,
+                                    color: _kEconomyTitleBlue,
+                                    height: 1.0,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 10),
+                            RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontFamily: 'Nunito',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      Colors.black.withValues(alpha: 0.3),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        '${_formatBalance(rubles)} ',
+                                  ),
+                                  const TextSpan(
+                                    text: '₽',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 

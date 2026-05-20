@@ -22,6 +22,7 @@ import '../../wallet/wallet_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
+import '../../../core/value_bump.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'parent_family_settings_page.dart';
@@ -81,7 +82,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTour());
     _refreshPendingRequests();
     _pendingRequestsTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      kParentLivePollInterval,
       (_) => _refreshPendingRequests(),
     );
   }
@@ -514,7 +515,8 @@ class _ParentDashboardView extends ConsumerStatefulWidget {
       _ParentDashboardViewState();
 }
 
-class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
+class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
+    with WidgetsBindingObserver {
   bool _initialLoading = true;
   bool _refreshing = false;
   Object? _loadError;
@@ -525,20 +527,56 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
   List<InAppNotificationItem> _notifications = const [];
   Timer? _refreshTimer;
 
-  @override
-  void initState() {
-    super.initState();
-    _reload(showLoading: true);
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: 20),
+  void _startRefreshTimerIfNeeded() {
+    _refreshTimer ??= Timer.periodic(
+      kParentLivePollInterval,
       (_) => _reload(silent: true),
     );
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _reload(showLoading: true);
+    _startRefreshTimerIfNeeded();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startRefreshTimerIfNeeded();
+      Future<void>.microtask(() => _reload(silent: true));
+    }
+  }
+
+  String _dashboardFeedDigest() {
+    const cap = 24;
+    final ns = _notifications
+        .take(cap)
+        .map(
+          (n) =>
+              '${n.id}:${n.type}:${n.status}:${n.createdAt.millisecondsSinceEpoch}',
+        )
+        .join('|');
+    final rs = _reviews
+        .take(cap)
+        .map(
+          (r) =>
+              '${r.questId}:${r.submittedAt?.millisecondsSinceEpoch ?? 0}:${r.title}',
+        )
+        .join('|');
+    return '$ns#$rs';
   }
 
   Future<void> _reload({bool showLoading = false, bool silent = false}) async {
@@ -840,40 +878,43 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
             child: SizedBox(
               width: 44,
               height: 44,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  const Icon(Icons.notifications_none_rounded,
-                      color: kChildInk, size: 24),
-                  if (bellBadge > 0)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 17,
-                          minHeight: 17,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD83A3A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        child: Text(
-                          bellBadge > 9 ? '9+' : '$bellBadge',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            height: 1.1,
+              child: ValueBumpWrap(
+                changeKey: bellBadge,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    const Icon(Icons.notifications_none_rounded,
+                        color: kChildInk, size: 24),
+                    if (bellBadge > 0)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 17,
+                            minHeight: 17,
                           ),
-                          textAlign: TextAlign.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD83A3A),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: Text(
+                            bellBadge > 9 ? '9+' : '$bellBadge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -968,12 +1009,22 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
           inProgress: activeQuests.length,
           onReview: _reviews.length,
           goalTotal: totalCoins,
+          inProgressBumpKey: activeQuests.length,
+          onReviewBumpKey: _reviews.length,
+          goalBumpKey: totalCoins,
           onQuestsTap: widget.onOpenQuests,
           onGoalTap: widget.onOpenWallet,
         ),
         const _FigmaSectionTitle('Недавние события'),
         const SizedBox(height: 11),
-        _MergedActivityFeed(notifications: _notifications, reviews: _reviews),
+        ValueBumpWrap(
+          changeKey: _dashboardFeedDigest(),
+          child: _MergedActivityFeed(
+            notifications: _notifications,
+            reviews: _reviews,
+            wallets: _wallets,
+          ),
+        ),
         const SizedBox(height: 24),
       ];
     }
@@ -1032,6 +1083,7 @@ class _InfoTile extends StatelessWidget {
   const _InfoTile({
     required this.title,
     required this.value,
+    this.valueBumpKey,
     this.footer,
     this.onTap,
     required this.background,
@@ -1040,6 +1092,8 @@ class _InfoTile extends StatelessWidget {
 
   final String title;
   final String value;
+  /// Анимация «дёргания» строки числа при смене этого ключа (напр. счётчик).
+  final Object? valueBumpKey;
   final String? footer;
   final VoidCallback? onTap;
   final Color background;
@@ -1047,6 +1101,7 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bump = valueBumpKey;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1077,17 +1132,33 @@ class _InfoTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                value,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
-                  height: 1.0,
-                ),
-              ),
+              bump == null
+                  ? Text(
+                      value,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                        height: 1.0,
+                      ),
+                    )
+                  : ValueBumpWrap(
+                      changeKey: bump,
+                      alignment: Alignment.center,
+                      child: Text(
+                        value,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
               if (footer != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -1114,6 +1185,9 @@ class _InfoPanelStrip extends StatelessWidget {
     required this.inProgress,
     required this.onReview,
     required this.goalTotal,
+    this.inProgressBumpKey,
+    this.onReviewBumpKey,
+    this.goalBumpKey,
     this.onQuestsTap,
     this.onGoalTap,
   });
@@ -1121,6 +1195,9 @@ class _InfoPanelStrip extends StatelessWidget {
   final int inProgress;
   final int onReview;
   final int goalTotal;
+  final Object? inProgressBumpKey;
+  final Object? onReviewBumpKey;
+  final Object? goalBumpKey;
   final VoidCallback? onQuestsTap;
   final VoidCallback? onGoalTap;
 
@@ -1133,6 +1210,7 @@ class _InfoPanelStrip extends StatelessWidget {
           child: _InfoTile(
             title: 'В работе',
             value: '$inProgress',
+            valueBumpKey: inProgressBumpKey,
             footer: 'КЛАН / ВСЕ',
             onTap: onQuestsTap,
             background: const Color(0xFFC1D8F5),
@@ -1155,6 +1233,7 @@ class _InfoPanelStrip extends StatelessWidget {
           child: _InfoTile(
             title: 'На проверке',
             value: '$onReview',
+            valueBumpKey: onReviewBumpKey,
             background: const Color(0xFFF9E8A5),
             boxShadows: [
               BoxShadow(
@@ -1175,6 +1254,7 @@ class _InfoPanelStrip extends StatelessWidget {
           child: _InfoTile(
             title: 'Общая цель',
             value: _formatThousandsRu(goalTotal),
+            valueBumpKey: goalBumpKey,
             footer: 'Накопления',
             onTap: onGoalTap,
             background: const Color(0xFFD9F6C2),
@@ -1408,6 +1488,7 @@ class _MergedActivityFeed extends StatelessWidget {
   const _MergedActivityFeed({
     required this.notifications,
     required this.reviews,
+    required this.wallets,
   });
 
   /// После объединения уведомлений и «на проверке» показываем не больше стольких строк.
@@ -1415,6 +1496,7 @@ class _MergedActivityFeed extends StatelessWidget {
 
   final List<InAppNotificationItem> notifications;
   final List<ParentReviewItem> reviews;
+  final List<ParentChildWalletItem> wallets;
 
   static const _feedName = TextStyle(
     fontFamily: 'Nunito',
@@ -1438,38 +1520,92 @@ class _MergedActivityFeed extends StatelessWidget {
     height: 1.35,
   );
 
+  /// Тип события в едином виде для сравнения (бекенд может отдавать точки или подчёркивания).
+  static String _eventType(InAppNotificationItem n) =>
+      n.type.replaceAll('.', '_').trim();
+
   static IconData _iconForNotification(InAppNotificationItem n) {
-    final norm = n.type.replaceAll('_', '.');
-    if (norm.startsWith('quest.')) {
-      return Icons.assignment_turned_in_outlined;
+    final t = _eventType(n);
+    switch (t) {
+      case 'shop_purchase_requested':
+        return Icons.add_shopping_cart_outlined;
+      case 'shop_purchase_approved':
+        return Icons.check_circle_outline_rounded;
+      case 'shop_purchase_rejected':
+        return Icons.cancel_outlined;
+      case 'quest_submitted':
+        return Icons.outbound_rounded;
+      case 'quest_approved':
+        return Icons.task_alt_rounded;
+      case 'quest_rejected':
+        return Icons.highlight_off_rounded;
+      case 'wallet_adjusted':
+        return Icons.account_balance_wallet_outlined;
+      case 'access_request':
+      case 'child_access_requested':
+        return Icons.how_to_reg_outlined;
+      case 'subscription_expiring':
+        return Icons.event_repeat_outlined;
+      default:
+        if (t.startsWith('family_goal')) return Icons.flag_circle_outlined;
+        if (t.startsWith('quest_')) return Icons.assignment_turned_in_outlined;
+        if (t.startsWith('shop_')) return Icons.shopping_bag_outlined;
+        if (t.startsWith('wallet_')) {
+          return Icons.account_balance_wallet_outlined;
+        }
+        if (t.startsWith('access_')) {
+          return Icons.person_add_alt_1_outlined;
+        }
+        if (t.startsWith('family_')) return Icons.groups_outlined;
+        return Icons.notifications_none_rounded;
     }
-    if (norm.startsWith('shop.')) {
-      return Icons.shopping_bag_outlined;
-    }
-    if (norm.startsWith('wallet.')) {
-      return Icons.account_balance_wallet_outlined;
-    }
-    if (norm.startsWith('access.')) {
-      return Icons.person_add_alt_1_outlined;
-    }
-    if (norm.startsWith('family.')) {
-      return Icons.groups_outlined;
-    }
-    return Icons.notifications_outlined;
   }
 
-  static Widget _notificationAvatar(InAppNotificationItem n, String actorName) {
+  /// Имя в ленте: сначала payload (после бэкенд-обогащения), иначе кошелёк ребёнка по childId.
+  static String _resolvedActorName(
+    InAppNotificationItem n,
+    Map<String, ParentChildWalletItem> walletByChildId,
+  ) {
+    final fromPayload = (n.payload['childName']?.toString() ??
+            n.payload['displayName']?.toString() ??
+            n.payload['actorName']?.toString() ??
+            '')
+        .trim();
+    if (fromPayload.isNotEmpty) return fromPayload;
+    final id =
+        (n.payload['childId']?.toString() ?? n.payload['actorId']?.toString() ?? '')
+            .trim();
+    if (id.isEmpty) return '';
+    return (walletByChildId[id]?.displayName ?? '').trim();
+  }
+
+  static Widget _notificationAvatar(
+    InAppNotificationItem n,
+    String actorName,
+    Map<String, ParentChildWalletItem> walletByChildId,
+  ) {
     final childId =
-        n.payload['childId']?.toString() ?? n.payload['actorId']?.toString();
-    if (childId != null && childId.isNotEmpty) {
+        (n.payload['childId']?.toString() ?? n.payload['actorId']?.toString() ?? '')
+            .trim();
+    if (childId.isNotEmpty) {
       final fb = actorName.trim().isEmpty
           ? '?'
           : actorName.trim().characters.first.toUpperCase();
+      final w = walletByChildId[childId];
+      final imageKeyWallet = (w?.avatarObjectKey ?? '').trim();
+      final imageKeyPayload =
+          (n.payload['avatarObjectKey']?.toString() ?? '').trim();
+      final imageKeyRaw =
+          imageKeyWallet.isNotEmpty ? imageKeyWallet : imageKeyPayload;
       return ClipOval(
         child: UserAvatar(
           userKey: 'child:$childId',
           size: 70,
           fallbackText: fb,
+          remoteImageUrl: w?.avatarImageUrl,
+          remoteDiskCacheKey: imageKeyRaw.isEmpty
+              ? null
+              : storageObjectDiskCacheKey('member-avatars', imageKeyRaw),
         ),
       );
     }
@@ -1485,6 +1621,27 @@ class _MergedActivityFeed extends StatelessWidget {
     );
   }
 
+  /// Подпись товара в магазинных уведомлениях.
+  static String _productLine(InAppNotificationItem n) {
+    return (n.payload['productTitle'] ?? n.payload['title'] ?? '')
+        .toString()
+        .trim();
+  }
+
+  /// Человекочитаемая строка для неизвестного типа (никогда не показываем сырой ключ бекенда).
+  static String _friendlyUnknownEventLabel(String rawType) {
+    final key = rawType.replaceAll('.', '_').toLowerCase().trim();
+    const map = <String, String>{
+      'shop_purchase_requested': 'Новый запрос на покупку',
+      'shop_purchase_approved': 'Покупка одобрена',
+      'shop_purchase_rejected': 'Покупка отклонена',
+      'child_access_requested': 'Запрос на доступ к семье',
+      'subscription_expiring': 'Скоро окончится подписка',
+      'account_recovery_requested': 'Запрос на восстановление доступа',
+    };
+    return map[key] ?? 'Обновление в семье';
+  }
+
   static bool _isFemale(String name) {
     if (name.isEmpty) return false;
     final lower = name.toLowerCase();
@@ -1495,7 +1652,7 @@ class _MergedActivityFeed extends StatelessWidget {
     InAppNotificationItem n,
     String actorName,
   ) {
-    final type = n.type.replaceAll('.', '_');
+    final type = _eventType(n);
     final title =
         (n.payload['title']?.toString() ??
                 n.payload['questTitle']?.toString() ??
@@ -1508,13 +1665,10 @@ class _MergedActivityFeed extends StatelessWidget {
         n.payload['totalPrice']?.toString() ??
         n.payload['price']?.toString();
 
-    if (type.startsWith('shop_purchase_requested')) {
-      final product =
-          (n.payload['productTitle'] ?? n.payload['title'] ?? '')
-              .toString()
-              .trim();
+    if (type == 'shop_purchase_requested') {
+      final product = _productLine(n);
       final nm = actorName.trim();
-      final label = nm.isEmpty ? 'Участник' : nm;
+      final label = nm.isEmpty ? 'Ребёнок' : nm;
       final fem = _isFemale(label);
       final verb = fem ? 'запросила покупку' : 'запросил покупку';
 
@@ -1549,26 +1703,111 @@ class _MergedActivityFeed extends StatelessWidget {
       );
     }
 
+    if (type == 'shop_purchase_approved' || type == 'shop_purchase_rejected') {
+      final product = _productLine(n);
+      final nm = actorName.trim();
+      final rejected = type == 'shop_purchase_rejected';
+      final priceSuffix =
+          reward != null && reward.isNotEmpty ? '($reward монет)' : null;
+
+      Widget mainLine;
+      if (nm.isEmpty) {
+        if (product.isEmpty) {
+          mainLine = Text(
+            rejected ? 'Заявка на покупку отклонена' : 'Заявка на покупку одобрена',
+            style: _feedBody,
+          );
+        } else {
+          final ending = rejected ? 'отклонена' : 'одобрена';
+          mainLine = RichText(
+            text: TextSpan(
+              style: _feedBody,
+              children: [
+                const TextSpan(text: 'Покупка «'),
+                TextSpan(
+                  text: product,
+                  style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+                ),
+                TextSpan(text: '» $ending'),
+              ],
+            ),
+          );
+        }
+      } else if (product.isEmpty) {
+        mainLine = RichText(
+          text: TextSpan(
+            style: _feedBody,
+            children: [
+              TextSpan(text: nm, style: _feedName),
+              TextSpan(
+                text: rejected
+                    ? ' — заявку на покупку отклонили'
+                    : ' — заявку на покупку одобрили',
+              ),
+            ],
+          ),
+        );
+      } else {
+        mainLine = RichText(
+          text: TextSpan(
+            style: _feedBody,
+            children: [
+              TextSpan(text: nm, style: _feedName),
+              const TextSpan(text: ' — покупку «'),
+              TextSpan(
+                text: product,
+                style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+              ),
+              TextSpan(text: rejected ? '» отклонили' : '» одобрили'),
+            ],
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          mainLine,
+          if (priceSuffix != null) ...[
+            const SizedBox(height: 4),
+            Text(priceSuffix, style: _feedMeta),
+          ],
+        ],
+      );
+    }
+
     String verb;
     String? rewardSuffix;
-    if (type.startsWith('quest_submitted')) {
-      verb = 'выполнил${_isFemale(actorName) ? 'а' : ''} задачу';
-      if (reward != null) rewardSuffix = '(+$reward монет)';
-    } else if (type.startsWith('quest_approved')) {
-      verb = 'получил${_isFemale(actorName) ? 'а' : ''} награду';
-      if (reward != null) rewardSuffix = '(+$reward монет)';
-    } else if (type.startsWith('quest_rejected')) {
-      verb = 'задача отклонена';
-    } else if (type.startsWith('shop_purchase_approved')) {
-      verb = 'покупка одобрена';
-    } else if (type.startsWith('wallet_adjusted')) {
-      verb = 'баланс изменён';
-      if (reward != null) rewardSuffix = '($reward монет)';
-    } else if (type == 'access_request') {
-      verb = 'запросил${_isFemale(actorName) ? 'а' : ''} доступ к семье';
+
+    if (type == 'quest_submitted') {
+      final nm = actorName.trim();
+      if (nm.isEmpty) {
+        verb = 'Отправлена задача на проверку';
+      } else {
+        verb =
+            '${_isFemale(nm) ? 'Отправила' : 'Отправил'} задачу на проверку';
+      }
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward монет)';
+    } else if (type == 'quest_approved') {
+      verb = 'Задача принята — награда начислена';
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward монет)';
+    } else if (type == 'quest_rejected') {
+      verb = 'Задача отправлена на доработку';
+    } else if (type == 'wallet_adjusted') {
+      verb = 'Баланс монет изменён';
+      if (reward != null && reward.isNotEmpty) {
+        rewardSuffix = '($reward монет)';
+      }
+    } else if (type == 'access_request' || type == 'child_access_requested') {
+      verb = 'Новый запрос доступа к семье';
+    } else if (type == 'subscription_expiring') {
+      verb = 'Подписка скоро закончится — продлите, чтобы не потерять функции';
     } else if (type.startsWith('family_goal')) {
-      verb = 'добавил${_isFemale(actorName) ? 'а' : ''} цель';
-      if (reward != null) rewardSuffix = '($reward₽)';
+      final nm = actorName.trim();
+      verb = nm.isEmpty
+          ? 'Добавлена новая семейная цель'
+          : '${_isFemale(nm) ? 'Добавила' : 'Добавил'} семейную цель';
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '($reward₽)';
     } else {
       final msg =
           (n.payload['message']?.toString() ??
@@ -1579,15 +1818,57 @@ class _MergedActivityFeed extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (actorName.isNotEmpty) Text(actorName, style: _feedName),
-            if (actorName.isNotEmpty) const SizedBox(height: 4),
+            if (actorName.trim().isNotEmpty) Text(actorName.trim(), style: _feedName),
+            if (actorName.trim().isNotEmpty) const SizedBox(height: 4),
             Text(msg, style: _feedBody),
           ],
         );
       }
-      verb = n.type.replaceAll('_', ' ').trim();
-      if (verb.isEmpty) verb = 'Событие';
+      verb = _friendlyUnknownEventLabel(n.type);
     }
+
+    final questTitleOnly =
+        (n.payload['questTitle'] ?? '').toString().trim();
+    final titleForQuotes =
+        title.isNotEmpty ? title : questTitleOnly;
+
+    if (type == 'quest_submitted' && actorName.trim().isNotEmpty) {
+      final nm = actorName.trim();
+      final q = questTitleOnly.isEmpty ? title : questTitleOnly;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              style: _feedBody,
+              children: [
+                TextSpan(text: nm, style: _feedName),
+                TextSpan(text: _isFemale(nm) ? ' — отправила' : ' — отправил'),
+                const TextSpan(text: ' задачу на проверку'),
+                if (q.isNotEmpty) ...[
+                  const TextSpan(text: ' «'),
+                  TextSpan(
+                    text: q,
+                    style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const TextSpan(text: '»'),
+                ],
+              ],
+            ),
+          ),
+          if (rewardSuffix != null) ...[
+            const SizedBox(height: 4),
+            Text(rewardSuffix, style: _feedMeta),
+          ],
+        ],
+      );
+    }
+
+    final showQuotes = titleForQuotes.isNotEmpty &&
+        !type.startsWith('shop_purchase_') &&
+        (type != 'quest_submitted' || actorName.trim().isEmpty) &&
+        type != 'quest_approved' &&
+        type != 'subscription_expiring';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1596,12 +1877,20 @@ class _MergedActivityFeed extends StatelessWidget {
           text: TextSpan(
             style: _feedBody,
             children: [
-              if (actorName.isNotEmpty) ...[
-                TextSpan(text: actorName, style: _feedName),
-                const TextSpan(text: ' '),
+              if (actorName.trim().isNotEmpty &&
+                  type != 'access_request') ...[
+                TextSpan(text: actorName.trim(), style: _feedName),
+                const TextSpan(text: ' — '),
               ],
               TextSpan(text: verb),
-              if (title.isNotEmpty) TextSpan(text: ' «$title»'),
+              if (showQuotes) ...[
+                const TextSpan(text: ' «'),
+                TextSpan(
+                  text: titleForQuotes,
+                  style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const TextSpan(text: '»'),
+              ],
             ],
           ),
         ),
@@ -1614,19 +1903,55 @@ class _MergedActivityFeed extends StatelessWidget {
   }
 
   static Widget _reviewAvatar(ParentReviewItem r) {
-    final name = r.childName.trim().isEmpty ? 'Участник' : r.childName.trim();
+    final name = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     final fb = name.characters.first.toUpperCase();
-    return ClipOval(
-      child: UserAvatar(
-        userKey: 'child:${r.childId}',
-        size: 70,
-        fallbackText: fb,
+    return SizedBox(
+      width: 70,
+      height: 70,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: ClipOval(
+              child: UserAvatar(
+                userKey: 'child:${r.childId}',
+                size: 70,
+                fallbackText: fb,
+              ),
+            ),
+          ),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.fact_check_outlined,
+                  size: 20,
+                  color: kChildBrandBlue,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   static Widget _reviewTextColumn(ParentReviewItem r) {
-    final name = r.childName.trim().isEmpty ? 'Участник' : r.childName.trim();
+    final name = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1635,8 +1960,12 @@ class _MergedActivityFeed extends StatelessWidget {
             style: _feedBody,
             children: [
               TextSpan(text: name, style: _feedName),
-              const TextSpan(text: ' — на проверке '),
-              TextSpan(text: '«${r.title}»'),
+              const TextSpan(text: ' — задача «'),
+              TextSpan(
+                text: r.title,
+                style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const TextSpan(text: '» на проверке'),
             ],
           ),
         ),
@@ -1668,17 +1997,16 @@ class _MergedActivityFeed extends StatelessWidget {
 
     final rows = <({DateTime t, Widget w})>[];
 
+    final walletByChildId = <String, ParentChildWalletItem>{
+      for (final w in wallets) w.childId: w,
+    };
+
     for (final n in notifications) {
-      final actorName =
-          (n.payload['childName']?.toString() ??
-                  n.payload['displayName']?.toString() ??
-                  n.payload['actorName']?.toString() ??
-                  '')
-              .trim();
+      final actorName = _resolvedActorName(n, walletByChildId);
       rows.add((
         t: n.createdAt,
         w: _RecentEventCard(
-          avatar: _notificationAvatar(n, actorName),
+          avatar: _notificationAvatar(n, actorName, walletByChildId),
           textBlock: _notificationTextColumn(n, actorName),
         ),
       ));

@@ -42,6 +42,12 @@ export class ParentController {
     return this.parent.rejectAccessRequest(req.user, id, body?.reason ?? null);
   }
 
+  @Patch("parent/me/profile")
+  @Roles("parent", "admin")
+  async updateMyProfile(@Req() req: any, @Body() body: { displayName?: string }) {
+    return this.parent.updateMyProfile(req.user, body);
+  }
+
   @Get("parent/members")
   @Roles("parent", "admin")
   async members(@Req() req: any) {

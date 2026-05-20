@@ -91,6 +91,22 @@ export class ParentService {
     return { ok: true, goalAmount };
   }
 
+  /** Имя в UI семьи (поле профиля `displayName`). */
+  async updateMyProfile(user: ParentUser, body: { displayName?: string }) {
+    const displayName = (body.displayName ?? "").trim();
+    if (!displayName) throw new BadRequestException("Укажите имя");
+
+    const updated = await this.prisma.profile.updateMany({
+      where: {
+        userId: user.userId,
+        role: { in: ["parent", "admin"] },
+      },
+      data: { displayName },
+    });
+    if (updated.count === 0) throw new NotFoundException("Профиль не найден");
+    return { ok: true as const, displayName };
+  }
+
   async listParentMembers(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const rows = await this.prisma.profile.findMany({

@@ -138,6 +138,20 @@ class ParentAccessRepository {
     );
   }
 
+  /// Имя родителя в семье (поле профиля `displayName` на сервере).
+  Future<void> updateMyProfileDisplayName(String displayName) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) throw Exception('Не авторизован');
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) throw Exception('Введите имя');
+    await api.patchJson(
+      '/parent/me/profile',
+      accessToken: token,
+      body: <String, dynamic>{'displayName': trimmed},
+    );
+  }
+
   Future<void> setFamilyGoal(int goalAmount) async {
     final api = Sdk.apiOrNull;
     final token = _token;
