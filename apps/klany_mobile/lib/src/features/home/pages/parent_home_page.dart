@@ -953,7 +953,11 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = 24 + MediaQuery.viewPaddingOf(context).bottom + 8;
+    final bottomPad = 24 +
+        MediaQuery.viewPaddingOf(context).bottom +
+        8 +
+        _kParentNavPillH +
+        16;
 
     late final List<Widget> listChildren;
     if (_initialLoading && _family == null) {
@@ -1524,6 +1528,55 @@ class _MergedActivityFeed extends StatelessWidget {
   static String _eventType(InAppNotificationItem n) =>
       n.type.replaceAll('.', '_').trim();
 
+  /// Одна строка ленты на логическое событие: бэкенд создаёт копию на каждого родителя
+  /// (один и тот же `purchaseId` / квест и т.д.).
+  static String _recentFeedDedupeKey(InAppNotificationItem n) {
+    final type = _eventType(n);
+    final p = n.payload;
+
+    switch (type) {
+      case 'shop_purchase_requested':
+      case 'shop_purchase_approved':
+      case 'shop_purchase_rejected':
+        final pid = (p['purchaseId'] ?? '').toString().trim();
+        if (pid.isNotEmpty) return '$type|$pid';
+      case 'quest_submitted':
+      case 'quest_approved':
+      case 'quest_rejected':
+        final qid = (p['questId'] ?? '').toString().trim();
+        final cid = (p['childId'] ?? '').toString().trim();
+        if (qid.isNotEmpty && cid.isNotEmpty) return '$type|$qid|$cid';
+      case 'wallet_adjusted':
+        final adj = (p['adjustmentId'] ?? '').toString().trim();
+        if (adj.isNotEmpty) return '$type|$adj';
+      default:
+        break;
+    }
+    return 'id|${n.id}';
+  }
+
+  static List<InAppNotificationItem> _dedupeNotificationsRecent(
+    List<InAppNotificationItem> items,
+  ) {
+    final best = <String, InAppNotificationItem>{};
+    for (final n in items) {
+      final key = _recentFeedDedupeKey(n);
+      final prev = best[key];
+      if (prev == null || n.createdAt.isAfter(prev.createdAt)) {
+        best[key] = n;
+      }
+    }
+    return best.values.toList();
+  }
+
+  /// Первая буква имени — заглавная (остальное без «исправления» регистра).
+  static String _displayActorName(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return '';
+    if (t.length == 1) return t.toUpperCase();
+    return '${t.substring(0, 1).toUpperCase()}${t.substring(1)}';
+  }
+
   static IconData _iconForNotification(InAppNotificationItem n) {
     final t = _eventType(n);
     switch (t) {
@@ -1571,12 +1624,12 @@ class _MergedActivityFeed extends StatelessWidget {
             n.payload['actorName']?.toString() ??
             '')
         .trim();
-    if (fromPayload.isNotEmpty) return fromPayload;
+    if (fromPayload.isNotEmpty) return _displayActorName(fromPayload);
     final id =
         (n.payload['childId']?.toString() ?? n.payload['actorId']?.toString() ?? '')
             .trim();
     if (id.isEmpty) return '';
-    return (walletByChildId[id]?.displayName ?? '').trim();
+    return _displayActorName((walletByChildId[id]?.displayName ?? '').trim());
   }
 
   static Widget _notificationAvatar(
@@ -1686,11 +1739,12 @@ class _MergedActivityFeed extends StatelessWidget {
                 const TextSpan(text: ' — '),
                 TextSpan(text: verb),
                 if (product.isNotEmpty) ...[
-                  const TextSpan(text: ' '),
+                  const TextSpan(text: ' «'),
                   TextSpan(
                     text: product,
                     style: _feedBody.copyWith(fontWeight: FontWeight.w800),
                   ),
+                  const TextSpan(text: '»'),
                 ],
               ],
             ),
@@ -1951,7 +2005,9 @@ class _MergedActivityFeed extends StatelessWidget {
   }
 
   static Widget _reviewTextColumn(ParentReviewItem r) {
-    final name = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
+    final raw = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
+    final name =
+        raw == 'Ребёнок' ? raw : _displayActorName(raw);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2001,7 +2057,9 @@ class _MergedActivityFeed extends StatelessWidget {
       for (final w in wallets) w.childId: w,
     };
 
-    for (final n in notifications) {
+    final mergedNotifications = _dedupeNotificationsRecent(notifications);
+
+    for (final n in mergedNotifications) {
       final actorName = _resolvedActorName(n, walletByChildId);
       rows.add((
         t: n.createdAt,
