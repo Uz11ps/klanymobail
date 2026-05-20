@@ -144,6 +144,16 @@ export class ShopService {
     const total = product.price * quantity;
     if (wallet.balance < total) throw new BadRequestException("Недостаточно средств");
 
+    const childProfile = await this.prisma.child.findUnique({
+      where: { id: user.childId },
+      select: { firstName: true, lastName: true },
+    });
+    const childDisplayName =
+      [childProfile?.firstName?.trim(), childProfile?.lastName?.trim()]
+        .filter((s) => s && String(s).length > 0)
+        .join(" ")
+        .trim() || "";
+
     const purchase = await this.prisma.$transaction(async (tx) => {
       await tx.wallet.update({ where: { id: wallet.id }, data: { balance: wallet.balance - total } });
       await tx.walletTransaction.create({
@@ -189,6 +199,8 @@ export class ShopService {
             purchaseId: purchase.id,
             productTitle: product.title,
             totalPrice: purchase.totalPrice,
+            childId: user.childId,
+            ...(childDisplayName ? { displayName: childDisplayName } : {}),
           },
         })),
       });
@@ -218,7 +230,9 @@ export class ShopService {
         status: r.status,
         totalPrice: r.totalPrice,
         productTitle: r.product.title,
+        childId: r.childId,
         childName: [r.child.firstName, r.child.lastName].filter(Boolean).join(" ").trim(),
+        avatarObjectKey: r.child.avatarObjectKey ?? null,
       })),
     };
   }

@@ -31,14 +31,17 @@ InputDecoration _questCreateDropdownDecoration({Widget? prefix}) {
 }
 
 class ParentQuestsPage extends ConsumerStatefulWidget {
-  const ParentQuestsPage({super.key});
+  const ParentQuestsPage({super.key, this.initialEconomySegment = 0});
+
+  /// 0 активные задачи семьи, 2 вкладка «Проверка».
+  final int initialEconomySegment;
 
   @override
   ConsumerState<ParentQuestsPage> createState() => _ParentQuestsPageState();
 }
 
 class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
-  int _tab = 0;
+  late int _tab;
   int _selectedWallet = -1;
   int _rublesPer10Coins = 100;
   List<ParentChildWalletItem> _wallets = const [];
@@ -48,7 +51,19 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   @override
   void initState() {
     super.initState();
+    _tab =
+        widget.initialEconomySegment == 2 ? 2 : widget.initialEconomySegment.clamp(0, 2);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWallets());
+  }
+
+  @override
+  void didUpdateWidget(ParentQuestsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialEconomySegment != widget.initialEconomySegment) {
+      _tab = widget.initialEconomySegment == 2
+          ? 2
+          : widget.initialEconomySegment.clamp(0, 2);
+    }
   }
 
   @override

@@ -72,20 +72,31 @@ double figmaAuthHeroSquareSide({
 }) {
   if (slotWidth < 8) return 0;
 
-  var side = slotWidth;
+  var side = math.min(slotWidth, kFigmaAuthHeroMaxSide);
 
   if (slotHeight != null && slotHeight.isFinite && slotHeight > 0) {
     final cap = slotHeight - reservedBelow;
 
-    if (cap > 0) side = math.min(side, cap);
+    if (cap <= 0) return 0;
+
+    side = math.min(side, cap);
   }
 
-  side = math.min(side, kFigmaAuthHeroMaxSide);
-
-  side = math.max(kFigmaAuthHeroMinSide, side);
+  // Не раздуваем квадрат до минимума, если слот уже ниже — иначе при клавиатуре
+  // получается переполнение и налезание на форму.
+  if (side >= kFigmaAuthHeroMinSide) {
+    side = math.max(kFigmaAuthHeroMinSide, side);
+  }
 
   return side < 8 ? 0 : side;
 }
+
+/// Порог для [MediaQuery.viewInsets.bottom]: считаем клавиатуру открытой.
+const double kFigmaAuthHeroKeyboardInsetThreshold = 12;
+
+bool figmaAuthHeroKeyboardLikelyOpen(BuildContext context) =>
+    MediaQuery.viewInsetsOf(context).bottom >
+    kFigmaAuthHeroKeyboardInsetThreshold;
 
 // ─── Общая вёрстка auth-экранов ───────────────────────────────────────────
 
@@ -128,7 +139,7 @@ class FigmaAuthFormSection extends StatelessWidget {
   }
 }
 
-/// Hero [Expanded] на всю высоту над формой (как лендинг над кнопками).
+/// Hero над формой: [Flexible] на всю высоту; при открытой клавиатуре скрывается.
 
 class FigmaAuthPageBody extends StatelessWidget {
   const FigmaAuthPageBody({
@@ -149,6 +160,8 @@ class FigmaAuthPageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardOpen = figmaAuthHeroKeyboardLikelyOpen(context);
+
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
 
@@ -156,9 +169,19 @@ class FigmaAuthPageBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
 
         children: [
-          Expanded(child: FigmaAuthHeroSection(child: hero)),
+          // При открытой клавиатуре hero убираем из дерева — форма занимает место,
+          // без изменения поведения лендинга (он не использует этот виджет).
+          Flexible(
+            flex: keyboardOpen ? 0 : 1,
 
-          const SizedBox(height: kFigmaAuthHeroBelowGap),
+            fit: keyboardOpen ? FlexFit.loose : FlexFit.tight,
+
+            child: keyboardOpen
+                ? const SizedBox.shrink()
+                : FigmaAuthHeroSection(child: hero),
+          ),
+
+          if (!keyboardOpen) const SizedBox(height: kFigmaAuthHeroBelowGap),
 
           FigmaAuthFormSection(child: form),
         ],

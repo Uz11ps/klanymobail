@@ -9,16 +9,34 @@ import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/storage_presign.dart';
 
 class ParentShopPage extends ConsumerStatefulWidget {
-  const ParentShopPage({super.key});
+  const ParentShopPage({super.key, this.initialTab = 0});
+
+  /// 0 каталог, 1 создание, 2 очередь заявок.
+  final int initialTab;
 
   @override
   ConsumerState<ParentShopPage> createState() => _ParentShopPageState();
 }
 
 class _ParentShopPageState extends ConsumerState<ParentShopPage> {
-  int _tab = 0;
+  late int _tab;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = widget.initialTab.clamp(0, 2);
+  }
+
+  @override
+  void didUpdateWidget(ParentShopPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _tab = widget.initialTab.clamp(0, 2);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1032,9 +1050,14 @@ class _PurchaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = item.childName.trim().isNotEmpty
-        ? item.childName.trim()[0].toUpperCase()
-        : '?';
+    final label = item.childName.trim().isEmpty ? 'Участник' : item.childName.trim();
+    final initial = label.trim().isNotEmpty ? label.trim().characters.first.toUpperCase() : '?';
+    final childKey = item.childId.trim().isEmpty
+        ? '__pending_${item.id}'
+        : item.childId.trim();
+    final avatarKey = 'child:$childKey';
+    final objectKey = item.avatarObjectKey?.trim();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
@@ -1068,42 +1091,39 @@ class _PurchaseCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(10),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 73,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        UserAvatar(
-                          userKey: 'child:${item.childName}',
-                          size: 73,
-                          fallbackText: initial,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          item.childName.trim().isEmpty
-                              ? 'Ребёнок'
-                              : item.childName.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.black,
-                            height: 1.0,
-                          ),
-                        ),
-                      ],
-                    ),
+                  UserAvatar(
+                    userKey: avatarKey,
+                    size: 73,
+                    fallbackText: initial,
+                    remoteImageUrl: item.avatarImageUrl,
+                    remoteDiskCacheKey: objectKey != null &&
+                            objectKey.isNotEmpty
+                        ? storageObjectDiskCacheKey(
+                            'member-avatars',
+                            objectKey,
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Text(
+                          label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.black,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           item.productTitle.trim().isEmpty
                               ? 'Без названия'

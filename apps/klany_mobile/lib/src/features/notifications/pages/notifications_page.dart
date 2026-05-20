@@ -3,9 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/pages/parent_access_requests_page.dart';
+import '../../quests/pages/parent_quests_page.dart';
 import '../../quests/quests_repository.dart';
+import '../../shop/pages/parent_shop_page.dart';
+import '../../wallet/pages/parent_wallets_page.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
+
+bool _ruFemaleNameHint(String name) {
+  final t = name.trim().toLowerCase();
+  return t.endsWith('а') || t.endsWith('я');
+}
 
 const Color _figmaWhite = Color(0xFFFFFFFF);
 const Color _figmaMint = Color(0xFFD9F6C2);
@@ -62,6 +71,9 @@ class _NotificationsHubScreenState
     extends ConsumerState<_NotificationsHubScreen> {
   Future<_NotificationsHubSnapshot>? _future;
 
+  final Set<String> _removedNotificationIds = <String>{};
+  final Set<String> _exitingNotificationIds = <String>{};
+
   Future<_NotificationsHubSnapshot> _fetchHub(String familyId) async {
     final notifications = await ref
         .read(notificationsRepositoryProvider)
@@ -86,8 +98,81 @@ class _NotificationsHubScreenState
 
   void _reload() {
     setState(() {
+      _removedNotificationIds.clear();
+      _exitingNotificationIds.clear();
       _future = _fetchHub(widget.familyId);
     });
+  }
+
+  Future<void> _markNotificationRead(InAppNotificationItem n) async {
+    try {
+      await ref.read(notificationsRepositoryProvider).markRead(n.id);
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Не удалось отметить: $e')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _exitingNotificationIds.add(n.id));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    setState(() {
+      _exitingNotificationIds.remove(n.id);
+      _removedNotificationIds.add(n.id);
+    });
+  }
+
+  void _openNotificationTarget(InAppNotificationItem n) {
+    switch (n.type) {
+      case 'access_request':
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const ParentAccessRequestsPage(),
+          ),
+        );
+        return;
+      case 'shop_purchase_requested':
+      case 'shop_purchase_approved':
+      case 'shop_purchase_rejected':
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const ParentShopPage(initialTab: 2),
+          ),
+        );
+        return;
+      case 'quest_submitted':
+      case 'quest_approved':
+      case 'quest_rejected':
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const ParentQuestsPage(initialEconomySegment: 2),
+          ),
+        );
+        return;
+      case 'wallet_adjusted':
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const ParentWalletsPage(),
+          ),
+        );
+        return;
+      default:
+        break;
+    }
+  }
+
+  Widget _animatedNotificationWrap(InAppNotificationItem n, Widget child) {
+    final exiting = _exitingNotificationIds.contains(n.id);
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 290),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      clipBehavior: Clip.hardEdge,
+      child: exiting ? const SizedBox.shrink() : child,
+    );
   }
 
   @override
@@ -124,13 +209,15 @@ class _NotificationsHubScreenState
               reverseQuests: const <ParentQuestItem>[],
               childNamesById: const <String, String>{},
             );
-        final list = hub.notifications;
+        final listVisible = hub.notifications
+            .where((n) => !_removedNotificationIds.contains(n.id))
+            .toList();
         final reverseQuests = hub.reverseQuests;
-        final totalItems = list.length + reverseQuests.length;
+        final totalItems = listVisible.length + reverseQuests.length;
         final requests = <InAppNotificationItem>[];
         final events = <InAppNotificationItem>[];
         final updates = <InAppNotificationItem>[];
-        for (final n in list) {
+        for (final n in listVisible) {
           if (n.type == 'access_request') {
             requests.add(n);
           } else if (n.type.startsWith('quest_') ||
@@ -359,70 +446,72 @@ class _NotificationsHubScreenState
                             if (requests.isNotEmpty) ...[
                               const _GroupTitle('Запросы'),
                               ...requests.map(
-                                (n) => _NotificationCard(
-                                  item: n,
-                                  bg: _figmaMint,
-                                  title: 'Новый запрос ребёнка',
-                                  subtitle: () {
-                                    final name =
-                                        (n.payload['displayName'] ??
-                                                n.payload['childName'] ??
-                                                '')
-                                            .toString();
-                                    return name.isEmpty
-                                        ? 'Ребёнок запросил доступ к семье.'
-                                        : '$name запросил(а) доступ к семье.';
-                                  }(),
-                                  icon: Icons.child_care_outlined,
-                                  onMarkRead: () async {
-                                    await ref
-                                        .read(notificationsRepositoryProvider)
-                                        .markRead(n.id);
-                                    if (!mounted) return;
-                                    _reload();
-                                  },
-                                ),
+                                (n) =>
+                                    _animatedNotificationWrap(
+                                      n,
+                                      _NotificationCard(
+                                        bg: _figmaMint,
+                                        title: 'Новый запрос ребёнка',
+                                        subtitle: () {
+                                          final name =
+                                              (n.payload['displayName'] ??
+                                                      n.payload['childName'] ??
+                                                      '')
+                                                  .toString();
+                                          return name.isEmpty
+                                              ? 'Ребёнок запросил доступ к семье.'
+                                              : '$name запросил(а) доступ к семье.';
+                                        }(),
+                                        icon: Icons.child_care_outlined,
+                                        onOpen: () =>
+                                            _openNotificationTarget(n),
+                                        onMarkRead: () =>
+                                            _markNotificationRead(n),
+                                      ),
+                                    ),
                               ),
                               const SizedBox(height: 12),
                             ],
                             if (events.isNotEmpty) ...[
                               const _GroupTitle('События'),
                               ...events.map(
-                                (n) => _NotificationCard(
-                                  item: n,
-                                  bg: _figmaSunny,
-                                  title: 'Новое событие',
-                                  subtitle: _eventSubtitle(n),
-                                  icon: Icons.notifications_none_rounded,
-                                  onMarkRead: () async {
-                                    await ref
-                                        .read(notificationsRepositoryProvider)
-                                        .markRead(n.id);
-                                    if (!mounted) return;
-                                    _reload();
-                                  },
-                                ),
+                                (n) =>
+                                    _animatedNotificationWrap(
+                                      n,
+                                      _NotificationCard(
+                                        bg: _figmaSunny,
+                                        title: 'Новое событие',
+                                        subtitle: _eventSubtitle(n),
+                                        icon:
+                                            Icons.notifications_none_rounded,
+                                        onOpen: () =>
+                                            _openNotificationTarget(n),
+                                        onMarkRead: () =>
+                                            _markNotificationRead(n),
+                                      ),
+                                    ),
                               ),
                               const SizedBox(height: 12),
                             ],
                             if (updates.isNotEmpty) ...[
                               const _GroupTitle('Обновления'),
                               ...updates.map(
-                                (n) => _NotificationCard(
-                                  item: n,
-                                  bg: _figmaSky,
-                                  title: 'Обновление данных',
-                                  subtitle:
-                                      'Данные семьи были обновлены. Проверьте изменения.',
-                                  icon: Icons.refresh,
-                                  onMarkRead: () async {
-                                    await ref
-                                        .read(notificationsRepositoryProvider)
-                                        .markRead(n.id);
-                                    if (!mounted) return;
-                                    _reload();
-                                  },
-                                ),
+                                (n) =>
+                                    _animatedNotificationWrap(
+                                      n,
+                                      _NotificationCard(
+                                        bg: _figmaSky,
+                                        title: 'Обновление данных',
+                                        subtitle:
+                                            'Данные семьи были обновлены. '
+                                            'Проверьте изменения.',
+                                        icon: Icons.refresh,
+                                        onOpen: () =>
+                                            _openNotificationTarget(n),
+                                        onMarkRead: () =>
+                                            _markNotificationRead(n),
+                                      ),
+                                    ),
                               ),
                             ],
                           ],
@@ -444,9 +533,24 @@ class _NotificationsHubScreenState
         .toString();
     switch (n.type) {
       case 'shop_purchase_requested':
-        return name.isEmpty
-            ? 'Ребёнок запросил покупку в магазине.'
-            : '$name запросил(а) покупку в магазине.';
+        final product =
+            (n.payload['productTitle'] ?? n.payload['title'] ?? '')
+                .toString()
+                .trim();
+        final nm = name.isEmpty
+            ? ''
+            : name.trim();
+        if (nm.isEmpty) {
+          return product.isEmpty
+              ? 'Ребёнок запросил покупку.'
+              : 'Запрошена покупка $product.';
+        }
+        final v = _ruFemaleNameHint(nm)
+            ? 'запросила покупку'
+            : 'запросил покупку';
+        return product.isEmpty
+            ? '$nm $v.'
+            : '$nm — $v $product';
       case 'shop_purchase_approved':
         return 'Покупка одобрена.';
       case 'shop_purchase_rejected':
@@ -790,18 +894,18 @@ class _GroupTitle extends StatelessWidget {
 
 class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
-    required this.item,
     required this.bg,
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.onOpen,
     required this.onMarkRead,
   });
-  final InAppNotificationItem item;
   final Color bg;
   final String title;
   final String subtitle;
   final IconData icon;
+  final VoidCallback onOpen;
   final VoidCallback onMarkRead;
 
   @override
@@ -847,7 +951,7 @@ class _NotificationCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton(
-                    onPressed: () {},
+                    onPressed: onOpen,
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: kChildInk,

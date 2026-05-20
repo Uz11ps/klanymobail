@@ -1409,6 +1409,9 @@ class _MergedActivityFeed extends StatelessWidget {
     required this.reviews,
   });
 
+  /// После объединения уведомлений и «на проверке» показываем не больше стольких строк.
+  static const int _kRecentEventsMaxItems = 10;
+
   final List<InAppNotificationItem> notifications;
   final List<ParentReviewItem> reviews;
 
@@ -1501,7 +1504,49 @@ class _MergedActivityFeed extends StatelessWidget {
     final reward =
         n.payload['rewardAmount']?.toString() ??
         n.payload['amount']?.toString() ??
+        n.payload['totalPrice']?.toString() ??
         n.payload['price']?.toString();
+
+    if (type.startsWith('shop_purchase_requested')) {
+      final product =
+          (n.payload['productTitle'] ?? n.payload['title'] ?? '')
+              .toString()
+              .trim();
+      final nm = actorName.trim();
+      final label = nm.isEmpty ? 'Участник' : nm;
+      final fem = _isFemale(label);
+      final verb = fem ? 'запросила покупку' : 'запросил покупку';
+
+      final priceSuffix =
+          reward != null && reward.isNotEmpty ? '($reward монет)' : null;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RichText(
+            text: TextSpan(
+              style: _feedBody,
+              children: [
+                TextSpan(text: label, style: _feedName),
+                const TextSpan(text: ' — '),
+                TextSpan(text: verb),
+                if (product.isNotEmpty) ...[
+                  const TextSpan(text: ' '),
+                  TextSpan(
+                    text: product,
+                    style: _feedBody.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (priceSuffix != null) ...[
+            const SizedBox(height: 4),
+            Text(priceSuffix, style: _feedMeta),
+          ],
+        ],
+      );
+    }
 
     String verb;
     String? rewardSuffix;
@@ -1513,9 +1558,6 @@ class _MergedActivityFeed extends StatelessWidget {
       if (reward != null) rewardSuffix = '(+$reward монет)';
     } else if (type.startsWith('quest_rejected')) {
       verb = 'задача отклонена';
-    } else if (type.startsWith('shop_purchase_requested')) {
-      verb = 'запросил${_isFemale(actorName) ? 'а' : ''} покупку';
-      if (reward != null) rewardSuffix = '($reward монет)';
     } else if (type.startsWith('shop_purchase_approved')) {
       verb = 'покупка одобрена';
     } else if (type.startsWith('wallet_adjusted')) {
@@ -1625,7 +1667,7 @@ class _MergedActivityFeed extends StatelessWidget {
 
     final rows = <({DateTime t, Widget w})>[];
 
-    for (final n in notifications.take(24)) {
+    for (final n in notifications) {
       final actorName =
           (n.payload['childName']?.toString() ??
                   n.payload['displayName']?.toString() ??
@@ -1640,7 +1682,7 @@ class _MergedActivityFeed extends StatelessWidget {
         ),
       ));
     }
-    for (final r in reviews.take(16)) {
+    for (final r in reviews) {
       rows.add((
         t: r.submittedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
         w: _RecentEventCard(
@@ -1654,7 +1696,10 @@ class _MergedActivityFeed extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final e in rows) e.w],
+      children: [
+        for (final e in rows.take(_kRecentEventsMaxItems))
+          e.w,
+      ],
     );
   }
 }

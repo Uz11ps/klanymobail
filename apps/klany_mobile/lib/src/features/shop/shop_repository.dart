@@ -40,15 +40,22 @@ class ShopPurchaseItem {
     required this.id,
     required this.productTitle,
     required this.childName,
+    required this.childId,
     required this.totalPrice,
     required this.status,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String id;
   final String productTitle;
   final String childName;
+  /// Для связки с локальным/серверным аватаром участника.
+  final String childId;
   final int totalPrice;
   final String status;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 bool _parseBool(dynamic raw, {bool defaultIfMissing = false}) {
@@ -211,17 +218,31 @@ class ShopRepository {
     );
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => ShopPurchaseItem(
-            id: row['id'].toString(),
-            productTitle: (row['productTitle'] ?? '').toString(),
-            childName: (row['childName'] ?? '').toString(),
-            totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
-            status: (row['status'] ?? '').toString(),
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final rawKey = row['avatarObjectKey']?.toString();
+        final objectKey = (rawKey != null && rawKey.trim().isNotEmpty)
+            ? rawKey.trim()
+            : null;
+        final avatarImageUrl = objectKey != null
+            ? await presignStorageDownload(
+                  accessToken: token,
+                  bucket: 'member-avatars',
+                  objectKey: objectKey,
+                )
+            : null;
+        return ShopPurchaseItem(
+          id: row['id'].toString(),
+          productTitle: (row['productTitle'] ?? '').toString(),
+          childName: (row['childName'] ?? '').toString(),
+          childId: (row['childId'] ?? '').toString(),
+          totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
+          status: (row['status'] ?? '').toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<void> decidePurchase(String purchaseId, bool approve) async {

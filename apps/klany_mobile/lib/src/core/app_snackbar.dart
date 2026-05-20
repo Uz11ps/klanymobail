@@ -192,24 +192,21 @@ String _currentGoRoutePath(BuildContext context) {
   }
 }
 
-/// Отступ от **физического низа экрана** до нижней границы плавающего SnackBar.
+/// Нижний margin у плавающего SnackBar.
 ///
-/// На `/child` и `/parent` нижняя навигация — высокая «капсула»; без учёта её высоты
-/// SnackBar оказывается по центру экрана. Значения держать в синхроне с
-/// [ChildBottomClanBar] и слотом `_ParentBottomBar` в `parent_home_page.dart`.
+/// **Важно:** [Scaffold] сам ставит floating SnackBar так, что нижний край слота
+/// совпадает с [contentBottom], то есть уже **над** [bottomNavigationBar].
+/// Если сюда снова прибавить высоту капсулы ([ChildBottomClanBar] и т.п.), получается
+/// двойной учёт — SnackBar уезжает сильно вверх («посередине экрана»).
+/// Здесь задаём только небольшой зазор над слотом навигации (+ системный низ там,
+/// где Scaffold сам не поднимает якорь — экраны без нижней панели).
 double snackBarFloatingBottomInset(BuildContext context) {
   final mq = MediaQuery.of(context);
   final bottomSafe = math.max(mq.viewPadding.bottom, mq.padding.bottom);
   final path = _currentGoRoutePath(context);
-  if (path.startsWith('/child')) {
-    const capsuleHeight = 96.0;
-    const capsuleSlotBottomPadding = 14.0;
-    return capsuleHeight + capsuleSlotBottomPadding + bottomSafe + 10;
-  }
-  if (path.startsWith('/parent')) {
-    const pillHeight = 76.0;
-    const slotBottomPadding = 16.0;
-    return pillHeight + slotBottomPadding + bottomSafe + 10;
+  if (path.startsWith('/child') || path.startsWith('/parent')) {
+    const gapAboveBottomNavSlot = 14.0;
+    return gapAboveBottomNavSlot;
   }
   return bottomSafe + 16;
 }
@@ -239,7 +236,8 @@ SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
 }
 
 extension KlanySnackBarOnContext on BuildContext {
-  /// Показывает SnackBar у нижнего края, **над** капсулой навигации ребёнка/родителя.
+  /// Показывает SnackBar у нижнего края контента; на `/child` и `/parent`
+  /// [Scaffold] уже держит слот над нижней навигацией — добавляется только небольшой зазор.
   /// Сбрасывает очередь — новое сообщение не «встаёт» третьим после двух минут показов.
   void showKlanySnackBar(SnackBar snackBar) {
     final messenger = ScaffoldMessenger.of(this);
