@@ -953,11 +953,11 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = 32 +
+    final bottomPad = 40 +
         MediaQuery.viewPaddingOf(context).bottom +
-        16 +
+        24 +
         _kParentNavPillH +
-        16;
+        24;
 
     late final List<Widget> listChildren;
     if (_initialLoading && _family == null) {
@@ -1021,20 +1021,24 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
         ),
         const _FigmaSectionTitle('Недавние события', bottomPadding: 18),
         const SizedBox(height: 12),
-        // Transform.scale из ValueBumpWrap рисуется поверх соседа сверху — клип +
-        // рост по topCenter чтобы не закрывать заголовок.
-        ClipRect(
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
           child: ValueBumpWrap(
             changeKey: _dashboardFeedDigest(),
             alignment: Alignment.topCenter,
-            child: _MergedActivityFeed(
-              notifications: _notifications,
-              reviews: _reviews,
-              wallets: _wallets,
+            // Слабее зум — меньше риска наехать на заголовок без жёсткого ClipRect
+            beginScale: 1.038,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 28),
+              child: _MergedActivityFeed(
+                notifications: _notifications,
+                reviews: _reviews,
+                wallets: _wallets,
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
       ];
     }
 
