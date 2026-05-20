@@ -953,9 +953,9 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = 24 +
+    final bottomPad = 32 +
         MediaQuery.viewPaddingOf(context).bottom +
-        8 +
+        16 +
         _kParentNavPillH +
         16;
 
@@ -1019,14 +1019,19 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           onQuestsTap: widget.onOpenQuests,
           onGoalTap: widget.onOpenWallet,
         ),
-        const _FigmaSectionTitle('Недавние события', bottomPadding: 14),
-        const SizedBox(height: 4),
-        ValueBumpWrap(
-          changeKey: _dashboardFeedDigest(),
-          child: _MergedActivityFeed(
-            notifications: _notifications,
-            reviews: _reviews,
-            wallets: _wallets,
+        const _FigmaSectionTitle('Недавние события', bottomPadding: 18),
+        const SizedBox(height: 12),
+        // Transform.scale из ValueBumpWrap рисуется поверх соседа сверху — клип +
+        // рост по topCenter чтобы не закрывать заголовок.
+        ClipRect(
+          child: ValueBumpWrap(
+            changeKey: _dashboardFeedDigest(),
+            alignment: Alignment.topCenter,
+            child: _MergedActivityFeed(
+              notifications: _notifications,
+              reviews: _reviews,
+              wallets: _wallets,
+            ),
           ),
         ),
         const SizedBox(height: 24),
