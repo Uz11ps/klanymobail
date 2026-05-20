@@ -1019,8 +1019,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           onQuestsTap: widget.onOpenQuests,
           onGoalTap: widget.onOpenWallet,
         ),
-        const _FigmaSectionTitle('Недавние события'),
-        const SizedBox(height: 11),
+        const _FigmaSectionTitle('Недавние события', bottomPadding: 14),
+        const SizedBox(height: 4),
         ValueBumpWrap(
           changeKey: _dashboardFeedDigest(),
           child: _MergedActivityFeed(
@@ -1423,13 +1423,15 @@ class _MembersStripState extends State<_MembersStrip> {
 }
 
 class _FigmaSectionTitle extends StatelessWidget {
-  const _FigmaSectionTitle(this.text);
+  const _FigmaSectionTitle(this.text, {this.bottomPadding = 4});
   final String text;
+  /// Отступ под заголовком до следующего блока списка.
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 4),
+      padding: EdgeInsets.only(top: 20, bottom: bottomPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1459,30 +1461,27 @@ class _RecentEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.13),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            avatar,
-            const SizedBox(width: 10),
-            Expanded(child: textBlock),
-          ],
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          avatar,
+          const SizedBox(width: 14),
+          Expanded(child: textBlock),
+        ],
       ),
     );
   }
@@ -2081,11 +2080,15 @@ class _MergedActivityFeed extends StatelessWidget {
 
     rows.sort((a, b) => b.t.compareTo(a.t));
 
+    final shown = rows.take(_kRecentEventsMaxItems).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final e in rows.take(_kRecentEventsMaxItems))
-          e.w,
+        for (var i = 0; i < shown.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          shown[i].w,
+        ],
       ],
     );
   }

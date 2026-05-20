@@ -11,6 +11,18 @@ import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 
+/// Снизу под плавающий `_ShopBottomBar` при `extendBody: true`: капсула 76 + поле 16 +
+/// системный вырез + небольшой зазор до контента.
+double _shopBodyBottomPadding(BuildContext context) {
+  const pillH = 76.0;
+  const barBottomPad = 16.0;
+  const gapAboveBar = 20.0;
+  return pillH +
+      barBottomPad +
+      MediaQuery.viewPaddingOf(context).bottom +
+      gapAboveBar;
+}
+
 class ParentShopPage extends ConsumerStatefulWidget {
   const ParentShopPage({super.key, this.initialTab = 0});
 
@@ -281,7 +293,12 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
-              padding: const EdgeInsets.fromLTRB(19, 34, 19, 104),
+              padding: EdgeInsets.fromLTRB(
+                19,
+                34,
+                19,
+                _shopBodyBottomPadding(context),
+              ),
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -616,7 +633,12 @@ class _ParentCreateProductFormState
       bottom: false,
       child: ListView(
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(19, 34, 19, 112),
+        padding: EdgeInsets.fromLTRB(
+          19,
+          34,
+          19,
+          _shopBodyBottomPadding(context),
+        ),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -950,7 +972,12 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
-              padding: const EdgeInsets.fromLTRB(19, 34, 19, 104),
+              padding: EdgeInsets.fromLTRB(
+                19,
+                34,
+                19,
+                _shopBodyBottomPadding(context),
+              ),
               children: [
                 SizedBox(
                   height: 48,
