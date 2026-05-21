@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -21,8 +22,9 @@ import '../phone_utils.dart';
 int _digitsOnlyLength(String raw) =>
     raw.replaceAll(RegExp(r'[^0-9]'), '').length;
 
-/// Figma «выбор фото» (узел 0:1283): круг `#2b88ff`, белая камера ~26 px.
-const Color _chiefPhotoFabBlue = Color(0xFF2B88FF);
+/// Figma Frame 123 / узел 0:1283 — круг с иконкой камеры.
+const String _chiefPhotoPlaceholderAsset =
+    'assets/figma/chief_register_photo.svg';
 
 const double _chiefPhotoDiameter = 112;
 
@@ -166,14 +168,11 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                 height: _chiefPhotoDiameter,
                 gaplessPlayback: true,
               )
-            : Container(
-                color: _chiefPhotoFabBlue,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.photo_camera_rounded,
-                  color: Colors.white,
-                  size: 26,
-                ),
+            : SvgPicture.asset(
+                _chiefPhotoPlaceholderAsset,
+                width: _chiefPhotoDiameter,
+                height: _chiefPhotoDiameter,
+                fit: BoxFit.contain,
               ),
       ),
     );
