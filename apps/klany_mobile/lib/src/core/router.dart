@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -125,12 +126,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/parent/chief-register',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
           final email = extra is String
               ? extra
               : (state.uri.queryParameters['email'] ?? '');
-          return ParentChiefRegisterPage(initialEmail: email);
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: ParentChiefRegisterPage(initialEmail: email),
+          );
         },
       ),
       GoRoute(

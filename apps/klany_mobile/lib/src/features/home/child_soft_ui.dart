@@ -704,9 +704,7 @@ class FigmaAuthPolicyRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Semantics(
+            Semantics(
                 checked: checked,
                 child: GestureDetector(
                   onTap: enabled ? () => onChanged(!checked) : null,
@@ -733,12 +731,14 @@ class FigmaAuthPolicyRow extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
             const SizedBox(width: _gap),
             Expanded(
-              child: Text.rich(
-                TextSpan(style: _labelStyle, children: labelSpans),
-                textAlign: TextAlign.left,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text.rich(
+                  TextSpan(style: _labelStyle, children: labelSpans),
+                  textAlign: TextAlign.left,
+                ),
               ),
             ),
           ],

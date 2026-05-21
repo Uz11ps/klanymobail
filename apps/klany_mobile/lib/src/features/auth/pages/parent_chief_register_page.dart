@@ -295,49 +295,41 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
 
   @override
   Widget build(BuildContext context) {
-    void onBack() {
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/auth/parent/sign-in');
-      }
-    }
+    void onBack() => context.go('/auth/parent/sign-in');
+
+    final topInset = math.max(
+      MediaQuery.paddingOf(context).top,
+      kFigmaLandingMinTopInset,
+    );
+    final bottomInset = math.max(
+      MediaQuery.paddingOf(context).bottom,
+      kFigmaLandingMinBottomInset,
+    );
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        fit: StackFit.expand,
+      backgroundColor: const Color(0xFFE6F0F8),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const FigmaAuthScreenBackground(),
-          Padding(
-            padding: EdgeInsets.only(
-              top: math.max(
-                MediaQuery.paddingOf(context).top,
-                kFigmaLandingMinTopInset,
+          SizedBox(height: topInset),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                kFigmaAuthHeroFormPaddingH,
+                0,
+                kFigmaAuthHeroFormPaddingH,
+                bottomInset + 16,
               ),
-              bottom: math.max(
-                MediaQuery.paddingOf(context).bottom,
-                kFigmaLandingMinBottomInset,
-              ),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: kFigmaAuthHeroFormPaddingH,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FigmaAuthDoubleDeckHeader(
+                    navTitle: 'Регистрация',
+                    onBack: onBack,
+                    embeddedInPage: true,
+                    horizontalPadding: 0,
                   ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        FigmaAuthDoubleDeckHeader(
-                          navTitle: 'Регистрация',
-                          onBack: onBack,
-                          embeddedInPage: true,
-                          horizontalPadding: 0,
-                        ),
-                        Center(child: _buildAvatarChip()),
+                  Center(child: _buildAvatarChip()),
                               const SizedBox(height: 8),
                               Center(
                                 child: TextButton(
@@ -561,12 +553,9 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                                   ),
                                   onTap: _submit,
                                 ),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ],

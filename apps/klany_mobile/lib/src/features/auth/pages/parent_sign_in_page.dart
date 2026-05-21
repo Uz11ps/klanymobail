@@ -181,7 +181,9 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (registered) {
         setState(() => _step = 1);
       } else {
-        context.push('/auth/parent/chief-register', extra: id);
+        context.go(
+          '/auth/parent/chief-register?email=${Uri.encodeComponent(id)}',
+        );
       }
     } catch (e) {
       if (!mounted) return;
