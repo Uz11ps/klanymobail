@@ -48,6 +48,12 @@ export class ParentController {
     return this.parent.updateMyProfile(req.user, body);
   }
 
+  @Patch("parent/me/avatar")
+  @Roles("parent", "admin")
+  async setMyAvatar(@Req() req: any, @Body() body: { objectKey?: string }) {
+    return this.parent.setMyAvatar(req.user, body?.objectKey ?? "");
+  }
+
   @Get("parent/members")
   @Roles("parent", "admin")
   async members(@Req() req: any) {

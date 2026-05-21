@@ -107,6 +107,27 @@ export class ParentService {
     return { ok: true as const, displayName };
   }
 
+  /** Аватар текущего родителя/админа (`profiles.avatarObjectKey`). */
+  async setMyAvatar(user: ParentUser, objectKeyRaw: string) {
+    const familyId = ensureFamilyId(user);
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const prefix = `avatars/families/${familyId}/profiles/${user.userId}/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    const updated = await this.prisma.profile.updateMany({
+      where: {
+        userId: user.userId,
+        familyId,
+        role: { in: ["parent", "admin"] },
+      },
+      data: { avatarObjectKey: key },
+    });
+    if (updated.count === 0) throw new NotFoundException("Профиль не найден");
+    return { ok: true as const, avatarObjectKey: key };
+  }
+
   async listParentMembers(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const rows = await this.prisma.profile.findMany({

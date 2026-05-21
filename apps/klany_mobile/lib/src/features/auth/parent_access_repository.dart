@@ -152,6 +152,51 @@ class ParentAccessRepository {
     );
   }
 
+  /// Свой аватар главы семьи: MinIO → `profiles.avatarObjectKey`.
+  Future<void> uploadMyProfileAvatarFromXFile(XFile imageFile) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    final session = ref.read(parentSessionProvider).asData?.value;
+    if (api == null || token == null || session == null) {
+      throw Exception('Не авторизован');
+    }
+
+    final bytes = await imageFile.readAsBytes();
+    var ext = imageFile.path.split('.').last.toLowerCase();
+    if (ext.length > 5 || ext.contains(RegExp(r'[^a-z0-9]'))) {
+      ext = 'jpg';
+    }
+    final key =
+        'avatars/families/${session.familyId}/profiles/${session.userId}/${_uuid.v4()}.$ext';
+
+    final presign = await api.postJson(
+      '/storage/presign-upload',
+      accessToken: token,
+      body: <String, dynamic>{
+        'bucket': 'member-avatars',
+        'objectKey': key,
+      },
+    );
+    final url = presign['url']?.toString() ?? '';
+    if (url.isEmpty) throw Exception('Не удалось получить ссылку загрузки');
+
+    final put = await http.put(Uri.parse(url), body: bytes);
+    ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
+    if (put.statusCode < 200 || put.statusCode >= 300) {
+      throw Exception('Загрузка файла: ${put.statusCode}');
+    }
+
+    await api.patchJson(
+      '/parent/me/avatar',
+      accessToken: token,
+      body: <String, dynamic>{'objectKey': key},
+    );
+    invalidatePresignStorageDownload(
+      bucket: 'member-avatars',
+      objectKey: key,
+    );
+  }
+
   Future<void> setFamilyGoal(int goalAmount) async {
     final api = Sdk.apiOrNull;
     final token = _token;

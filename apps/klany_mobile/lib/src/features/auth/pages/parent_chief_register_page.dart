@@ -1,21 +1,29 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/app_snackbar.dart';
 import '../../../core/env.dart';
 import '../../../theme/klany_figma_style.dart';
+import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/pages/document_page.dart';
 import '../auth_actions.dart';
-import '../device_identity.dart';
+import '../parent_access_repository.dart';
 import '../phone_utils.dart';
 
 int _digitsOnlyLength(String raw) =>
     raw.replaceAll(RegExp(r'[^0-9]'), '').length;
+
+/// Figma «выбор фото» (узел 0:1283): круг `#2b88ff`, белая камера ~26 px.
+const Color _chiefPhotoFabBlue = Color(0xFF2B88FF);
+
+const double _chiefPhotoDiameter = 112;
 
 /// Полная регистрация главы клана для email, которого ещё нет в системе.
 class ParentChiefRegisterPage extends ConsumerStatefulWidget {
@@ -37,16 +45,17 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
   final _phone = TextEditingController();
   late final TextEditingController _email;
   final _password = TextEditingController();
+  final _passwordConfirm = TextEditingController();
 
   bool _obscure = true;
+  bool _obscureConfirm = true;
   bool _busy = false;
   bool _agreePrivacy = false;
   bool _agreeTerms = false;
 
-  final _deviceDisplay = TextEditingController(text: '…');
-
-  static const _avatars = ['🧔', '🧑', '👩', '👨', '🙂', '🎯'];
-  String _selectedAvatar = '🧔';
+  final ImagePicker _imagePicker = ImagePicker();
+  XFile? _avatarPickedFile;
+  Uint8List? _avatarPreviewBytes;
 
   TapGestureRecognizer? _privacyReco;
   TapGestureRecognizer? _termsReco;
@@ -61,22 +70,6 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     _termsReco = TapGestureRecognizer()
       ..onTap = () =>
           _openDoc('Пользовательское соглашение', userAgreementBody);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDeviceId());
-  }
-
-  Future<void> _loadDeviceId() async {
-    try {
-      final id = await DeviceIdentityStore.getOrCreate();
-      if (!mounted) return;
-      setState(() {
-        final raw = id.deviceId;
-        _deviceDisplay.text =
-            raw.length <= 36 ? raw : '${raw.substring(0, 36)}…';
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _deviceDisplay.text = '—');
-    }
   }
 
   @override
@@ -85,10 +78,104 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     _phone.dispose();
     _email.dispose();
     _password.dispose();
-    _deviceDisplay.dispose();
+    _passwordConfirm.dispose();
     _privacyReco?.dispose();
     _termsReco?.dispose();
     super.dispose();
+  }
+
+  Future<void> _showAvatarSourcePicker() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: kChildSurfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Галерея'),
+              onTap: () => Navigator.pop(sheetCtx, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Камера'),
+              onTap: () => Navigator.pop(sheetCtx, 'camera'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    await _pickAvatar(
+      choice == 'camera' ? ImageSource.camera : ImageSource.gallery,
+    );
+  }
+
+  Future<void> _pickAvatar(ImageSource source) async {
+    try {
+      final img = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 90,
+      );
+      if (img == null || !mounted) return;
+      final bytes = await img.readAsBytes();
+      setState(() {
+        _avatarPickedFile = img;
+        _avatarPreviewBytes = bytes;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Не удалось выбрать фото: $e')),
+      );
+    }
+  }
+
+  Widget _buildAvatarChip() {
+    final bytes = _avatarPreviewBytes;
+    return GestureDetector(
+      onTap: _busy ? null : _showAvatarSourcePicker,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: _chiefPhotoDiameter,
+        height: _chiefPhotoDiameter,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: bytes != null
+            ? Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                width: _chiefPhotoDiameter,
+                height: _chiefPhotoDiameter,
+                gaplessPlayback: true,
+              )
+            : Container(
+                color: _chiefPhotoFabBlue,
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.photo_camera_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+      ),
+    );
   }
 
   void _openDoc(String title, String body) {
@@ -99,70 +186,10 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     );
   }
 
-  void _openAvatarSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: kChildSurfaceWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetCtx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'Выбор аватара',
-                  style: TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: kChildInk,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _avatars.map((a) {
-                  final sel = _selectedAvatar == a;
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedAvatar = a);
-                      Navigator.pop(sheetCtx);
-                    },
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: kChildSurfaceWhite,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: sel ? kChildBrandBlue : kChildOutline,
-                          width: sel ? 2.4 : 1.4,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(a, style: const TextStyle(fontSize: 30)),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   String? _displayNameForSubmit() {
     final n = _name.text.trim();
     if (n.isEmpty) return null;
-    return '$_selectedAvatar $n';
+    return n;
   }
 
   Future<void> _submit() async {
@@ -191,6 +218,12 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
       );
       return;
     }
+    if (_password.text != _passwordConfirm.text) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Пароли не совпадают')),
+      );
+      return;
+    }
     if (!_agreePrivacy || !_agreeTerms) {
       context.showKlanySnackBar(
         const SnackBar(
@@ -216,6 +249,24 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
             recoveryEmail: trimmedEmail,
             email: trimmedEmail,
           );
+      final picked = _avatarPickedFile;
+      if (picked != null && mounted) {
+        try {
+          await ref
+              .read(parentAccessRepositoryProvider)
+              .uploadMyProfileAvatarFromXFile(picked);
+          avatarVersion.value++;
+        } catch (e) {
+          if (!mounted) return;
+          context.showKlanySnackBar(
+            SnackBar(
+              content: Text(
+                'Аккаунт создан. Загрузка фото не удалась: $e',
+              ),
+            ),
+          );
+        }
+      }
       if (!mounted) return;
       context.go('/parent');
     } catch (e) {
@@ -250,12 +301,12 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
       children: [
         SizedBox(
           width: 40,
-          child:         Checkbox(
-          value: value,
-          onChanged: onChanged,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-        ),
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
         ),
         Expanded(child: Padding(padding: const EdgeInsets.only(top: 10), child: label)),
       ],
@@ -315,39 +366,11 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Center(
-                                child: GestureDetector(
-                                  onTap: _openAvatarSheet,
-                                  child: Container(
-                                    width: 112,
-                                    height: 112,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: kChildOutline.withValues(alpha: 0.6),
-                                        width: 1.4,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.06),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      _selectedAvatar,
-                                      style: const TextStyle(fontSize: 52),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              Center(child: _buildAvatarChip()),
                               const SizedBox(height: 8),
                               Center(
                                 child: TextButton(
-                                  onPressed: _openAvatarSheet,
+                                  onPressed: _busy ? null : _showAvatarSourcePicker,
                                   style: TextButton.styleFrom(
                                     foregroundColor: kChildBrandBlue,
                                     textStyle: const TextStyle(
@@ -356,7 +379,11 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  child: const Text('Выбрать фото'),
+                                  child: Text(
+                                    _avatarPreviewBytes != null
+                                        ? 'Изменить фото'
+                                        : 'Выбрать фото',
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -467,19 +494,31 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                               const Padding(
                                 padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
                                 child: Text(
-                                  'Айди устройства',
+                                  'Подтверждение пароля',
                                   style: kFigmaAuthFieldLabelStyle,
                                 ),
                               ),
                               FigmaAuthInputShell(
                                 child: TextField(
-                                  readOnly: true,
-                                  controller: _deviceDisplay,
-                                  enableInteractiveSelection: true,
-                                  style: kFigmaAuthInputTextStyle.copyWith(
-                                    color: kChildInkMuted,
+                                  controller: _passwordConfirm,
+                                  obscureText: _obscureConfirm,
+                                  autofillHints: const [
+                                    AutofillHints.newPassword,
+                                  ],
+                                  style: kFigmaAuthInputTextStyle,
+                                  decoration: figmaAuthFieldDecoration(
+                                    '••••••••',
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirm
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: kChildInkMuted,
+                                      ),
+                                      onPressed: () => setState(() =>
+                                          _obscureConfirm = !_obscureConfirm),
+                                    ),
                                   ),
-                                  decoration: figmaAuthFieldDecoration(''),
                                 ),
                               ),
                               const SizedBox(height: kFigmaAuthFieldStackGap),
