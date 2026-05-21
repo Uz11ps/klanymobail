@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../auth/auth_actions.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../auth/parent_session.dart';
+import '../../auth/profile_display_name.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
@@ -18,6 +19,7 @@ import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import 'document_page.dart';
+import 'parent_account_edit_dialog.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
@@ -649,101 +651,36 @@ class _ParentFamilySettingsPageState
     );
   }
 
-  /// Диалог в стиле [showAvatarPicker] — белая карточка, заголовок Nunito, нижний стек кнопок.
-  Future<void> _editMyDisplayNameSheet({
-    required String shownNameLabel,
-    required String editableSeed,
-  }) async {
+  Future<void> _editMyAccountSheet(ParentMemberItem self) async {
     if (_busy) return;
-    final controller = TextEditingController(text: editableSeed);
 
-    String? savedName;
-    try {
-      savedName = await showDialog<String>(
+    final result = await showParentAccountEditDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          'Ваше имя',
-          style: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: kChildInk,
-          ),
-        ),
-        content: SizedBox(
-          width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                shownNameLabel == 'Без имени'
-                    ? 'Подставится в семью и экран учётной записи'
-                    : 'Так будет отображаться в семье',
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 14,
-                  color: kChildInkMuted.withValues(alpha: 0.95),
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: kChildInk,
-                ),
-                decoration: _settingsField('Например, Мария'),
-              ),
-              const SizedBox(height: 24),
-              FigmaDialogActionStack(
-                onCancel: () => Navigator.pop(ctx, null),
-                onConfirm: () {
-                  final t = controller.text.trim();
-                  if (t.isEmpty) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('Введите имя')),
-                    );
-                    return;
-                  }
-                  if (t.length > 120) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(
-                        content: Text('Не длиннее 120 символов'),
-                      ),
-                    );
-                    return;
-                  }
-                  Navigator.pop(ctx, t);
-                },
-                confirmLabel: 'Сохранить',
-              ),
-            ],
-          ),
-        ),
-      ),
+      userId: self.userId,
+      displayNameRaw: self.displayName,
+      avatarImageUrl: self.avatarImageUrl,
+      avatarObjectKey: self.avatarObjectKey,
     );
-    } finally {
-      controller.dispose();
-    }
+    if (result == null || !mounted) return;
 
-    if (savedName == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      await ref
-          .read(parentAccessRepositoryProvider)
-          .updateMyProfileDisplayName(savedName);
+      final repo = ref.read(parentAccessRepositoryProvider);
+      final cleaned = ProfileDisplayName.sanitize(result.displayName);
+      final previousName = ProfileDisplayName.sanitize(self.displayName);
+      if (cleaned != previousName) {
+        await repo.updateMyProfileDisplayName(cleaned);
+      }
+      if (result.newPhoto != null) {
+        await repo.uploadMyProfileAvatarFromXFile(result.newPhoto!);
+        await AvatarStore.clearLocal(parentProfileAvatarUserKey(self.userId));
+        avatarVersion.value++;
+      }
       if (!mounted) return;
       setState(() => _familyRosterNonce++);
-      context.showKlanySnackBar(const SnackBar(content: Text('Имя сохранено')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Профиль сохранён')),
+      );
     } catch (e) {
       if (!mounted) return;
       context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
@@ -806,15 +743,15 @@ class _ParentFamilySettingsPageState
         final waitingRoster =
             snapshot.connectionState == ConnectionState.waiting &&
                 snapshot.data == null;
-        final rawName = accountSelf?.displayName.trim() ?? '';
-        final isNamePlaceholder =
-            rawName.isEmpty ||
-                rawName == 'Без имени' ||
-                rawName == 'Родитель';
-        final profileNameLine =
-            waitingRoster
-                ? 'Загрузка…'
-                : (isNamePlaceholder ? 'Без имени' : rawName);
+        final rawName = accountSelf?.displayName ?? '';
+        final profileNameLine = waitingRoster
+            ? 'Загрузка…'
+            : ProfileDisplayName.forUi(rawName);
+        final accountAvatarKey = sessionUid != null && sessionUid.isNotEmpty
+            ? parentProfileAvatarUserKey(sessionUid)
+            : '';
+        final accountObjectKey =
+            (accountSelf?.avatarObjectKey ?? '').trim();
         final roleFamilyLine =
             waitingRoster
                 ? ''
@@ -980,6 +917,32 @@ class _ParentFamilySettingsPageState
                                             ),
                                           ),
                                           _IconRow(
+                                            leading: waitingRoster ||
+                                                    accountSelf == null
+                                                ? null
+                                                : UserAvatar(
+                                                    userKey: accountAvatarKey,
+                                                    size: 60,
+                                                    fallbackText: profileNameLine
+                                                                .isEmpty ||
+                                                            profileNameLine ==
+                                                                'Без имени'
+                                                        ? '?'
+                                                        : String.fromCharCode(
+                                                            profileNameLine
+                                                                .runes.first,
+                                                          ).toUpperCase(),
+                                                    remoteImageUrl: accountSelf
+                                                        .avatarImageUrl,
+                                                    remoteDiskCacheKey:
+                                                        accountObjectKey
+                                                            .isEmpty
+                                                        ? null
+                                                        : storageObjectDiskCacheKey(
+                                                            'member-avatars',
+                                                            accountObjectKey,
+                                                          ),
+                                                  ),
                                             icon: Icons.badge_outlined,
                                             title: 'Текущая учётная запись',
                                             subtitle: accountSubtitle,
@@ -988,18 +951,12 @@ class _ParentFamilySettingsPageState
                                               size: 22,
                                               color: kChildInkMuted,
                                             ),
-                                            onTap: waitingRoster
+                                            onTap: waitingRoster ||
+                                                    accountSelf == null
                                                 ? null
-                                                : () {
-                                                    _editMyDisplayNameSheet(
-                                                      shownNameLabel:
-                                                          profileNameLine,
-                                                      editableSeed:
-                                                          isNamePlaceholder
-                                                              ? ''
-                                                              : rawName,
-                                                    );
-                                                  },
+                                                : () => _editMyAccountSheet(
+                                                      accountSelf!,
+                                                    ),
                                           ),
                                           const Padding(
                                             padding: EdgeInsets.symmetric(
@@ -1943,7 +1900,22 @@ class _ParentFamilySettingsPageState
                                           children: [
                                             const _SectionTitle('Родители'),
                                             ...parents.map(
-                                              (p) => Padding(
+                                              (p) {
+                                                final nameLine =
+                                                    ProfileDisplayName.forUi(
+                                                  p.displayName,
+                                                );
+                                                final objectKey =
+                                                    (p.avatarObjectKey ?? '')
+                                                        .trim();
+                                                final initial = nameLine
+                                                            .isEmpty ||
+                                                        nameLine == 'Без имени'
+                                                    ? '?'
+                                                    : String.fromCharCode(
+                                                        nameLine.runes.first,
+                                                      ).toUpperCase();
+                                                return Padding(
                                                 padding: const EdgeInsets.only(
                                                   bottom: 6,
                                                 ),
@@ -1951,6 +1923,24 @@ class _ParentFamilySettingsPageState
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
+                                                    UserAvatar(
+                                                      userKey:
+                                                          parentProfileAvatarUserKey(
+                                                        p.userId,
+                                                      ),
+                                                      size: 48,
+                                                      fallbackText: initial,
+                                                      remoteImageUrl:
+                                                          p.avatarImageUrl,
+                                                      remoteDiskCacheKey:
+                                                          objectKey.isEmpty
+                                                              ? null
+                                                              : storageObjectDiskCacheKey(
+                                                                  'member-avatars',
+                                                                  objectKey,
+                                                                ),
+                                                    ),
+                                                    const SizedBox(width: 10),
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -1958,11 +1948,7 @@ class _ParentFamilySettingsPageState
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            p.displayName
-                                                                    .trim()
-                                                                    .isEmpty
-                                                                ? 'Без имени'
-                                                                : p.displayName,
+                                                            nameLine,
                                                             style:
                                                                 const TextStyle(
                                                                   fontWeight:
@@ -1988,7 +1974,8 @@ class _ParentFamilySettingsPageState
                                                     ),
                                                   ],
                                                 ),
-                                              ),
+                                              );
+                                            },
                                             ),
                                           ],
                                         ),
@@ -2228,10 +2215,12 @@ class _IconRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.leading,
     this.onTap,
     this.trailing,
   });
   final IconData icon;
+  final Widget? leading;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
@@ -2239,6 +2228,18 @@ class _IconRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatar = leading ??
+        Container(
+          width: 60,
+          height: 60,
+          decoration: const BoxDecoration(
+            color: Color(0xFFE3ECF8),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: kChildInk, size: 24),
+        );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2247,16 +2248,7 @@ class _IconRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Row(
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE3ECF8),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: kChildInk, size: 24),
-              ),
+              SizedBox(width: 60, height: 60, child: avatar),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

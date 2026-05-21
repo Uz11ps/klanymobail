@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -44,6 +45,22 @@ function normalizeInviteToken(token: string): string {
   return token.trim().toUpperCase();
 }
 
+/** Prisma P2002 → понятный 400 вместо 500 «сервер недоступен». */
+function mapPrismaUniqueToBadRequest(err: unknown): never {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    const target = err.meta?.target;
+    const fields = Array.isArray(target) ? target.map(String) : [];
+    if (fields.includes("phone")) {
+      throw new BadRequestException("Этот номер телефона уже зарегистрирован");
+    }
+    if (fields.includes("email")) {
+      throw new BadRequestException("Этот email уже зарегистрирован");
+    }
+    throw new BadRequestException("Пользователь с такими данными уже зарегистрирован");
+  }
+  throw err;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -73,47 +90,35 @@ export class AuthService {
     }
     const validatedPassword = assertKlanyPasswordPlain(input.password);
 
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) throw new BadRequestException("Пользователь уже существует");
+    const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      throw new BadRequestException("Этот email уже зарегистрирован");
+    }
+    if (providedPhone) {
+      const existingPhone = await this.prisma.user.findUnique({
+        where: { phone: providedPhone },
+      });
+      if (existingPhone) {
+        throw new BadRequestException("Этот номер телефона уже зарегистрирован");
+      }
+    }
 
     const passwordHash = await bcrypt.hash(validatedPassword, 10);
 
     // Create family + profile in one transaction.
-    const result = await this.prisma.$transaction(async (tx) => {
-      let familyCode = generateFamilyCode();
-      // Ensure uniqueness (rare collision).
-      for (let i = 0; i < 5; i += 1) {
-        const exists = await tx.family.findUnique({ where: { familyCode } });
-        if (!exists) break;
-        familyCode = generateFamilyCode();
-      }
-
-      const user = await tx.user.create({
-        data: {
+    let result: Awaited<ReturnType<typeof this.createParentFamilyInTx>>;
+    try {
+      result = await this.prisma.$transaction(async (tx) =>
+        this.createParentFamilyInTx(tx, {
           email,
-          phone: providedPhone || null,
+          providedPhone,
           passwordHash,
-        },
-      });
-
-      const family = await tx.family.create({
-        data: {
-          ownerUserId: user.id,
-          familyCode,
-        },
-      });
-
-      const profile = await tx.profile.create({
-        data: {
-          userId: user.id,
-          familyId: family.id,
-          role: "parent",
           displayName: (input.displayName ?? "").trim() || null,
-        },
-      });
-
-      return { user, family, profile };
-    });
+        }),
+      );
+    } catch (err) {
+      throw mapPrismaUniqueToBadRequest(err);
+    }
 
     const accessToken = this.jwt.sign({
       sub: result.user.id,
@@ -131,6 +136,50 @@ export class AuthService {
       },
       family: { id: result.family.id, familyCode: result.family.familyCode },
     };
+  }
+
+  private async createParentFamilyInTx(
+    tx: Prisma.TransactionClient,
+    input: {
+      email: string;
+      providedPhone: string;
+      passwordHash: string;
+      displayName: string | null;
+    },
+  ) {
+      let familyCode = generateFamilyCode();
+      // Ensure uniqueness (rare collision).
+      for (let i = 0; i < 5; i += 1) {
+        const exists = await tx.family.findUnique({ where: { familyCode } });
+        if (!exists) break;
+        familyCode = generateFamilyCode();
+      }
+
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          phone: input.providedPhone || null,
+          passwordHash: input.passwordHash,
+        },
+      });
+
+      const family = await tx.family.create({
+        data: {
+          ownerUserId: user.id,
+          familyCode,
+        },
+      });
+
+      const profile = await tx.profile.create({
+        data: {
+          userId: user.id,
+          familyId: family.id,
+          role: "parent",
+          displayName: input.displayName,
+        },
+      });
+
+      return { user, family, profile };
   }
 
   async signInWithPassword(input: { email?: string; login?: string; phone?: string; password: string }) {

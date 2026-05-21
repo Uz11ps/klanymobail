@@ -45,11 +45,15 @@ class ParentMemberItem {
     required this.userId,
     required this.displayName,
     required this.role,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String userId;
   final String displayName;
   final String role;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 class ChildMemberItem {
@@ -253,13 +257,25 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/members', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items.map((row) {
-      return ParentMemberItem(
-        userId: row['userId'].toString(),
-        displayName: (row['displayName'] ?? 'Родитель').toString(),
-        role: row['role'].toString(),
-      );
-    }).toList();
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: objectKey,
+              )
+            : null;
+        return ParentMemberItem(
+          userId: row['userId'].toString(),
+          displayName: (row['displayName'] ?? 'Родитель').toString(),
+          role: row['role'].toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<List<ChildMemberItem>> getChildren(String familyId) async {

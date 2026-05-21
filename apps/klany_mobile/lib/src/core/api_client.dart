@@ -40,7 +40,12 @@ class ApiException implements Exception {
                 lower.contains('email/')))) {
       return 'Неверный email или пароль.';
     }
-    if (lower.contains('пользователь уже существует') ||
+    if (lower.contains('номер телефона уже') ||
+        (lower.contains('телефон') && lower.contains('зарегистрир'))) {
+      return 'Этот номер телефона уже зарегистрирован. Войдите или укажите другой.';
+    }
+    if (lower.contains('email уже зарегистрирован') ||
+        lower.contains('пользователь уже существует') ||
         lower.contains('user already exists') ||
         lower.contains('email already') ||
         lower.contains('already registered') ||

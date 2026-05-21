@@ -139,6 +139,7 @@ export class ParentService {
         userId: p.userId,
         displayName: p.displayName ?? "Без имени",
         role: p.role,
+        avatarObjectKey: p.avatarObjectKey ?? null,
       })),
     };
   }
