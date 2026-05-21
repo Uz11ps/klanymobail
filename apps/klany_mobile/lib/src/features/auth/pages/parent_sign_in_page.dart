@@ -154,7 +154,42 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       context.showKlanySnackBar(SnackBar(content: Text(err)));
       return;
     }
-    setState(() => _step = 1);
+    final id = _email.text.trim();
+
+    /// Телефон — как раньше: сразу шаг пароля. Новый email (ещё не в базе) — полная регистрация.
+    if (!id.contains('@')) {
+      setState(() => _step = 1);
+      return;
+    }
+
+    if (!Env.hasApiConfig) {
+      context.showKlanySnackBar(
+        const SnackBar(
+          content: Text('Заполните .env (API_BASE_URL) чтобы продолжить'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final registered = await ref
+          .read(authActionsProvider)
+          .isParentEmailRegistered(id);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      if (registered) {
+        setState(() => _step = 1);
+      } else {
+        context.push('/auth/parent/chief-register', extra: id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Не удалось проверить почту: $e')),
+      );
+    }
   }
 
   @override
@@ -346,18 +381,34 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                             ),
                           ),
                           const SizedBox(height: kFigmaAuthFieldStackGap),
-                          FigmaGradientButton(
-                            label: 'Продолжить',
-                            gradient: FigmaGradientButton.mintGradientVertical,
-                            height: kFigmaAuthPrimaryCtaHeight,
-                            labelStyle: kFigmaLandingCtaTextStyle,
-                            boxShadow: kFigmaLandingCtaBoxShadows,
-                            textHeightBehavior: const TextHeightBehavior(
-                              applyHeightToFirstAscent: false,
-                              applyHeightToLastDescent: false,
+                          if (_busy)
+                            const SizedBox(
+                              height: kFigmaAuthPrimaryCtaHeight,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Color(0xFF1F4F1B),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            FigmaGradientButton(
+                              label: 'Продолжить',
+                              gradient:
+                                  FigmaGradientButton.mintGradientVertical,
+                              height: kFigmaAuthPrimaryCtaHeight,
+                              labelStyle: kFigmaLandingCtaTextStyle,
+                              boxShadow: kFigmaLandingCtaBoxShadows,
+                              textHeightBehavior: const TextHeightBehavior(
+                                applyHeightToFirstAscent: false,
+                                applyHeightToLastDescent: false,
+                              ),
+                              onTap: _proceed,
                             ),
-                            onTap: _busy ? null : _proceed,
-                          ),
                         ] else ...[
                           const Padding(
                             padding: EdgeInsets.only(

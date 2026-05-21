@@ -49,6 +49,19 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
+  /** Проверка: зарегистрирован ли пользователь с данным email (только для главы: шаг «Продолжить»). */
+  async isParentEmailRegistered(emailRaw: string) {
+    const email = normalizeEmail(emailRaw ?? "");
+    if (!email.includes("@")) {
+      throw new BadRequestException("Нужен корректный email");
+    }
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return { registered: Boolean(existing) };
+  }
+
   async signUpParent(input: { email?: string; phone?: string; password: string; displayName?: string; recoveryEmail?: string }) {
     const providedPhone = normalizePhone(input.phone ?? "");
     const providedEmail = normalizeEmail(input.email ?? input.recoveryEmail ?? "");

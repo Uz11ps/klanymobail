@@ -56,6 +56,19 @@ class AuthActions {
         );
   }
 
+  /// `true`, если указанный email уже зарегистрирован (для потока «Продолжить» главы клана).
+  Future<bool> isParentEmailRegistered(String email) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) {
+      throw StateError('Sdk.api');
+    }
+    final data = await api.getJson(
+      '/auth/parent-email-registered',
+      query: {'email': email.trim()},
+    );
+    return data['registered'] == true;
+  }
+
   Future<void> parentSignInByCode({
     required String code,
   }) async {
@@ -80,18 +93,25 @@ class AuthActions {
     required String password,
     String? displayName,
     String? recoveryEmail,
+    String? email,
   }) async {
     final api = Sdk.apiOrNull;
     if (api == null) return;
 
+    final trimmedRecovery = recoveryEmail?.trim();
+    final trimmedEmail =
+        email?.trim() ?? trimmedRecovery ?? '';
+
     final data = await api.postJson(
       '/auth/sign-up',
       body: <String, dynamic>{
-        'email': recoveryEmail?.trim(),
+        if (trimmedEmail.isNotEmpty) 'email': trimmedEmail,
         'phone': phone.trim(),
         'password': password,
-        'displayName': displayName?.trim(),
-        'recoveryEmail': recoveryEmail?.trim(),
+        if ((displayName ?? '').trim().isNotEmpty)
+          'displayName': displayName!.trim(),
+        if (trimmedRecovery != null && trimmedRecovery.isNotEmpty)
+          'recoveryEmail': trimmedRecovery,
       },
     );
     await ref.read(parentSessionProvider.notifier).setSession(

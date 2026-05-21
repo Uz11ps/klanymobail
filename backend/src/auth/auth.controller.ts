@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, Req } from "@nestjs/common";
 
 import { AuthService } from "./auth.service";
 import { AuthGuardJwt } from "./guards/auth-guard-jwt";
@@ -33,6 +33,12 @@ type RecoverBody = {
 @Controller()
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @HttpCode(HttpStatus.OK)
+  @Get("auth/parent-email-registered")
+  async parentEmailRegistered(@Query("email") email?: string) {
+    return this.auth.isParentEmailRegistered(email ?? "");
+  }
 
   @Post("auth/sign-up")
   async signUp(@Body() body: SignUpBody) {

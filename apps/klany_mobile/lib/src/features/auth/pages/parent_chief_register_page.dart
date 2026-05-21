@@ -1,0 +1,572 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/app_snackbar.dart';
+import '../../../core/env.dart';
+import '../../../theme/klany_figma_style.dart';
+import '../../home/child_soft_ui.dart';
+import '../../home/pages/document_page.dart';
+import '../auth_actions.dart';
+import '../device_identity.dart';
+import '../phone_utils.dart';
+
+int _digitsOnlyLength(String raw) =>
+    raw.replaceAll(RegExp(r'[^0-9]'), '').length;
+
+/// Полная регистрация главы клана для email, которого ещё нет в системе.
+class ParentChiefRegisterPage extends ConsumerStatefulWidget {
+  const ParentChiefRegisterPage({
+    super.key,
+    required this.initialEmail,
+  });
+
+  /// Почта, введённая на шаге «Продолжить».
+  final String initialEmail;
+
+  @override
+  ConsumerState<ParentChiefRegisterPage> createState() =>
+      _ParentChiefRegisterPageState();
+}
+
+class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPage> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  late final TextEditingController _email;
+  final _password = TextEditingController();
+
+  bool _obscure = true;
+  bool _busy = false;
+  bool _agreePrivacy = false;
+  bool _agreeTerms = false;
+
+  final _deviceDisplay = TextEditingController(text: '…');
+
+  static const _avatars = ['🧔', '🧑', '👩', '👨', '🙂', '🎯'];
+  String _selectedAvatar = '🧔';
+
+  TapGestureRecognizer? _privacyReco;
+  TapGestureRecognizer? _termsReco;
+
+  @override
+  void initState() {
+    super.initState();
+    _email = TextEditingController(text: widget.initialEmail.trim());
+    _privacyReco = TapGestureRecognizer()
+      ..onTap = () =>
+          _openDoc('Политика конфиденциальности', privacyPolicyBody);
+    _termsReco = TapGestureRecognizer()
+      ..onTap = () =>
+          _openDoc('Пользовательское соглашение', userAgreementBody);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDeviceId());
+  }
+
+  Future<void> _loadDeviceId() async {
+    try {
+      final id = await DeviceIdentityStore.getOrCreate();
+      if (!mounted) return;
+      setState(() {
+        final raw = id.deviceId;
+        _deviceDisplay.text =
+            raw.length <= 36 ? raw : '${raw.substring(0, 36)}…';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _deviceDisplay.text = '—');
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _password.dispose();
+    _deviceDisplay.dispose();
+    _privacyReco?.dispose();
+    _termsReco?.dispose();
+    super.dispose();
+  }
+
+  void _openDoc(String title, String body) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) => DocumentPage(title: title, body: body),
+      ),
+    );
+  }
+
+  void _openAvatarSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kChildSurfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Text(
+                  'Выбор аватара',
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: kChildInk,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: _avatars.map((a) {
+                  final sel = _selectedAvatar == a;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedAvatar = a);
+                      Navigator.pop(sheetCtx);
+                    },
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: kChildSurfaceWhite,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: sel ? kChildBrandBlue : kChildOutline,
+                          width: sel ? 2.4 : 1.4,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(a, style: const TextStyle(fontSize: 30)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String? _displayNameForSubmit() {
+    final n = _name.text.trim();
+    if (n.isEmpty) return null;
+    return '$_selectedAvatar $n';
+  }
+
+  Future<void> _submit() async {
+    final emailErr = validateParentLoginIdentifier(_email.text);
+    if (emailErr != null) {
+      context.showKlanySnackBar(SnackBar(content: Text(emailErr)));
+      return;
+    }
+    if (_phone.text.trim().isEmpty) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите номер телефона')),
+      );
+      return;
+    }
+    if (_digitsOnlyLength(_phone.text) < 10) {
+      context.showKlanySnackBar(
+        const SnackBar(
+          content: Text('Укажите корректный телефон (не менее 10 цифр)'),
+        ),
+      );
+      return;
+    }
+    if (_password.text.length < 6) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Пароль: минимум 6 символов')),
+      );
+      return;
+    }
+    if (!_agreePrivacy || !_agreeTerms) {
+      context.showKlanySnackBar(
+        const SnackBar(
+          content: Text('Примите Политику и Пользовательское соглашение'),
+        ),
+      );
+      return;
+    }
+    if (!Env.hasApiConfig) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Заполните .env (API_BASE_URL)')),
+      );
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final trimmedEmail = _email.text.trim();
+      await ref.read(authActionsProvider).parentSignUp(
+            phone: _phone.text.trim(),
+            password: _password.text,
+            displayName: _displayNameForSubmit(),
+            recoveryEmail: trimmedEmail,
+            email: trimmedEmail,
+          );
+      if (!mounted) return;
+      context.go('/parent');
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  TextSpan _linkTapSpan(String text, TapGestureRecognizer r) {
+    return TextSpan(
+      text: text,
+      style: const TextStyle(
+        fontFamily: 'Nunito',
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+        color: kChildBrandBlue,
+        decoration: TextDecoration.underline,
+      ),
+      recognizer: r,
+    );
+  }
+
+  Widget _policyRow({
+    required bool value,
+    required ValueChanged<bool?> onChanged,
+    required Widget label,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 40,
+          child:         Checkbox(
+          value: value,
+          onChanged: onChanged,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
+        ),
+        Expanded(child: Padding(padding: const EdgeInsets.only(top: 10), child: label)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    void onBack() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/auth/parent/sign-in');
+      }
+    }
+
+    final baseSpan = TextStyle(
+      fontFamily: 'Nunito',
+      fontSize: 13,
+      height: 1.35,
+      color: kChildInk.withValues(alpha: 0.9),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const FigmaAuthScreenBackground(),
+          Padding(
+            padding: EdgeInsets.only(
+              top: math.max(
+                MediaQuery.paddingOf(context).top,
+                kFigmaLandingMinTopInset,
+              ),
+              bottom: math.max(
+                MediaQuery.paddingOf(context).bottom,
+                kFigmaLandingMinBottomInset,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FigmaAuthDoubleDeckHeader(
+                  navTitle: 'Регистрация',
+                  onBack: onBack,
+                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: kFigmaAuthHeroFormPaddingH,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Center(
+                                child: GestureDetector(
+                                  onTap: _openAvatarSheet,
+                                  child: Container(
+                                    width: 112,
+                                    height: 112,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: kChildOutline.withValues(alpha: 0.6),
+                                        width: 1.4,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.06),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      _selectedAvatar,
+                                      style: const TextStyle(fontSize: 52),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: TextButton(
+                                  onPressed: _openAvatarSheet,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: kChildBrandBlue,
+                                    textStyle: const TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  child: const Text('Выбрать фото'),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+
+                              /// Имя (необязательно)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                                child: Row(
+                                  children: [
+                                    Text('Имя', style: kFigmaAuthFieldLabelStyle),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      '(необязательно)',
+                                      style: TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: kChildInkMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              FigmaAuthInputShell(
+                                child: TextField(
+                                  controller: _name,
+                                  textCapitalization: TextCapitalization.words,
+                                  style: kFigmaAuthInputTextStyle,
+                                  decoration:
+                                      figmaAuthFieldDecoration('Как к вам обращаться'),
+                                ),
+                              ),
+                              const SizedBox(height: kFigmaAuthFieldStackGap),
+
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                                child: Text('Телефон', style: kFigmaAuthFieldLabelStyle),
+                              ),
+                              FigmaAuthInputShell(
+                                child: TextField(
+                                  controller: _phone,
+                                  keyboardType: TextInputType.phone,
+                                  style: kFigmaAuthInputTextStyle,
+                                  decoration:
+                                      figmaAuthFieldDecoration('+7 (999) 000-00-00'),
+                                ),
+                              ),
+                              const SizedBox(height: kFigmaAuthFieldStackGap),
+
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                                child: Text('Email', style: kFigmaAuthFieldLabelStyle),
+                              ),
+                              FigmaAuthInputShell(
+                                child: TextField(
+                                  controller: _email,
+                                  keyboardType: TextInputType.emailAddress,
+                                  autofillHints: const [
+                                    AutofillHints.email,
+                                  ],
+                                  style: kFigmaAuthInputTextStyle,
+                                  decoration: figmaAuthFieldDecoration('email@gmail.com'),
+                                ),
+                              ),
+                              const SizedBox(height: kFigmaAuthFieldStackGap),
+
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                                child: Text('Пароль', style: kFigmaAuthFieldLabelStyle),
+                              ),
+                              FigmaAuthInputShell(
+                                child: TextField(
+                                  controller: _password,
+                                  obscureText: _obscure,
+                                  autofillHints: const [AutofillHints.newPassword],
+                                  style: kFigmaAuthInputTextStyle,
+                                  decoration: figmaAuthFieldDecoration(
+                                    '••••••••',
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscure
+                                            ? Icons.visibility_outlined
+                                            : Icons.visibility_off_outlined,
+                                        color: kChildInkMuted,
+                                      ),
+                                      onPressed: () =>
+                                          setState(() => _obscure = !_obscure),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  top: 6,
+                                ),
+                                child: Text(
+                                  'Минимум 6 символов',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 12,
+                                    color: kChildInkMuted,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: kFigmaAuthFieldStackGap),
+
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: kFigmaAuthLabelToFieldGap),
+                                child: Text(
+                                  'Айди устройства',
+                                  style: kFigmaAuthFieldLabelStyle,
+                                ),
+                              ),
+                              FigmaAuthInputShell(
+                                child: TextField(
+                                  readOnly: true,
+                                  controller: _deviceDisplay,
+                                  enableInteractiveSelection: true,
+                                  style: kFigmaAuthInputTextStyle.copyWith(
+                                    color: kChildInkMuted,
+                                  ),
+                                  decoration: figmaAuthFieldDecoration(''),
+                                ),
+                              ),
+                              const SizedBox(height: kFigmaAuthFieldStackGap),
+
+                              _policyRow(
+                                value: _agreePrivacy,
+                                onChanged: (v) =>
+                                    setState(() => _agreePrivacy = v ?? false),
+                                label: RichText(
+                                  text: TextSpan(
+                                    style: baseSpan,
+                                    children: [
+                                      TextSpan(
+                                        style: baseSpan,
+                                        text: 'Согласен с ',
+                                      ),
+                                      _linkTapSpan(
+                                        'Политикой конфиденциальности',
+                                        _privacyReco!,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _policyRow(
+                                value: _agreeTerms,
+                                onChanged: (v) =>
+                                    setState(() => _agreeTerms = v ?? false),
+                                label: RichText(
+                                  text: TextSpan(
+                                    style: baseSpan,
+                                    children: [
+                                      TextSpan(
+                                        style: baseSpan,
+                                        text: 'Согласен с ',
+                                      ),
+                                      _linkTapSpan(
+                                        'Пользовательским соглашением',
+                                        _termsReco!,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: kFigmaAuthBeforePrimaryCtaGap),
+                              if (_busy)
+                                const SizedBox(
+                                  height: kFigmaAuthPrimaryCtaHeight,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Color(0xFF1F4F1B),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                FigmaGradientButton(
+                                  label: 'Создать аккаунт',
+                                  gradient:
+                                      FigmaGradientButton.mintGradientVertical,
+                                  height: kFigmaAuthPrimaryCtaHeight,
+                                  labelStyle: kFigmaLandingCtaTextStyle,
+                                  boxShadow: kFigmaLandingCtaBoxShadows,
+                                  textHeightBehavior: const TextHeightBehavior(
+                                    applyHeightToFirstAscent: false,
+                                    applyHeightToLastDescent: false,
+                                  ),
+                                  onTap: _submit,
+                                ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

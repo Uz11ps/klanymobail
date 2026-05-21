@@ -11,6 +11,7 @@ import '../features/auth/pages/child_request_access_page.dart';
 import '../features/auth/pages/child_sign_in_page.dart';
 import '../features/auth/pages/child_wait_approval_page.dart';
 import '../features/auth/pages/join_family_code_page.dart';
+import '../features/auth/pages/parent_chief_register_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
 import '../features/auth/pages/recover_access_page.dart';
@@ -121,6 +122,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/parent/sign-up',
         builder: (context, state) => const ParentSignUpPage(),
+      ),
+      GoRoute(
+        path: '/auth/parent/chief-register',
+        builder: (context, state) {
+          final extra = state.extra;
+          final email = extra is String
+              ? extra
+              : (state.uri.queryParameters['email'] ?? '');
+          return ParentChiefRegisterPage(initialEmail: email);
+        },
       ),
       GoRoute(
         path: '/auth/sign-in/role',
