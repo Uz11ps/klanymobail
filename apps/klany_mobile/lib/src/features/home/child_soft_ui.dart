@@ -668,6 +668,86 @@ class FigmaDialogActionStack extends StatelessWidget {
   }
 }
 
+/// Согласие с документами на регистрации: круглый чекбокс слева, подпись справа.
+class FigmaAuthPolicyRow extends StatelessWidget {
+  const FigmaAuthPolicyRow({
+    super.key,
+    required this.checked,
+    required this.onChanged,
+    required this.labelSpans,
+    this.enabled = true,
+  });
+
+  final bool checked;
+  final ValueChanged<bool> onChanged;
+  final List<InlineSpan> labelSpans;
+  final bool enabled;
+
+  static const double _checkSize = 26;
+  static const double _gap = 10;
+  static const Color _borderInk = Color(0xFF1F4F1B);
+
+  static const TextStyle _labelStyle = TextStyle(
+    fontFamily: 'Nunito',
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: kChildInk,
+    height: 1.4,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SizedBox(
+        width: double.infinity,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Semantics(
+                checked: checked,
+                child: GestureDetector(
+                  onTap: enabled ? () => onChanged(!checked) : null,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: _checkSize,
+                    height: _checkSize,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: checked ? kBrandMint : Colors.transparent,
+                      border: Border.all(
+                        color: _borderInk.withValues(alpha: enabled ? 1 : 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: checked
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 17,
+                            color: _borderInk,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: _gap),
+            Expanded(
+              child: Text.rich(
+                TextSpan(style: _labelStyle, children: labelSpans),
+                textAlign: TextAlign.left,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Шапка auth: тот же верхний ритм и типографика, что «CLAN CAPITAL» на лендинге 0-602,
 /// заголовки **по центру**; ряд «назад» — [Stack], чтобы заголовок был в центре экрана.
 class FigmaAuthDoubleDeckHeader extends StatelessWidget {
@@ -677,6 +757,8 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
     required this.navTitle,
     required this.onBack,
     this.horizontalPadding = kFigmaAuthScreenPaddingH,
+    /// Заголовок внутри прокручиваемой страницы (не фиксированная шапка поверх контента).
+    this.embeddedInPage = false,
   });
 
   /// Верхняя строка (например **УЧАСТНИК**). `null` или `''` — скрыть.
@@ -684,6 +766,9 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
   final String navTitle;
   final VoidCallback onBack;
   final double horizontalPadding;
+
+  /// `true` — ряд «назад + Регистрация» в общем скролле формы, без лишнего отступа лендинга.
+  final bool embeddedInPage;
 
   @override
   Widget build(BuildContext context) {
@@ -693,7 +778,8 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: kFigmaLandingTitleTopSpacer),
+          if (!embeddedInPage)
+            const SizedBox(height: kFigmaLandingTitleTopSpacer),
           if (banner != null && banner.isNotEmpty) ...[
             Text(
               banner,
@@ -730,12 +816,13 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: kFigmaAuthLandingTitleStyle,
+                    style: kFigmaAuthScreenTitleStyle,
                   ),
                 ),
               ],
             ),
           ),
+          if (embeddedInPage) const SizedBox(height: 12),
         ],
       ),
     );

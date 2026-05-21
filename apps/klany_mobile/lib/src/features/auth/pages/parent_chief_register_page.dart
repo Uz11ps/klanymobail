@@ -293,69 +293,6 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     );
   }
 
-  /// Круглые «мятные» чекбоксы в стиле макета (как общие экранные CTA-пилюли).
-  Widget _chiefRoundPolicyCheckbox(bool value, ValueChanged<bool?> onChanged, {required bool disabled}) {
-    const borderInk = Color(0xFF1F4F1B);
-
-    Widget box({required Widget child}) {
-      return Container(
-        width: 26,
-        height: 26,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: value ? kBrandMint : Colors.transparent,
-          border: Border.all(color: borderInk.withValues(alpha: disabled ? 0.35 : 1), width: 1.2),
-        ),
-        child: child,
-      );
-    }
-
-    final hit = GestureDetector(
-      onTap: disabled
-          ? null
-          : () {
-              onChanged(!value);
-            },
-      behavior: HitTestBehavior.opaque,
-      child: box(
-        child: value
-            ? const Icon(Icons.check_rounded, size: 17, color: borderInk)
-            : const SizedBox.shrink(),
-      ),
-    );
-
-    return Semantics(
-      checked: value,
-      child: hit,
-    );
-  }
-
-  Widget _chiefPolicyAgreementRow({
-    required bool checked,
-    required ValueChanged<bool?> onChanged,
-    required Widget richLabel,
-    required bool busy,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4, right: 12),
-            child: _chiefRoundPolicyCheckbox(
-              checked,
-              onChanged,
-              disabled: busy,
-            ),
-          ),
-          Expanded(child: richLabel),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     void onBack() {
@@ -365,13 +302,6 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
         context.go('/auth/parent/sign-in');
       }
     }
-
-    final baseSpan = TextStyle(
-      fontFamily: 'Nunito',
-      fontSize: 13,
-      height: 1.35,
-      color: kChildInk.withValues(alpha: 0.9),
-    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -390,26 +320,24 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Регистрация',
-                  onBack: onBack,
-                ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: kFigmaAuthHeroFormPaddingH,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: kFigmaAuthHeroFormPaddingH,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FigmaAuthDoubleDeckHeader(
+                          navTitle: 'Регистрация',
+                          onBack: onBack,
+                          embeddedInPage: true,
+                          horizontalPadding: 0,
                         ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Center(child: _buildAvatarChip()),
+                        Center(child: _buildAvatarChip()),
                               const SizedBox(height: 8),
                               Center(
                                 child: TextButton(
@@ -579,41 +507,29 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                               ),
                               const SizedBox(height: kFigmaAuthFieldStackGap),
 
-                              _chiefPolicyAgreementRow(
+                              FigmaAuthPolicyRow(
                                 checked: _agreePrivacy,
-                                onChanged: (v) =>
-                                    setState(() => _agreePrivacy = v ?? false),
-                                busy: _busy,
-                                richLabel: RichText(
-                                  text: TextSpan(
-                                    style: baseSpan,
-                                    children: [
-                                      TextSpan(style: baseSpan, text: 'Я принимаю '),
-                                      _linkTapSpan(
-                                        'Политику конфиденциальности',
-                                        _privacyReco!,
-                                      ),
-                                    ],
+                                enabled: !_busy,
+                                onChanged: (v) => setState(() => _agreePrivacy = v),
+                                labelSpans: [
+                                  const TextSpan(text: 'Я принимаю '),
+                                  _linkTapSpan(
+                                    'Политику конфиденциальности',
+                                    _privacyReco!,
                                   ),
-                                ),
+                                ],
                               ),
-                              _chiefPolicyAgreementRow(
+                              FigmaAuthPolicyRow(
                                 checked: _agreeTerms,
-                                onChanged: (v) =>
-                                    setState(() => _agreeTerms = v ?? false),
-                                busy: _busy,
-                                richLabel: RichText(
-                                  text: TextSpan(
-                                    style: baseSpan,
-                                    children: [
-                                      TextSpan(style: baseSpan, text: 'Я принимаю '),
-                                      _linkTapSpan(
-                                        'Пользовательское соглашение',
-                                        _termsReco!,
-                                      ),
-                                    ],
+                                enabled: !_busy,
+                                onChanged: (v) => setState(() => _agreeTerms = v),
+                                labelSpans: [
+                                  const TextSpan(text: 'Я принимаю '),
+                                  _linkTapSpan(
+                                    'Пользовательское соглашение',
+                                    _termsReco!,
                                   ),
-                                ),
+                                ],
                               ),
 
                               SizedBox(height: kFigmaAuthBeforePrimaryCtaGap),
@@ -645,15 +561,12 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                                   ),
                                   onTap: _submit,
                                 ),
-                              const SizedBox(height: 24),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ],
