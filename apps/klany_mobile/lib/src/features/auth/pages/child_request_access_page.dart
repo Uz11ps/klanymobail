@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
+import '../password_rules.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
 import '../../../core/app_snackbar.dart';
@@ -102,7 +103,7 @@ class _ChildRequestAccessPageState
             phone: _phone.text,
             email: _email.text,
             childFirstName: _firstName.text,
-            password: _password.text.trim(),
+            password: _password.text,
             familyCode: familyCode,
             parentContact: parentContact,
             device: device,
@@ -191,10 +192,7 @@ class _ChildRequestAccessPageState
                       label: 'Пароль',
                       icon: Icons.lock,
                     ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      return value.length < 6 ? 'Минимум 6 символов' : null;
-                    },
+                    validator: (v) => KlanyPasswordRules.validatePlain(v ?? ''),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

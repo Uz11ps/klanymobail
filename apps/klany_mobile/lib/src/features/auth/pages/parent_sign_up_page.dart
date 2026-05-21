@@ -8,6 +8,7 @@ import '../../../core/app_snackbar.dart';
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
+import '../password_rules.dart';
 
 class ParentSignUpPage extends ConsumerStatefulWidget {
   const ParentSignUpPage({super.key});
@@ -43,10 +44,9 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
       );
       return;
     }
-    if (_password.text.length < 6) {
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('Пароль минимум 6 символов')),
-      );
+    final pwErr = KlanyPasswordRules.validatePlain(_password.text);
+    if (pwErr != null) {
+      context.showKlanySnackBar(SnackBar(content: Text(pwErr)));
       return;
     }
     if (!Env.hasApiConfig) {
@@ -301,7 +301,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                           obscureText: _obscure,
                           style: kFigmaAuthInputTextStyle,
                           decoration: figmaAuthFieldDecoration(
-                            'Минимум 6 символов',
+                            '••••••••',
                             suffixIcon: IconButton(
                               icon: Icon(
                                 _obscure
@@ -312,6 +312,19 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                               onPressed: () =>
                                   setState(() => _obscure = !_obscure),
                             ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4, top: 6),
+                        child: Text(
+                          'Минимум 8 символов. Латиница или кириллица, цифры, '
+                          r'символы !@#$%^&*()_+-=[]{}|;:,./?',
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 12,
+                            color: kChildInkMuted,
+                            height: 1.35,
                           ),
                         ),
                       ),

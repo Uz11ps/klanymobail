@@ -15,6 +15,7 @@ import '../../home/child_soft_ui.dart';
 import '../../home/pages/document_page.dart';
 import '../auth_actions.dart';
 import '../parent_access_repository.dart';
+import '../password_rules.dart';
 import '../phone_utils.dart';
 
 int _digitsOnlyLength(String raw) =>
@@ -212,10 +213,9 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
       );
       return;
     }
-    if (_password.text.length < 6) {
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('Пароль: минимум 6 символов')),
-      );
+    final pwErr = KlanyPasswordRules.validatePlain(_password.text);
+    if (pwErr != null) {
+      context.showKlanySnackBar(SnackBar(content: Text(pwErr)));
       return;
     }
     if (_password.text != _passwordConfirm.text) {
@@ -227,7 +227,9 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     if (!_agreePrivacy || !_agreeTerms) {
       context.showKlanySnackBar(
         const SnackBar(
-          content: Text('Примите Политику и Пользовательское соглашение'),
+          content: Text(
+            'Отметьте согласие с Политикой конфиденциальности и Пользовательским соглашением',
+          ),
         ),
       );
       return;
@@ -291,25 +293,66 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     );
   }
 
-  Widget _policyRow({
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-    required Widget label,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 40,
-          child: Checkbox(
-            value: value,
-            onChanged: onChanged,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          ),
+  /// Круглые «мятные» чекбоксы в стиле макета (как общие экранные CTA-пилюли).
+  Widget _chiefRoundPolicyCheckbox(bool value, ValueChanged<bool?> onChanged, {required bool disabled}) {
+    const borderInk = Color(0xFF1F4F1B);
+
+    Widget box({required Widget child}) {
+      return Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: value ? kBrandMint : Colors.transparent,
+          border: Border.all(color: borderInk.withValues(alpha: disabled ? 0.35 : 1), width: 1.2),
         ),
-        Expanded(child: Padding(padding: const EdgeInsets.only(top: 10), child: label)),
-      ],
+        child: child,
+      );
+    }
+
+    final hit = GestureDetector(
+      onTap: disabled
+          ? null
+          : () {
+              onChanged(!value);
+            },
+      behavior: HitTestBehavior.opaque,
+      child: box(
+        child: value
+            ? const Icon(Icons.check_rounded, size: 17, color: borderInk)
+            : const SizedBox.shrink(),
+      ),
+    );
+
+    return Semantics(
+      checked: value,
+      child: hit,
+    );
+  }
+
+  Widget _chiefPolicyAgreementRow({
+    required bool checked,
+    required ValueChanged<bool?> onChanged,
+    required Widget richLabel,
+    required bool busy,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: 12),
+            child: _chiefRoundPolicyCheckbox(
+              checked,
+              onChanged,
+              disabled: busy,
+            ),
+          ),
+          Expanded(child: richLabel),
+        ],
+      ),
     );
   }
 
@@ -481,11 +524,24 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                                   top: 6,
                                 ),
                                 child: Text(
-                                  'Минимум 6 символов',
+                                  'Минимум 8 символов, без пробелов',
                                   style: TextStyle(
                                     fontFamily: 'Nunito',
                                     fontSize: 12,
                                     color: kChildInkMuted,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, top: 4),
+                                child: Text(
+                                  r'Разрешены буквы (латиница или кириллица), цифры и символы !@#$%^&*()_+-=[]{}|;:,./?',
+                                  style: TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 11,
+                                    color: kChildInkMuted.withValues(alpha: 0.85),
+                                    height: 1.35,
                                   ),
                                 ),
                               ),
@@ -523,40 +579,36 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                               ),
                               const SizedBox(height: kFigmaAuthFieldStackGap),
 
-                              _policyRow(
-                                value: _agreePrivacy,
+                              _chiefPolicyAgreementRow(
+                                checked: _agreePrivacy,
                                 onChanged: (v) =>
                                     setState(() => _agreePrivacy = v ?? false),
-                                label: RichText(
+                                busy: _busy,
+                                richLabel: RichText(
                                   text: TextSpan(
                                     style: baseSpan,
                                     children: [
-                                      TextSpan(
-                                        style: baseSpan,
-                                        text: 'Согласен с ',
-                                      ),
+                                      TextSpan(style: baseSpan, text: 'Я принимаю '),
                                       _linkTapSpan(
-                                        'Политикой конфиденциальности',
+                                        'Политику конфиденциальности',
                                         _privacyReco!,
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                              _policyRow(
-                                value: _agreeTerms,
+                              _chiefPolicyAgreementRow(
+                                checked: _agreeTerms,
                                 onChanged: (v) =>
                                     setState(() => _agreeTerms = v ?? false),
-                                label: RichText(
+                                busy: _busy,
+                                richLabel: RichText(
                                   text: TextSpan(
                                     style: baseSpan,
                                     children: [
-                                      TextSpan(
-                                        style: baseSpan,
-                                        text: 'Согласен с ',
-                                      ),
+                                      TextSpan(style: baseSpan, text: 'Я принимаю '),
                                       _linkTapSpan(
-                                        'Пользовательским соглашением',
+                                        'Пользовательское соглашение',
                                         _termsReco!,
                                       ),
                                     ],

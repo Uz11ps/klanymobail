@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 
+import { assertKlanyPasswordPlain } from "../auth/password-policy";
 import { ParentService } from "../parent/parent.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ShopService } from "../shop/shop.service";
@@ -339,12 +340,11 @@ export class AdminService {
 
   async createAdminAccount(_user: AdminUser, input: { email: string; password: string; displayName?: string }) {
     const email = normalizeEmail(input.email ?? "");
-    const password = input.password ?? "";
+    const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
     const displayName = (input.displayName ?? "").trim() || null;
     if (!email.includes("@")) throw new BadRequestException("Некорректный email");
-    if (password.length < 6) throw new BadRequestException("Пароль: минимум 6 символов");
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (!existing) {
       const created = await this.prisma.$transaction(async (tx) => {

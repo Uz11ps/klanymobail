@@ -4,6 +4,8 @@ import * as bcrypt from "bcrypt";
 
 import { PrismaService } from "../prisma/prisma.service";
 
+import { assertKlanyPasswordPlain } from "./password-policy";
+
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -69,12 +71,12 @@ export class AuthService {
     if (!email.includes("@")) {
       throw new BadRequestException("Нужен email в формате user@example.com или номер телефона (10+ цифр)");
     }
-    if ((input.password ?? "").length < 6) throw new BadRequestException("Пароль: минимум 6 символов");
+    const validatedPassword = assertKlanyPasswordPlain(input.password);
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new BadRequestException("Пользователь уже существует");
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
 
     // Create family + profile in one transaction.
     const result = await this.prisma.$transaction(async (tx) => {

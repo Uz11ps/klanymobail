@@ -3,6 +3,7 @@ import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 import { AuthService } from "../auth/auth.service";
+import { assertKlanyPasswordPlain } from "../auth/password-policy";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -50,7 +51,6 @@ export class ChildService {
     const emailRaw = (input.email ?? "").trim();
     const parentContactRaw = (input.parentContact ?? "").trim();
     const firstName = (input.firstName ?? "").trim();
-    const password = (input.password ?? "").trim();
     const familyCode = (input.familyCode ?? "").trim().toUpperCase();
     const deviceId = (input.deviceId ?? "").trim();
     const deviceKey = (input.deviceKey ?? "").trim();
@@ -62,7 +62,7 @@ export class ChildService {
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
       throw new BadRequestException("email обязателен");
     }
-    if (password.length < 6) throw new BadRequestException("password минимум 6 символов");
+    const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
     if (!deviceId || !deviceKey) throw new BadRequestException("deviceId/deviceKey обязательны");
     if (!familyCode && !parentContactRaw) {
       throw new BadRequestException("Укажите Family ID или контакт родителя");
@@ -105,7 +105,7 @@ export class ChildService {
     }
 
     if (!family) throw new NotFoundException("Семья не найдена");
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
 
     const row = await this.prisma.childAccessRequest.create({
       data: {
