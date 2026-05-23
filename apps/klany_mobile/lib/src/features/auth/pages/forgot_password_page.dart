@@ -55,14 +55,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
     try {
       await ref.read(authActionsProvider).requestPasswordReset(email: email);
       if (!mounted) return;
-      context.showKlanySnackBar(
-        const SnackBar(
-          content: Text(
-            'Если email зарегистрирован — придёт письмо со ссылкой на сброс пароля',
-          ),
-        ),
+      context.push(
+        '/auth/forgot-password/code?email=${Uri.encodeComponent(email)}',
       );
-      context.pop();
     } catch (e) {
       if (!mounted) return;
       context.showKlanySnackBar(SnackBar(content: Text('$e')));
@@ -147,7 +142,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
                           )
                         else
                           FigmaGradientButton(
-                            label: 'Отправить письмо',
+                            label: 'Получить код',
                             gradient: FigmaGradientButton.mintGradientVertical,
                             height: kFigmaAuthPrimaryCtaHeight,
                             labelStyle: kFigmaLandingCtaTextStyle,

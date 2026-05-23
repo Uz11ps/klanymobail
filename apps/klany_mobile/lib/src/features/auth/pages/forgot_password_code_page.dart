@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,45 +12,57 @@ import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../password_rules.dart';
 
-/// Сброс пароля по токену из письма Resend.
-class PasswordResetPage extends ConsumerStatefulWidget {
-  const PasswordResetPage({super.key, this.initialToken = ''});
+/// Ввод 6-значного кода из письма и нового пароля (только в приложении).
+class ForgotPasswordCodePage extends ConsumerStatefulWidget {
+  const ForgotPasswordCodePage({super.key, required this.email});
 
-  final String initialToken;
+  final String email;
 
   @override
-  ConsumerState<PasswordResetPage> createState() => _PasswordResetPageState();
+  ConsumerState<ForgotPasswordCodePage> createState() =>
+      _ForgotPasswordCodePageState();
 }
 
-class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
-  late final TextEditingController _token;
+class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage> {
+  final _code = TextEditingController();
   final _password = TextEditingController();
   final _passwordConfirm = TextEditingController();
   bool _obscure = true;
   bool _obscureConfirm = true;
   bool _busy = false;
 
-  bool get _hasTokenFromLink => widget.initialToken.trim().isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    _token = TextEditingController(text: widget.initialToken.trim());
-  }
-
   @override
   void dispose() {
-    _token.dispose();
+    _code.dispose();
     _password.dispose();
     _passwordConfirm.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final token = _token.text.trim();
-    if (token.isEmpty) {
+  Future<void> _resend() async {
+    if (!Env.hasApiConfig) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(authActionsProvider)
+          .requestPasswordReset(email: widget.email);
+      if (!mounted) return;
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Вставьте токен из письма')),
+        const SnackBar(content: Text('Новый код отправлен на почту')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    final code = _code.text.trim().replaceAll(RegExp(r'\s'), '');
+    if (code.length != 6) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите 6-значный код из письма')),
       );
       return;
     }
@@ -74,7 +87,8 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
     setState(() => _busy = true);
     try {
       await ref.read(authActionsProvider).resetPassword(
-            token: token,
+            email: widget.email,
+            code: code,
             password: _password.text,
           );
       if (!mounted) return;
@@ -120,7 +134,7 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
                     if (context.canPop()) {
                       context.pop();
                     } else {
-                      context.go('/auth/parent/sign-in');
+                      context.go('/auth/forgot-password');
                     }
                   },
                 ),
@@ -135,31 +149,39 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
                     form: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (!_hasTokenFromLink) ...[
-                          const Padding(
-                            padding: EdgeInsets.only(
-                              bottom: kFigmaAuthLabelToFieldGap,
-                            ),
-                            child: Text(
-                              'Токен из письма',
-                              style: kFigmaAuthFieldLabelStyle,
-                            ),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: kFigmaAuthLabelToFieldGap,
                           ),
-                          FigmaAuthInputShell(
-                            child: TextField(
-                              controller: _token,
-                              style: kFigmaAuthInputTextStyle,
-                              decoration: figmaAuthFieldDecoration('вставьте токен'),
-                            ),
+                          child: Text(
+                            'Код из письма\n${widget.email}',
+                            style: kFigmaAuthFieldLabelStyle,
                           ),
-                          const SizedBox(height: kFigmaAuthFieldStackGap),
-                        ],
+                        ),
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _code,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            maxLength: 6,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            style: kFigmaAuthInputTextStyle.copyWith(
+                              fontSize: 22,
+                              letterSpacing: 6,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            decoration: figmaAuthFieldDecoration('000000'),
+                          ),
+                        ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
                         const Padding(
                           padding: EdgeInsets.only(
                             bottom: kFigmaAuthLabelToFieldGap,
                           ),
                           child: Text(
-                            'Пароль',
+                            'Новый пароль',
                             style: kFigmaAuthFieldLabelStyle,
                           ),
                         ),
@@ -243,6 +265,22 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
                             ),
                             onTap: _submit,
                           ),
+                        Center(
+                          child: TextButton(
+                            onPressed: _busy ? null : _resend,
+                            style: TextButton.styleFrom(
+                              foregroundColor: kChildBrandBlue,
+                            ),
+                            child: const Text(
+                              'Отправить код ещё раз',
+                              style: TextStyle(
+                                fontFamily: 'Nunito',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

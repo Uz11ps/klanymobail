@@ -183,7 +183,16 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => context.push('/auth/recover/reset'),
+                  onPressed: () {
+                    final email = _email.text.trim();
+                    if (email.contains('@')) {
+                      context.push(
+                        '/auth/forgot-password/code?email=${Uri.encodeComponent(email)}',
+                      );
+                    } else {
+                      context.push('/auth/forgot-password');
+                    }
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFF3A4F72), width: 1.4),
@@ -195,7 +204,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                     ),
                   ),
                   child: const Text(
-                    'Уже есть токен из письма',
+                    'Уже есть код из письма',
                     style: TextStyle(
                       fontFamily: 'Nunito',
                       fontSize: 14,

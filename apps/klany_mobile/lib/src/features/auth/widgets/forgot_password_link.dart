@@ -12,12 +12,22 @@ class ForgotPasswordLink extends StatelessWidget {
   void _open(BuildContext context) {
     final email = prefillEmail.trim();
     if (email.contains('@')) {
-      context.push(
-        '/auth/forgot-password?email=${Uri.encodeComponent(email)}',
-      );
+      context.push('/auth/forgot-password?email=${Uri.encodeComponent(email)}');
     } else {
       context.push('/auth/forgot-password');
     }
+  }
+
+  /// После отправки кода — сразу экран ввода (если email уже известен).
+  static void openCodeStep(BuildContext context, String email) {
+    final trimmed = email.trim();
+    if (!trimmed.contains('@')) {
+      context.push('/auth/forgot-password');
+      return;
+    }
+    context.push(
+      '/auth/forgot-password/code?email=${Uri.encodeComponent(trimmed)}',
+    );
   }
 
   @override

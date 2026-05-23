@@ -41,7 +41,10 @@ type ForgotPasswordBody = {
 };
 
 type ResetPasswordBody = {
-  token: string;
+  email?: string;
+  code?: string;
+  /** Устаревшие письма со ссылкой — по возможности вводите код в приложении. */
+  token?: string;
   password: string;
 };
 

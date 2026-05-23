@@ -1,7 +1,12 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, randomInt } from "crypto";
 
 export function generateAuthEmailPlainToken(): string {
   return randomBytes(32).toString("hex");
+}
+
+/** 6 цифр для сброса пароля в приложении (не ссылка). */
+export function generatePasswordResetCode(): string {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
 }
 
 export function hashAuthEmailToken(plain: string): string {

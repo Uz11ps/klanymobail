@@ -1,5 +1,13 @@
 import { appPublicBaseUrl } from "./auth-email-token.util";
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function layout(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="ru">
@@ -14,15 +22,15 @@ function layout(title: string, bodyHtml: string): string {
 </html>`;
 }
 
-export function passwordResetEmailHtml(plainToken: string): { subject: string; html: string } {
-  const link = `${appPublicBaseUrl()}/app/auth/recover/reset?token=${encodeURIComponent(plainToken)}`;
+export function passwordResetEmailHtml(code: string): { subject: string; html: string } {
+  const safe = escapeHtml(code);
   return {
-    subject: "Восстановление пароля — Clan Capital",
+    subject: "Код для сброса пароля — Clan Capital",
     html: layout(
       "Восстановление пароля",
-      `<p>Вы запросили сброс пароля. Ссылка действует 1 час.</p>
-       <p><a href="${link}" style="display:inline-block;padding:12px 20px;background:#2b88ff;color:#fff;text-decoration:none;border-radius:999px;font-weight:700">Сбросить пароль</a></p>
-       <p style="font-size:13px;color:#5b6b85">Если кнопка не открывается, вставьте ссылку в браузер:<br><span style="word-break:break-all">${link}</span></p>
+      `<p>Вы запросили сброс пароля. Введите код в приложении Clan Capital:</p>
+       <p style="font-size:32px;font-weight:800;letter-spacing:8px;text-align:center;margin:24px 0;color:#1e2d52">${safe}</p>
+       <p style="font-size:13px;color:#5b6b85">Код действует 15 минут. Никому его не сообщайте.</p>
        <p style="font-size:13px;color:#5b6b85">Если вы не запрашивали сброс — просто проигнорируйте письмо.</p>`,
     ),
   };

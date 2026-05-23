@@ -137,7 +137,7 @@ class AuthActions {
     );
   }
 
-  /// Письмо Resend со ссылкой на сброс пароля.
+  /// Письмо Resend с 6-значным кодом для сброса пароля в приложении.
   Future<void> requestPasswordReset({required String email}) async {
     final api = Sdk.apiOrNull;
     if (api == null) throw StateError('Sdk.api');
@@ -148,7 +148,8 @@ class AuthActions {
   }
 
   Future<void> resetPassword({
-    required String token,
+    required String email,
+    required String code,
     required String password,
   }) async {
     final api = Sdk.apiOrNull;
@@ -156,7 +157,8 @@ class AuthActions {
     await api.postJson(
       '/auth/reset-password',
       body: <String, dynamic>{
-        'token': token.trim(),
+        'email': email.trim(),
+        'code': code.trim(),
         'password': password,
       },
     );

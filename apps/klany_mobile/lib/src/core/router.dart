@@ -15,8 +15,8 @@ import '../features/auth/pages/join_family_code_page.dart';
 import '../features/auth/pages/parent_chief_register_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
+import '../features/auth/pages/forgot_password_code_page.dart';
 import '../features/auth/pages/forgot_password_page.dart';
-import '../features/auth/pages/password_reset_page.dart';
 import '../features/auth/pages/sign_in_role_choice_page.dart';
 import '../features/auth/pages/sign_up_role_choice_page.dart';
 import '../features/home/pages/child_home_page.dart';
@@ -51,7 +51,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Сброс / восстановление — доступны даже при активной сессии.
-      if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
+      if (path == '/auth/recover/reset' ||
+          path == '/auth/forgot-password' ||
+          path.startsWith('/auth/forgot-password/')) {
         return null;
       }
 
@@ -65,7 +67,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Fast path: if parent session already restored, never wait for child restore.
       if (parentSession != null && (role == AppRole.parent || role == null)) {
         final inAuth = path.startsWith('/auth');
-        if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
+        if (path == '/auth/recover/reset' ||
+            path == '/auth/forgot-password' ||
+            path.startsWith('/auth/forgot-password/')) {
           return null;
         }
         if (inAuth || path == '/' || path.isEmpty || path.startsWith('/child')) {
@@ -96,7 +100,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in: keep auth screens inaccessible.
       if (inAuth) {
-        if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
+        if (path == '/auth/recover/reset' ||
+            path == '/auth/forgot-password' ||
+            path.startsWith('/auth/forgot-password/')) {
           return null;
         }
         if (parentLoggedIn) return '/parent';
@@ -182,10 +188,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (_, _) => '/auth/forgot-password',
       ),
       GoRoute(
-        path: '/auth/recover/reset',
+        path: '/auth/forgot-password/code',
         builder: (context, state) {
-          final token = state.uri.queryParameters['token'] ?? '';
-          return PasswordResetPage(initialToken: token);
+          final email = state.uri.queryParameters['email'] ?? '';
+          return ForgotPasswordCodePage(email: email);
+        },
+      ),
+      GoRoute(
+        path: '/auth/recover/reset',
+        redirect: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          if (email.isNotEmpty) {
+            return '/auth/forgot-password/code?email=${Uri.encodeComponent(email)}';
+          }
+          return '/auth/forgot-password';
         },
       ),
       GoRoute(

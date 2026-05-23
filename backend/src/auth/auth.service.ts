@@ -9,6 +9,7 @@ import {
 } from "../mail/auth-mail.templates";
 import {
   generateAuthEmailPlainToken,
+  generatePasswordResetCode,
   hashAuthEmailToken,
   isDeliverableUserEmail,
 } from "../mail/auth-email-token.util";
@@ -325,7 +326,7 @@ export class AuthService {
     };
   }
 
-  /** Письмо со ссылкой на сброс пароля (Resend). */
+  /** Письмо с 6-значным кодом для сброса пароля в приложении (Resend). */
   async requestPasswordReset(input: { email?: string }) {
     const email = normalizeEmail(input.email ?? "");
     if (!isDeliverableUserEmail(email)) {
@@ -335,48 +336,112 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return { ok: true };
 
-    const plain = await this.createEmailToken(
-      user.id,
-      AuthEmailTokenPurpose.password_reset,
-      60 * 60 * 1000,
-    );
-    const tpl = passwordResetEmailHtml(plain);
+    const code = await this.createPasswordResetCode(user.id);
+    const tpl = passwordResetEmailHtml(code);
     await this.mail.send({ to: email, subject: tpl.subject, html: tpl.html });
 
     return { ok: true };
   }
 
-  async resetPassword(input: { token?: string; password?: string }) {
-    const plain = (input.token ?? "").trim();
-    if (!plain) throw new BadRequestException("token обязателен");
+  private async createPasswordResetCode(userId: string) {
+    const code = generatePasswordResetCode();
+    const tokenHash = hashAuthEmailToken(code);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.prisma.authEmailToken.updateMany({
+      where: {
+        userId,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.authEmailToken.create({
+      data: {
+        userId,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    return code;
+  }
+
+  async resetPassword(input: {
+    email?: string;
+    code?: string;
+    token?: string;
+    password?: string;
+  }) {
     const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
 
-    const row = await this.prisma.authEmailToken.findUnique({
-      where: { tokenHash: hashAuthEmailToken(plain) },
-      include: { user: true },
-    });
-    if (
-      !row ||
-      row.purpose !== AuthEmailTokenPurpose.password_reset ||
-      row.usedAt ||
-      row.expiresAt < new Date()
-    ) {
-      throw new BadRequestException("Ссылка недействительна или устарела");
+    const legacyToken = (input.token ?? "").trim();
+    if (legacyToken) {
+      const row = await this.prisma.authEmailToken.findUnique({
+        where: { tokenHash: hashAuthEmailToken(legacyToken) },
+      });
+      if (
+        !row ||
+        row.purpose !== AuthEmailTokenPurpose.password_reset ||
+        row.usedAt ||
+        row.expiresAt < new Date()
+      ) {
+        throw new BadRequestException("Код недействителен или устарел");
+      }
+      await this.applyPasswordReset(row.userId, row.id, validatedPassword);
+      return { ok: true };
     }
 
+    const email = normalizeEmail(input.email ?? "");
+    const code = (input.code ?? "").trim().replace(/\s/g, "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите email");
+    }
+    if (!/^\d{6}$/.test(code)) {
+      throw new BadRequestException("Введите 6-значный код из письма");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+
+    const row = await this.prisma.authEmailToken.findFirst({
+      where: {
+        userId: user.id,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        tokenHash: hashAuthEmailToken(code),
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!row) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+
+    await this.applyPasswordReset(user.id, row.id, validatedPassword);
+    return { ok: true };
+  }
+
+  private async applyPasswordReset(
+    userId: string,
+    tokenId: string,
+    validatedPassword: string,
+  ) {
     const passwordHash = await bcrypt.hash(validatedPassword, 10);
     await this.prisma.$transaction([
       this.prisma.user.update({
-        where: { id: row.userId },
+        where: { id: userId },
         data: { passwordHash },
       }),
       this.prisma.authEmailToken.update({
-        where: { id: row.id },
+        where: { id: tokenId },
         data: { usedAt: new Date() },
       }),
     ]);
-
-    return { ok: true };
   }
 
   async verifyEmail(input: { token?: string }) {
