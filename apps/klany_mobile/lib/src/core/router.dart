@@ -15,6 +15,7 @@ import '../features/auth/pages/join_family_code_page.dart';
 import '../features/auth/pages/parent_chief_register_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
+import '../features/auth/pages/password_reset_page.dart';
 import '../features/auth/pages/recover_access_page.dart';
 import '../features/auth/pages/sign_in_role_choice_page.dart';
 import '../features/auth/pages/sign_up_role_choice_page.dart';
@@ -39,7 +40,21 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: kDebugMode,
     refreshListenable: ref.watch(_routerRefreshProvider),
     redirect: (context, state) {
-      final path = state.uri.path;
+      var path = state.uri.path;
+      // Web PWA на /app/… — маршруты в GoRouter без префикса.
+      if (path == '/app' || path.startsWith('/app/')) {
+        final rest = path.length <= 4 ? '/auth' : path.substring(4);
+        if (rest != path) {
+          final q = state.uri.query;
+          return q.isEmpty ? rest : '$rest?$q';
+        }
+      }
+
+      // Ссылка из письма — доступна даже при активной сессии.
+      if (path == '/auth/recover/reset') {
+        return null;
+      }
+
       final parentSessionAsync = ref.read(parentSessionProvider);
       final role = ref.read(appRoleProvider);
       final childSessionAsync = ref.read(childSessionProvider);
@@ -152,6 +167,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/recover',
         builder: (context, state) => const RecoverAccessPage(),
+      ),
+      GoRoute(
+        path: '/auth/recover/reset',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return PasswordResetPage(initialToken: token);
+        },
       ),
       GoRoute(
         path: '/auth/child/request',

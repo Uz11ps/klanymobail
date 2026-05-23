@@ -15,7 +15,7 @@ function layout(title: string, bodyHtml: string): string {
 }
 
 export function passwordResetEmailHtml(plainToken: string): { subject: string; html: string } {
-  const link = `${appPublicBaseUrl()}/auth/recover/reset?token=${encodeURIComponent(plainToken)}`;
+  const link = `${appPublicBaseUrl()}/app/auth/recover/reset?token=${encodeURIComponent(plainToken)}`;
   return {
     subject: "Восстановление пароля — Clan Capital",
     html: layout(

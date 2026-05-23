@@ -79,6 +79,8 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
     }
   }
 
+  bool get _hasTokenFromLink => widget.initialToken.trim().isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     const bg = kChildInk;
@@ -110,21 +112,23 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _token,
-                style: const TextStyle(fontFamily: 'Nunito', color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: 'Токен из письма',
-                  labelStyle: TextStyle(color: labelColor),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3A4F72)),
-                  ),
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: kChildBrandBlue, width: 1.5),
+              if (!_hasTokenFromLink) ...[
+                TextField(
+                  controller: _token,
+                  style: const TextStyle(fontFamily: 'Nunito', color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'Токен из письма',
+                    labelStyle: TextStyle(color: labelColor),
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Color(0xFF3A4F72)),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: kChildBrandBlue, width: 1.5),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
+              ],
               TextField(
                 controller: _password,
                 obscureText: _obscure,

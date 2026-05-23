@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
@@ -26,18 +27,29 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   }
 
   Future<void> _submit() async {
+    final email = _email.text.trim();
     final phone = _phone.text.trim();
-    if (phone.isEmpty && _email.text.trim().isEmpty) return;
+    if (email.isEmpty && phone.isEmpty) return;
     if (!Env.hasApiConfig) {
       context.showKlanySnackBar(const SnackBar(content: Text('API не настроен')));
       return;
     }
     setState(() => _busy = true);
     try {
+      if (email.isNotEmpty) {
+        await ref.read(authActionsProvider).requestPasswordReset(email: email);
+        if (!mounted) return;
+        context.showKlanySnackBar(
+          const SnackBar(
+            content: Text('Если email зарегистрирован — придёт письмо со ссылкой'),
+          ),
+        );
+        return;
+      }
       await ref.read(authActionsProvider).requestRecovery(phone: phone);
       if (!mounted) return;
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Запрос на восстановление отправлен')),
+        const SnackBar(content: Text('Запрос на восстановление отправлен в Telegram')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -171,7 +183,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  onPressed: () => context.push('/auth/recover/reset'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Color(0xFF3A4F72), width: 1.4),
