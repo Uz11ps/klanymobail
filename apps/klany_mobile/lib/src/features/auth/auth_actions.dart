@@ -147,6 +147,21 @@ class AuthActions {
     );
   }
 
+  Future<void> verifyPasswordResetCode({
+    required String email,
+    required String code,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/verify-reset-code',
+      body: <String, dynamic>{
+        'email': email.trim(),
+        'code': code.trim(),
+      },
+    );
+  }
+
   Future<void> resetPassword({
     required String email,
     required String code,

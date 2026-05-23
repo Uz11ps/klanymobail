@@ -369,6 +369,15 @@ export class AuthService {
     return code;
   }
 
+  /** Проверка кода перед экраном нового пароля (код не сгорает). */
+  async verifyPasswordResetCode(input: { email?: string; code?: string }) {
+    const row = await this.findActivePasswordResetRow(input);
+    if (!row) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+    return { ok: true };
+  }
+
   async resetPassword(input: {
     email?: string;
     code?: string;
@@ -394,6 +403,16 @@ export class AuthService {
       return { ok: true };
     }
 
+    const found = await this.findActivePasswordResetRow(input);
+    if (!found) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+
+    await this.applyPasswordReset(found.userId, found.row.id, validatedPassword);
+    return { ok: true };
+  }
+
+  private async findActivePasswordResetRow(input: { email?: string; code?: string }) {
     const email = normalizeEmail(input.email ?? "");
     const code = (input.code ?? "").trim().replace(/\s/g, "");
     if (!isDeliverableUserEmail(email)) {
@@ -404,9 +423,7 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new BadRequestException("Код неверный или устарел");
-    }
+    if (!user) return null;
 
     const row = await this.prisma.authEmailToken.findFirst({
       where: {
@@ -418,12 +435,9 @@ export class AuthService {
       },
       orderBy: { createdAt: "desc" },
     });
-    if (!row) {
-      throw new BadRequestException("Код неверный или устарел");
-    }
+    if (!row) return null;
 
-    await this.applyPasswordReset(user.id, row.id, validatedPassword);
-    return { ok: true };
+    return { userId: user.id, row };
   }
 
   private async applyPasswordReset(

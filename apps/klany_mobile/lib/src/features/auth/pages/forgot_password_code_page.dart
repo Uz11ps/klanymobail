@@ -10,9 +10,8 @@ import '../../../core/env.dart';
 import '../../../theme/klany_figma_style.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
-import '../password_rules.dart';
 
-/// Ввод 6-значного кода из письма и нового пароля (только в приложении).
+/// Шаг 1: только код из письма.
 class ForgotPasswordCodePage extends ConsumerStatefulWidget {
   const ForgotPasswordCodePage({super.key, required this.email});
 
@@ -25,17 +24,11 @@ class ForgotPasswordCodePage extends ConsumerStatefulWidget {
 
 class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage> {
   final _code = TextEditingController();
-  final _password = TextEditingController();
-  final _passwordConfirm = TextEditingController();
-  bool _obscure = true;
-  bool _obscureConfirm = true;
   bool _busy = false;
 
   @override
   void dispose() {
     _code.dispose();
-    _password.dispose();
-    _passwordConfirm.dispose();
     super.dispose();
   }
 
@@ -58,22 +51,11 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _continue() async {
     final code = _code.text.trim().replaceAll(RegExp(r'\s'), '');
     if (code.length != 6) {
       context.showKlanySnackBar(
         const SnackBar(content: Text('Введите 6-значный код из письма')),
-      );
-      return;
-    }
-    final err = KlanyPasswordRules.validatePlain(_password.text);
-    if (err != null) {
-      context.showKlanySnackBar(SnackBar(content: Text(err)));
-      return;
-    }
-    if (_password.text != _passwordConfirm.text) {
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('Пароли не совпадают')),
       );
       return;
     }
@@ -86,18 +68,18 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
 
     setState(() => _busy = true);
     try {
-      await ref.read(authActionsProvider).resetPassword(
+      await ref.read(authActionsProvider).verifyPasswordResetCode(
             email: widget.email,
             code: code,
-            password: _password.text,
           );
       if (!mounted) return;
-      context.showKlanySnackBar(
-        const SnackBar(
-          content: Text('Пароль обновлён. Войдите с новым паролем'),
-        ),
+      context.push(
+        '/auth/forgot-password/new-password',
+        extra: <String, String>{
+          'email': widget.email,
+          'code': code,
+        },
       );
-      context.go('/auth/parent/sign-in');
     } catch (e) {
       if (!mounted) return;
       context.showKlanySnackBar(SnackBar(content: Text('$e')));
@@ -129,7 +111,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Новый пароль',
+                  navTitle: 'Код из письма',
                   onBack: () {
                     if (context.canPop()) {
                       context.pop();
@@ -141,7 +123,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                 Expanded(
                   child: FigmaAuthPageBody(
                     hero: const FigmaAuthHero(
-                      asset: 'assets/figma/hero_economika.png',
+                      asset: 'assets/figma/hero_birzha.png',
                       showDots: true,
                       dotCount: 3,
                       activeDotIndex: 1,
@@ -163,78 +145,18 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                             controller: _code,
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
-                            maxLength: 6,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(6),
                             ],
                             style: kFigmaAuthInputTextStyle.copyWith(
                               fontSize: 22,
                               letterSpacing: 6,
                               fontWeight: FontWeight.w800,
                             ),
-                            decoration: figmaAuthFieldDecoration('000000'),
-                          ),
-                        ),
-                        const SizedBox(height: kFigmaAuthFieldStackGap),
-                        const Padding(
-                          padding: EdgeInsets.only(
-                            bottom: kFigmaAuthLabelToFieldGap,
-                          ),
-                          child: Text(
-                            'Новый пароль',
-                            style: kFigmaAuthFieldLabelStyle,
-                          ),
-                        ),
-                        FigmaAuthInputShell(
-                          child: TextField(
-                            controller: _password,
-                            obscureText: _obscure,
-                            autofillHints: const [AutofillHints.newPassword],
-                            style: kFigmaAuthInputTextStyle,
                             decoration: figmaAuthFieldDecoration(
-                              '••••••••',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscure
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: kChildInkMuted,
-                                ),
-                                onPressed: () =>
-                                    setState(() => _obscure = !_obscure),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: kFigmaAuthFieldStackGap),
-                        const Padding(
-                          padding: EdgeInsets.only(
-                            bottom: kFigmaAuthLabelToFieldGap,
-                          ),
-                          child: Text(
-                            'Подтверждение',
-                            style: kFigmaAuthFieldLabelStyle,
-                          ),
-                        ),
-                        FigmaAuthInputShell(
-                          child: TextField(
-                            controller: _passwordConfirm,
-                            obscureText: _obscureConfirm,
-                            style: kFigmaAuthInputTextStyle,
-                            decoration: figmaAuthFieldDecoration(
-                              '••••••••',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirm
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                  color: kChildInkMuted,
-                                ),
-                                onPressed: () => setState(
-                                  () => _obscureConfirm = !_obscureConfirm,
-                                ),
-                              ),
-                            ),
+                              '000000',
+                            ).copyWith(counterText: ''),
                           ),
                         ),
                         const SizedBox(height: kFigmaAuthFieldStackGap),
@@ -254,7 +176,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                           )
                         else
                           FigmaGradientButton(
-                            label: 'Сохранить пароль',
+                            label: 'Продолжить',
                             gradient: FigmaGradientButton.mintGradientVertical,
                             height: kFigmaAuthPrimaryCtaHeight,
                             labelStyle: kFigmaLandingCtaTextStyle,
@@ -263,7 +185,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                               applyHeightToFirstAscent: false,
                               applyHeightToLastDescent: false,
                             ),
-                            onTap: _submit,
+                            onTap: _continue,
                           ),
                         Center(
                           child: TextButton(

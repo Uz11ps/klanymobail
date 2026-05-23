@@ -40,6 +40,11 @@ type ForgotPasswordBody = {
   email: string;
 };
 
+type VerifyResetCodeBody = {
+  email: string;
+  code: string;
+};
+
 type ResetPasswordBody = {
   email?: string;
   code?: string;
@@ -93,6 +98,12 @@ export class AuthController {
   @Post("auth/forgot-password")
   async forgotPassword(@Body() body: ForgotPasswordBody) {
     return this.auth.requestPasswordReset(body);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post("auth/verify-reset-code")
+  async verifyResetCode(@Body() body: VerifyResetCodeBody) {
+    return this.auth.verifyPasswordResetCode(body);
   }
 
   @HttpCode(HttpStatus.OK)

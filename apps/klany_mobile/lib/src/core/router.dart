@@ -16,6 +16,7 @@ import '../features/auth/pages/parent_chief_register_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
 import '../features/auth/pages/forgot_password_code_page.dart';
+import '../features/auth/pages/forgot_password_new_password_page.dart';
 import '../features/auth/pages/forgot_password_page.dart';
 import '../features/auth/pages/sign_in_role_choice_page.dart';
 import '../features/auth/pages/sign_up_role_choice_page.dart';
@@ -192,6 +193,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final email = state.uri.queryParameters['email'] ?? '';
           return ForgotPasswordCodePage(email: email);
+        },
+      ),
+      GoRoute(
+        path: '/auth/forgot-password/new-password',
+        builder: (context, state) {
+          final extra = state.extra;
+          var email = state.uri.queryParameters['email'] ?? '';
+          var code = state.uri.queryParameters['code'] ?? '';
+          if (extra is Map) {
+            email = extra['email']?.toString() ?? email;
+            code = extra['code']?.toString() ?? code;
+          }
+          if (email.isEmpty || code.length != 6) {
+            return const ForgotPasswordPage();
+          }
+          return ForgotPasswordNewPasswordPage(email: email, code: code);
         },
       ),
       GoRoute(
