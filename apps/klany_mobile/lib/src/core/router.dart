@@ -15,8 +15,8 @@ import '../features/auth/pages/join_family_code_page.dart';
 import '../features/auth/pages/parent_chief_register_page.dart';
 import '../features/auth/pages/parent_sign_in_page.dart';
 import '../features/auth/pages/parent_sign_up_page.dart';
+import '../features/auth/pages/forgot_password_page.dart';
 import '../features/auth/pages/password_reset_page.dart';
-import '../features/auth/pages/recover_access_page.dart';
 import '../features/auth/pages/sign_in_role_choice_page.dart';
 import '../features/auth/pages/sign_up_role_choice_page.dart';
 import '../features/home/pages/child_home_page.dart';
@@ -50,8 +50,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Ссылка из письма — доступна даже при активной сессии.
-      if (path == '/auth/recover/reset') {
+      // Сброс / восстановление — доступны даже при активной сессии.
+      if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
         return null;
       }
 
@@ -65,6 +65,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Fast path: if parent session already restored, never wait for child restore.
       if (parentSession != null && (role == AppRole.parent || role == null)) {
         final inAuth = path.startsWith('/auth');
+        if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
+          return null;
+        }
         if (inAuth || path == '/' || path.isEmpty || path.startsWith('/child')) {
           return '/parent';
         }
@@ -93,6 +96,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in: keep auth screens inaccessible.
       if (inAuth) {
+        if (path == '/auth/recover/reset' || path == '/auth/forgot-password') {
+          return null;
+        }
         if (parentLoggedIn) return '/parent';
         if (childLoggedIn) return '/child';
       }
@@ -165,8 +171,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignUpRoleChoicePage(),
       ),
       GoRoute(
+        path: '/auth/forgot-password',
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return ForgotPasswordPage(initialEmail: email);
+        },
+      ),
+      GoRoute(
         path: '/auth/recover',
-        builder: (context, state) => const RecoverAccessPage(),
+        redirect: (_, _) => '/auth/forgot-password',
       ),
       GoRoute(
         path: '/auth/recover/reset',

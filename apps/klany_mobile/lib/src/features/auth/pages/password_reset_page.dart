@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/app_snackbar.dart';
 import '../../../core/env.dart';
+import '../../../theme/klany_figma_style.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../password_rules.dart';
@@ -26,6 +29,8 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
   bool _obscureConfirm = true;
   bool _busy = false;
 
+  bool get _hasTokenFromLink => widget.initialToken.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -43,7 +48,9 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
   Future<void> _submit() async {
     final token = _token.text.trim();
     if (token.isEmpty) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Вставьте токен из письма')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Вставьте токен из письма')),
+      );
       return;
     }
     final err = KlanyPasswordRules.validatePlain(_password.text);
@@ -52,11 +59,15 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
       return;
     }
     if (_password.text != _passwordConfirm.text) {
-      context.showKlanySnackBar(const SnackBar(content: Text('Пароли не совпадают')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Пароли не совпадают')),
+      );
       return;
     }
     if (!Env.hasApiConfig) {
-      context.showKlanySnackBar(const SnackBar(content: Text('API не настроен')));
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('API не настроен')),
+      );
       return;
     }
 
@@ -68,7 +79,9 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
           );
       if (!mounted) return;
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Пароль обновлён. Войдите с новым паролем')),
+        const SnackBar(
+          content: Text('Пароль обновлён. Войдите с новым паролем'),
+        ),
       );
       context.go('/auth/parent/sign-in');
     } catch (e) {
@@ -79,124 +92,165 @@ class _PasswordResetPageState extends ConsumerState<PasswordResetPage> {
     }
   }
 
-  bool get _hasTokenFromLink => widget.initialToken.trim().isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
-    const bg = kChildInk;
-    const labelColor = Color(0xFFB0BDD6);
-
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => context.go('/auth/recover'),
-        ),
-        title: const Text(
-          'Новый пароль',
-          style: TextStyle(
-            fontFamily: 'Nunito',
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!_hasTokenFromLink) ...[
-                TextField(
-                  controller: _token,
-                  style: const TextStyle(fontFamily: 'Nunito', color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Токен из письма',
-                    labelStyle: TextStyle(color: labelColor),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF3A4F72)),
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: kChildBrandBlue, width: 1.5),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-              TextField(
-                controller: _password,
-                obscureText: _obscure,
-                style: const TextStyle(fontFamily: 'Nunito', color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Новый пароль',
-                  labelStyle: const TextStyle(color: labelColor),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: labelColor,
-                    ),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3A4F72)),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: kChildBrandBlue, width: 1.5),
-                  ),
-                ),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const FigmaAuthScreenBackground(),
+          Padding(
+            padding: EdgeInsets.only(
+              top: math.max(
+                MediaQuery.paddingOf(context).top,
+                kFigmaLandingMinTopInset,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordConfirm,
-                obscureText: _obscureConfirm,
-                style: const TextStyle(fontFamily: 'Nunito', color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Подтверждение',
-                  labelStyle: const TextStyle(color: labelColor),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: labelColor,
-                    ),
-                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF3A4F72)),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: kChildBrandBlue, width: 1.5),
-                  ),
-                ),
+              bottom: math.max(
+                MediaQuery.paddingOf(context).bottom,
+                kFigmaLandingMinBottomInset,
               ),
-              const SizedBox(height: 32),
-              FilledButton(
-                onPressed: _busy ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF7B6FD0),
-                  foregroundColor: Colors.white,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FigmaAuthDoubleDeckHeader(
+                  navTitle: 'Новый пароль',
+                  onBack: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/auth/parent/sign-in');
+                    }
+                  },
                 ),
-                child: _busy
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                Expanded(
+                  child: FigmaAuthPageBody(
+                    hero: const FigmaAuthHero(
+                      asset: 'assets/figma/hero_economika.png',
+                      showDots: true,
+                      dotCount: 3,
+                      activeDotIndex: 1,
+                    ),
+                    form: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (!_hasTokenFromLink) ...[
+                          const Padding(
+                            padding: EdgeInsets.only(
+                              bottom: kFigmaAuthLabelToFieldGap,
+                            ),
+                            child: Text(
+                              'Токен из письма',
+                              style: kFigmaAuthFieldLabelStyle,
+                            ),
+                          ),
+                          FigmaAuthInputShell(
+                            child: TextField(
+                              controller: _token,
+                              style: kFigmaAuthInputTextStyle,
+                              decoration: figmaAuthFieldDecoration('вставьте токен'),
+                            ),
+                          ),
+                          const SizedBox(height: kFigmaAuthFieldStackGap),
+                        ],
+                        const Padding(
+                          padding: EdgeInsets.only(
+                            bottom: kFigmaAuthLabelToFieldGap,
+                          ),
+                          child: Text(
+                            'Пароль',
+                            style: kFigmaAuthFieldLabelStyle,
+                          ),
                         ),
-                      )
-                    : const Text('Сохранить пароль'),
-              ),
-            ],
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _password,
+                            obscureText: _obscure,
+                            autofillHints: const [AutofillHints.newPassword],
+                            style: kFigmaAuthInputTextStyle,
+                            decoration: figmaAuthFieldDecoration(
+                              '••••••••',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: kChildInkMuted,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
+                        const Padding(
+                          padding: EdgeInsets.only(
+                            bottom: kFigmaAuthLabelToFieldGap,
+                          ),
+                          child: Text(
+                            'Подтверждение',
+                            style: kFigmaAuthFieldLabelStyle,
+                          ),
+                        ),
+                        FigmaAuthInputShell(
+                          child: TextField(
+                            controller: _passwordConfirm,
+                            obscureText: _obscureConfirm,
+                            style: kFigmaAuthInputTextStyle,
+                            decoration: figmaAuthFieldDecoration(
+                              '••••••••',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                  color: kChildInkMuted,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscureConfirm = !_obscureConfirm,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: kFigmaAuthFieldStackGap),
+                        if (_busy)
+                          const SizedBox(
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            child: Center(
+                              child: SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF1F4F1B),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          FigmaGradientButton(
+                            label: 'Сохранить пароль',
+                            gradient: FigmaGradientButton.mintGradientVertical,
+                            height: kFigmaAuthPrimaryCtaHeight,
+                            labelStyle: kFigmaLandingCtaTextStyle,
+                            boxShadow: kFigmaLandingCtaBoxShadows,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: false,
+                              applyHeightToLastDescent: false,
+                            ),
+                            onTap: _submit,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

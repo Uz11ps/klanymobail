@@ -12,6 +12,7 @@ import '../../../core/env.dart';
 import '../../home/child_soft_ui.dart';
 import '../auth_actions.dart';
 import '../phone_utils.dart';
+import '../widgets/forgot_password_link.dart';
 import '../../../core/app_snackbar.dart';
 
 // ─── APK-matching "СМЫСЛ" feature card ──────────────────────────────────────
@@ -411,6 +412,8 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                               ),
                               onTap: _proceed,
                             ),
+                          if (!widget.isAdmin)
+                            ForgotPasswordLink(prefillEmail: _email.text),
                         ] else ...[
                           const Padding(
                             padding: EdgeInsets.only(
@@ -471,6 +474,8 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                               ),
                               onTap: _submit,
                             ),
+                          if (!widget.isAdmin)
+                            ForgotPasswordLink(prefillEmail: _email.text),
                         ],
                       ],
                     ),
