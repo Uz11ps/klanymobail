@@ -136,5 +136,31 @@ class AuthActions {
       },
     );
   }
+
+  /// Письмо Resend со ссылкой на сброс пароля.
+  Future<void> requestPasswordReset({required String email}) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/forgot-password',
+      body: <String, dynamic>{'email': email.trim()},
+    );
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/reset-password',
+      body: <String, dynamic>{
+        'token': token.trim(),
+        'password': password,
+      },
+    );
+  }
+
 }
 

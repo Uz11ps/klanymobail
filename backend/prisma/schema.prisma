@@ -33,18 +33,40 @@ enum PaymentStatus {
   failed
 }
 
+enum AuthEmailTokenPurpose {
+  password_reset
+  email_verification
+}
+
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique
   phone        String?  @unique
   passwordHash String
+  emailVerifiedAt DateTime? @db.Timestamptz(6)
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
   lastLoginAt  DateTime? @db.Timestamptz(6)
 
   profiles     Profile[]
   ownedFamilies Family[] @relation("FamilyOwner")
+  authEmailTokens AuthEmailToken[]
 
   @@map("users")
+}
+
+model AuthEmailToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  purpose   AuthEmailTokenPurpose
+  tokenHash String   @unique
+  expiresAt DateTime @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("auth_email_tokens")
 }
 
 model Family {

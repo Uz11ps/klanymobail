@@ -7,6 +7,7 @@ import { ChildModule } from "./child/child.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PaymentsModule } from "./payments/payments.module";
 import { ParentModule } from "./parent/parent.module";
+import { MailModule } from "./mail/mail.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { QuestsModule } from "./quests/quests.module";
 import { ShopModule } from "./shop/shop.module";
@@ -18,6 +19,7 @@ import { WebhooksModule } from "./webhooks/webhooks.module";
 @Module({
   imports: [
     PrismaModule,
+    MailModule,
     AuthModule,
     AdminModule,
     ParentModule,

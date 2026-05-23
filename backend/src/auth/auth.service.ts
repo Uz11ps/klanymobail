@@ -1,8 +1,18 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Prisma } from "@prisma/client";
+import { AuthEmailTokenPurpose, Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
+import {
+  emailVerificationHtml,
+  passwordResetEmailHtml,
+} from "../mail/auth-mail.templates";
+import {
+  generateAuthEmailPlainToken,
+  hashAuthEmailToken,
+  isDeliverableUserEmail,
+} from "../mail/auth-email-token.util";
+import { ResendMailService } from "../mail/resend-mail.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 import { assertKlanyPasswordPlain } from "./password-policy";
@@ -66,7 +76,42 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: ResendMailService,
   ) {}
+
+  private userEmailVerified(user: { email: string; emailVerifiedAt: Date | null }): boolean {
+    if (!isDeliverableUserEmail(user.email)) return true;
+    return Boolean(user.emailVerifiedAt);
+  }
+
+  private async createEmailToken(userId: string, purpose: AuthEmailTokenPurpose, ttlMs: number) {
+    const plain = generateAuthEmailPlainToken();
+    const tokenHash = hashAuthEmailToken(plain);
+    const expiresAt = new Date(Date.now() + ttlMs);
+
+    await this.prisma.authEmailToken.updateMany({
+      where: { userId, purpose, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.authEmailToken.create({
+      data: { userId, purpose, tokenHash, expiresAt },
+    });
+
+    return plain;
+  }
+
+  private async sendVerificationEmailForUser(userId: string, email: string) {
+    if (!isDeliverableUserEmail(email)) return { sent: false };
+    const plain = await this.createEmailToken(
+      userId,
+      AuthEmailTokenPurpose.email_verification,
+      48 * 60 * 60 * 1000,
+    );
+    const tpl = emailVerificationHtml(plain);
+    const result = await this.mail.send({ to: email, subject: tpl.subject, html: tpl.html });
+    return { sent: result.ok };
+  }
 
   /** Проверка: зарегистрирован ли пользователь с данным email (только для главы: шаг «Продолжить»). */
   async isParentEmailRegistered(emailRaw: string) {
@@ -126,15 +171,23 @@ export class AuthService {
       familyId: result.profile.familyId,
     } satisfies JwtPayload);
 
+    const verification = await this.sendVerificationEmailForUser(result.user.id, result.user.email);
+
     return {
       accessToken,
-      user: { id: result.user.id, email: result.user.email, phone: providedPhone || null },
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        phone: providedPhone || null,
+        emailVerified: this.userEmailVerified(result.user),
+      },
       profile: {
         userId: result.profile.userId,
         role: result.profile.role,
         familyId: result.profile.familyId,
       },
       family: { id: result.family.id, familyCode: result.family.familyCode },
+      emailVerificationSent: verification.sent,
     };
   }
 
@@ -219,6 +272,7 @@ export class AuthService {
         phone: user.email.endsWith("@phone.klany.local")
           ? user.email.replace("@phone.klany.local", "")
           : null,
+        emailVerified: this.userEmailVerified(user),
       },
       profile: { userId: profile.userId, role: profile.role, familyId: profile.familyId },
     };
@@ -269,6 +323,104 @@ export class AuthService {
         clanName: memberCode.family.clanName,
       },
     };
+  }
+
+  /** Письмо со ссылкой на сброс пароля (Resend). */
+  async requestPasswordReset(input: { email?: string }) {
+    const email = normalizeEmail(input.email ?? "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите email, на который регистрировались");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { ok: true };
+
+    const plain = await this.createEmailToken(
+      user.id,
+      AuthEmailTokenPurpose.password_reset,
+      60 * 60 * 1000,
+    );
+    const tpl = passwordResetEmailHtml(plain);
+    await this.mail.send({ to: email, subject: tpl.subject, html: tpl.html });
+
+    return { ok: true };
+  }
+
+  async resetPassword(input: { token?: string; password?: string }) {
+    const plain = (input.token ?? "").trim();
+    if (!plain) throw new BadRequestException("token обязателен");
+    const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
+
+    const row = await this.prisma.authEmailToken.findUnique({
+      where: { tokenHash: hashAuthEmailToken(plain) },
+      include: { user: true },
+    });
+    if (
+      !row ||
+      row.purpose !== AuthEmailTokenPurpose.password_reset ||
+      row.usedAt ||
+      row.expiresAt < new Date()
+    ) {
+      throw new BadRequestException("Ссылка недействительна или устарела");
+    }
+
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: row.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.authEmailToken.update({
+        where: { id: row.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true };
+  }
+
+  async verifyEmail(input: { token?: string }) {
+    const plain = (input.token ?? "").trim();
+    if (!plain) throw new BadRequestException("token обязателен");
+
+    const row = await this.prisma.authEmailToken.findUnique({
+      where: { tokenHash: hashAuthEmailToken(plain) },
+    });
+    if (
+      !row ||
+      row.purpose !== AuthEmailTokenPurpose.email_verification ||
+      row.usedAt ||
+      row.expiresAt < new Date()
+    ) {
+      throw new BadRequestException("Ссылка подтверждения недействительна или устарела");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: row.userId },
+        data: { emailVerifiedAt: new Date() },
+      }),
+      this.prisma.authEmailToken.update({
+        where: { id: row.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true, emailVerified: true };
+  }
+
+  async resendVerificationEmail(input: { email?: string }) {
+    const email = normalizeEmail(input.email ?? "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите корректный email");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { ok: true };
+    if (this.userEmailVerified(user)) return { ok: true, emailVerified: true };
+
+    const sent = await this.sendVerificationEmailForUser(user.id, email);
+    return { ok: true, emailVerificationSent: sent.sent };
   }
 
   async requestRecovery(input: { phone?: string }) {
