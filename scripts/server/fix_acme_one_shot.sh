@@ -97,38 +97,23 @@ def insert_after_server_name(block, snippet):
             done = True
     return out if done else block[:1] + [snippet] + block[1:]
 
-def patch_location_slash(block, add_redirect):
-    out, i = [], 0
-    while i < len(block):
-        if re.match(r"^\s*location\s+/\s*\{\s*$", block[i]):
-            out.append(block[i])
-            rest_start = i + 1
-            depth, j = 1, i + 1
-            inner = []
-            while j < len(block) and depth:
-                line = block[j]
-                depth += line.count("{") - line.count("}")
-                if depth:
-                    inner.append(line)
-                j += 1
-            inner_text = "".join(inner)
-            if add_redirect and "klanymobail.ru)" not in inner_text:
-                out.append(redirect)
-            out.extend(inner)
-            out.append(block[j - 1] if j - 1 > i else "}\n")
-            i = j
-            continue
-        out.append(block[i])
-        i += 1
-    return out
-
 for start, end in reversed(server_blocks(lines)):
     block = block_lines(lines, start, end)
     block = strip_server_level_redirects(block)
     if not has_acme(block):
         block = insert_after_server_name(block, acme)
     if is_80(block):
-        block = patch_location_slash(block, add_redirect=True)
+        new_block = []
+        k = 0
+        while k < len(block):
+            ln = block[k]
+            new_block.append(ln)
+            if re.match(r"^\s*location\s+/\s*\{\s*$", ln):
+                peek = "".join(block[k : min(k + 14, len(block))])
+                if "klanymobail.ru)" not in peek:
+                    new_block.append(redirect)
+            k += 1
+        block = new_block
     lines[start : end + 1] = block
 
 p.write_text("".join(lines), encoding="utf-8")
