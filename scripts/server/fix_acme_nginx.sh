@@ -17,12 +17,6 @@ echo "[acme] remove server-level HTTPS redirects (break ACME on port 80)"
 sed -i '/if ($host = klanymobail.ru)/,/}/d' "$VHOST" || true
 sed -i '/if ($host = www.klanymobail.ru)/,/}/d' "$VHOST" || true
 
-ACME_BLOCK='    location ^~ /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
-        default_type "text/plain";
-    }
-'
-
 if ! grep -q 'location \^~ /\.well-known/acme-challenge/' "$VHOST"; then
   echo "[acme] ERROR: no acme location in $VHOST — add it manually from scripts/server/host_vhost_klany.conf"
   exit 1
