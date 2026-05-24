@@ -134,7 +134,6 @@ while i < len(lines):
 vhost.write_text("".join(out), encoding="utf-8")
 print("[acme] patched", vhost)
 PY
-"$VHOST"
 
 mkdir -p "$WEBROOT/.well-known/acme-challenge"
 chmod -R a+rX "$WEBROOT" 2>/dev/null || true
