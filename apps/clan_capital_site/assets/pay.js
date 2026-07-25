@@ -3,7 +3,7 @@
 //   POST /api/payments/create  { planCode, amount, returnUrl } -> { confirmationUrl, paymentId }
 //   GET  /api/payments/:id                                     -> { status, promoCode? }
 
-const API_BASE = window.API_BASE || 'https://klanymobail.ru/api';
+const API_BASE = window.API_BASE || 'http://31.31.201.32:8782/api';
 
 document.querySelectorAll('.plan .btn').forEach((btn) => {
   btn.addEventListener('click', async () => {
