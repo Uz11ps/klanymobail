@@ -61,16 +61,30 @@ export class ParentService {
     return parsed > 0 ? parsed : 10000;
   }
 
+  private async getFamilyRublesPer10Coins(familyId: string): Promise<number> {
+    const row = await this.prisma.auditLog.findFirst({
+      where: { familyId, action: "family_coin_rate_set" },
+      orderBy: { createdAt: "desc" },
+    });
+    const payload = (row?.payload ?? null) as { rublesPer10Coins?: number } | null;
+    const parsed = Math.trunc(Number(payload?.rublesPer10Coins ?? 0));
+    return parsed > 0 ? parsed : 100;
+  }
+
   async getFamilyContext(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const family = await this.prisma.family.findUnique({ where: { id: familyId } });
     if (!family) throw new NotFoundException("Семья не найдена");
-    const goalAmount = await this.getFamilyGoalAmount(family.id);
+    const [goalAmount, rublesPer10Coins] = await Promise.all([
+      this.getFamilyGoalAmount(family.id),
+      this.getFamilyRublesPer10Coins(family.id),
+    ]);
     return {
       familyId: family.id,
       familyCode: family.familyCode,
       clanName: family.clanName,
       goalAmount,
+      rublesPer10Coins,
     };
   }
 
@@ -89,6 +103,23 @@ export class ParentService {
       },
     });
     return { ok: true, goalAmount };
+  }
+
+  async setFamilyCoinRate(user: ParentUser, rublesPer10CoinsRaw: number) {
+    const familyId = ensureFamilyId(user);
+    const rublesPer10Coins = Math.trunc(Number(rublesPer10CoinsRaw ?? 0));
+    if (!Number.isFinite(rublesPer10Coins) || rublesPer10Coins <= 0) {
+      throw new BadRequestException("rublesPer10Coins должен быть > 0");
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        familyId,
+        actorUserId: user.userId,
+        action: "family_coin_rate_set",
+        payload: { rublesPer10Coins },
+      },
+    });
+    return { ok: true, rublesPer10Coins };
   }
 
   /** Имя в UI семьи (поле профиля `displayName`). */

@@ -65,8 +65,10 @@ services:
       # Always container-internal API port (service name `minio`). Do not use host publish port here.
       MINIO_PORT: "9000"
       MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-${MINIO_ROOT_USER:-minioadmin}}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_QUEST_EVIDENCE: ${MINIO_BUCKET_QUEST_EVIDENCE:-quest-evidence}
       MINIO_BUCKET_SHOP_PRODUCTS: ${MINIO_BUCKET_SHOP_PRODUCTS:-shop-products}
       MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_BASE_URL:-}

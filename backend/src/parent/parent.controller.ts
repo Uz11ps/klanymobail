@@ -24,6 +24,12 @@ export class ParentController {
     return this.parent.setFamilyGoal(req.user, body.goalAmount);
   }
 
+  @Post("family/coin-rate")
+  @Roles("parent", "admin")
+  async setFamilyCoinRate(@Req() req: any, @Body() body: { rublesPer10Coins: number }) {
+    return this.parent.setFamilyCoinRate(req.user, body.rublesPer10Coins);
+  }
+
   @Get("parent/access-requests")
   @Roles("parent", "admin")
   async accessRequests(@Req() req: any) {

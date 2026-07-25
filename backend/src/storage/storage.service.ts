@@ -35,8 +35,7 @@ export class StorageService implements OnModuleInit {
     const endPoint = process.env.MINIO_ENDPOINT ?? "minio";
     const port = Number(process.env.MINIO_PORT ?? "9000");
     const useSSL = toBool(process.env.MINIO_USE_SSL, false);
-    const accessKey = process.env.MINIO_ACCESS_KEY ?? process.env.MINIO_ROOT_USER ?? "";
-    const secretKey = process.env.MINIO_SECRET_KEY ?? process.env.MINIO_ROOT_PASSWORD ?? "";
+    const { accessKey, secretKey } = this.resolveMinioCredentials();
     this.enabled = Boolean(accessKey && secretKey);
 
     this.internalClient = new Client({
@@ -63,6 +62,23 @@ export class StorageService implements OnModuleInit {
         region: "us-east-1",
       });
     }
+  }
+
+  private resolveMinioCredentials(): { accessKey: string; secretKey: string } {
+    const rootUser = (process.env.MINIO_ROOT_USER ?? "minioadmin").trim();
+    const rootPass = (process.env.MINIO_ROOT_PASSWORD ?? "").trim();
+    let accessKey = (process.env.MINIO_ACCESS_KEY ?? rootUser).trim();
+    let secretKey = (process.env.MINIO_SECRET_KEY ?? rootPass).trim();
+
+    // generate_fresh_env.sh used to emit a random MINIO_SECRET_KEY unrelated to root password.
+    if (accessKey === rootUser && rootPass && secretKey !== rootPass) {
+      this.log.warn(
+        "MINIO_SECRET_KEY не совпадает с MINIO_ROOT_PASSWORD для root access key — используем MINIO_ROOT_PASSWORD",
+      );
+      secretKey = rootPass;
+    }
+
+    return { accessKey, secretKey };
   }
 
   private assertEnabled() {

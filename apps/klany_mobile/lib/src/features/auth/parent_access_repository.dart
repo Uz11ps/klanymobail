@@ -16,12 +16,14 @@ class ParentFamilyContext {
     required this.familyCode,
     this.clanName,
     required this.goalAmount,
+    required this.rublesPer10Coins,
   });
 
   final String familyId;
   final String familyCode;
   final String? clanName;
   final int goalAmount;
+  final int rublesPer10Coins;
 }
 
 class ChildAccessRequestItem {
@@ -139,6 +141,7 @@ class ParentAccessRepository {
       familyCode: (data['familyCode'] ?? '').toString(),
       clanName: data['clanName']?.toString(),
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+      rublesPer10Coins: (data['rublesPer10Coins'] as num?)?.toInt() ?? 100,
     );
   }
 
@@ -209,6 +212,17 @@ class ParentAccessRepository {
       '/family/goal',
       accessToken: token,
       body: <String, dynamic>{'goalAmount': goalAmount},
+    );
+  }
+
+  Future<void> setFamilyCoinRate(int rublesPer10Coins) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/family/coin-rate',
+      accessToken: token,
+      body: <String, dynamic>{'rublesPer10Coins': rublesPer10Coins},
     );
   }
 

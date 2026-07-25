@@ -658,7 +658,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
     return a.familyId == b.familyId &&
         a.familyCode == b.familyCode &&
         (a.clanName ?? '') == (b.clanName ?? '') &&
-        a.goalAmount == b.goalAmount;
+        a.goalAmount == b.goalAmount &&
+        a.rublesPer10Coins == b.rublesPer10Coins;
   }
 
   bool _sameWallets(

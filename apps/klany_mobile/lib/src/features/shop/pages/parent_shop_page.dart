@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,11 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../wallet/family_economy.dart';
 import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
+import '../../../core/value_bump.dart';
 
 /// Снизу под плавающий `_ShopBottomBar` при `extendBody: true`: капсула 76 + поле 16 +
 /// системный вырез + небольшой зазор до контента.
@@ -35,11 +39,21 @@ class ParentShopPage extends ConsumerStatefulWidget {
 
 class _ParentShopPageState extends ConsumerState<ParentShopPage> {
   late int _tab;
+  Timer? _coinRatePoll;
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, 2);
+    _coinRatePoll = Timer.periodic(kParentLivePollInterval, (_) {
+      ref.invalidate(parentFamilyContextProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _coinRatePoll?.cancel();
+    super.dispose();
   }
 
   @override
@@ -370,14 +384,16 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
   }
 }
 
-class _FigmaProductCard extends StatelessWidget {
+class _FigmaProductCard extends ConsumerWidget {
   const _FigmaProductCard({required this.product, required this.onTap});
 
   final ShopProductItem product;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rublesPer10Coins = ref.watch(familyCoinRateProvider);
+    final rubles = coinsToRubles(product.price, rublesPer10Coins);
     final titleColor = product.isActive
         ? Colors.black
         : Colors.black.withValues(alpha: 0.45);
@@ -491,7 +507,7 @@ class _FigmaProductCard extends StatelessWidget {
                               ),
                             ),
                             TextSpan(
-                              text: '(${product.price * 10} ₽)',
+                              text: '($rubles ₽)',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
@@ -1070,13 +1086,15 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
   }
 }
 
-class _PurchaseCard extends StatelessWidget {
+class _PurchaseCard extends ConsumerWidget {
   const _PurchaseCard({required this.item, required this.onDecide});
   final ShopPurchaseItem item;
   final ValueChanged<bool> onDecide;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rublesPer10Coins = ref.watch(familyCoinRateProvider);
+    final rubles = coinsToRubles(item.totalPrice, rublesPer10Coins);
     final label = item.childName.trim().isEmpty ? 'Участник' : item.childName.trim();
     final initial = label.trim().isNotEmpty ? label.trim().characters.first.toUpperCase() : '?';
     final childKey = item.childId.trim().isEmpty
@@ -1174,7 +1192,7 @@ class _PurchaseCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          '${item.totalPrice} монет (${item.totalPrice * 10} ₽)',
+                          '${item.totalPrice} монет ($rubles ₽)',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

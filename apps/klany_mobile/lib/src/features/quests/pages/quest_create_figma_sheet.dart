@@ -101,7 +101,7 @@ Future<void> showQuestCreateFigmaSheet(
         padding: EdgeInsets.only(bottom: bottomInset),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),
-          child: _QuestCreateFigmaSheet(
+          child: _QuestCreateFigmaForm(
             familyId: familyId,
             onCreated: onCreated,
           ),
@@ -109,52 +109,6 @@ Future<void> showQuestCreateFigmaSheet(
       );
     },
   );
-}
-
-class _QuestCreateFigmaSheet extends StatelessWidget {
-  const _QuestCreateFigmaSheet({
-    required this.familyId,
-    this.onCreated,
-  });
-
-  final String familyId;
-  final VoidCallback? onCreated;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          width: 68,
-          height: 6,
-          decoration: BoxDecoration(
-            color: _kCreateHandle.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 19),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Создать задачу', style: _kCreateTitleStyle),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Flexible(
-          child: _QuestCreateFigmaForm(
-            familyId: familyId,
-            onCreated: () {
-              onCreated?.call();
-              Navigator.of(context).pop();
-            },
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _QuestCreateFigmaForm extends ConsumerStatefulWidget {
@@ -324,6 +278,7 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
         const SnackBar(content: Text('Квест создан')),
       );
       widget.onCreated?.call();
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       context.showKlanySnackBar(
@@ -343,8 +298,24 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
         return Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(19, 0, 19, 28),
+            padding: const EdgeInsets.fromLTRB(19, 12, 19, 28),
             children: [
+              Center(
+                child: Container(
+                  width: 68,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _kCreateHandle.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Создать задачу', style: _kCreateTitleStyle),
+              ),
+              const SizedBox(height: 16),
               if (snapshot.connectionState == ConnectionState.waiting)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),

@@ -8,17 +8,17 @@ import 'package:intl/intl.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/wallet_repository.dart';
+import '../../wallet/family_economy.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/value_bump.dart';
-import 'quest_create_figma_sheet.dart';
+import 'economy_figma_layout.dart';
 
-const Color _kEconomyTitleBlue = Color(0xFF4563B1);
-const Color _kEconomyBg = Color(0xFFFAFBFD);
-const Color _kEconomyTitleMarker = Color(0xFFF9E8A5);
-const Color _kEconomyTabInactive = Color(0xFFF3F4F6);
+const Color _kEconomyTitleBlue = EconomyFigmaLayout.titleBlue;
+const Color _kEconomyBg = EconomyFigmaLayout.bg;
+const Color _kEconomyTitleMarker = EconomyFigmaLayout.titleMarker;
 const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
 const Color _kFigmaReviewSky = Color(0xFFBFD3FF);
 const Color _kFigmaReviewLavender = Color(0xFFD8CBF7);
@@ -36,7 +36,6 @@ class ParentQuestsPage extends ConsumerStatefulWidget {
 class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   late int _tab;
   int _selectedWallet = -1;
-  int _rublesPer10Coins = 100;
   List<ParentChildWalletItem> _wallets = const [];
   int _questListVersion = 0;
 
@@ -49,7 +48,10 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     _tab =
         widget.initialEconomySegment == 2 ? 2 : widget.initialEconomySegment.clamp(0, 2);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWallets());
-    _economyPoll = Timer.periodic(kParentLivePollInterval, (_) => _loadWallets());
+    _economyPoll = Timer.periodic(kParentLivePollInterval, (_) {
+      _loadWallets();
+      ref.invalidate(parentFamilyContextProvider);
+    });
   }
 
   @override
@@ -178,7 +180,8 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   }
 
   Future<void> _editCoinRate() async {
-    final ctrl = TextEditingController(text: _rublesPer10Coins.toString());
+    final currentRate = ref.read(familyCoinRateProvider);
+    final ctrl = TextEditingController(text: currentRate.toString());
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -232,7 +235,14 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     );
     if (ok != true || !mounted) return;
     final rate = int.tryParse(ctrl.text.trim());
-    if (rate != null && rate > 0) setState(() => _rublesPer10Coins = rate);
+    if (rate != null && rate > 0) {
+      try {
+        await ref.read(familyCoinRateProvider.notifier).setRate(rate);
+      } catch (e) {
+        if (!mounted) return;
+        context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
+    }
   }
 
   String _formatBalance(int n) {
@@ -260,18 +270,19 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   }
 
   Widget _buildPage(ParentFamilyContext family) {
+    final rublesPer10Coins = ref.watch(familyCoinRateProvider);
     final sel = _selectedWallet >= 0 && _selectedWallet < _wallets.length
         ? _wallets[_selectedWallet]
         : null;
 
     final totalCoins =
         sel?.balance ?? _wallets.fold<int>(0, (a, w) => a + w.balance);
-    final rubles = totalCoins * _rublesPer10Coins ~/ 10;
+    final rubles = coinsToRubles(totalCoins, rublesPer10Coins);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: CloudBackground(
-        opacity: 0.05,
+        opacity: 0.04,
         backgroundColor: _kEconomyBg,
         child: SafeArea(
           bottom: false,
@@ -282,11 +293,11 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                   padding: EdgeInsets.zero,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 4, 19, 8),
+                      padding: EconomyFigmaLayout.screenHeaderPad,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: _EconomyTitle(text: 'Экономика'),
                           ),
                           DecoratedBox(
@@ -313,15 +324,18 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                     builder: (_) => const ParentShopPage(),
                                   ),
                                 ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: SvgPicture.asset(
-                                    'assets/figma/nav_shop.svg',
-                                    width: 24,
-                                    height: 24,
-                                    colorFilter: const ColorFilter.mode(
-                                      kChildInk,
-                                      BlendMode.srcIn,
+                                child: SizedBox(
+                                  width: EconomyFigmaLayout.shopBtnSize,
+                                  height: EconomyFigmaLayout.shopBtnSize,
+                                  child: Center(
+                                    child: SvgPicture.asset(
+                                      'assets/figma/nav_shop.svg',
+                                      width: 24,
+                                      height: 24,
+                                      colorFilter: const ColorFilter.mode(
+                                        kChildInk,
+                                        BlendMode.srcIn,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -333,10 +347,12 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
 
                     SizedBox(
-                      height: 108,
+                      height: EconomyFigmaLayout.walletRowHeight,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(19, 0, 19, 0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: EconomyFigmaLayout.hMargin,
+                        ),
                         children: [
                           _WalletChip(
                             label: 'Все',
@@ -363,20 +379,15 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       ),
                     ),
 
-                    Center(
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        width: 311,
-                        height: 1,
-                        color: Colors.black.withValues(alpha: 0.08),
-                      ),
-                    ),
+                    const SizedBox(height: 4),
+
+                    _EconomyDivider(),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 10, 19, 10),
+                      padding: EconomyFigmaLayout.balancePad,
                       child: ValueBumpWrap(
                         changeKey:
-                            '${totalCoins}_${_rublesPer10Coins}_${sel?.childId ?? -1}',
+                            '${totalCoins}_${rublesPer10Coins}_${sel?.childId ?? -1}',
                         alignment: Alignment.center,
                         child: Column(
                           children: [
@@ -386,30 +397,24 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               children: [
                                 Image.asset(
                                   'assets/figma/coin_stack.png',
-                                  width: 28,
-                                  height: 26,
+                                  width: EconomyFigmaLayout.coinIconW,
+                                  height: EconomyFigmaLayout.coinIconH,
                                   fit: BoxFit.contain,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 3),
                                 Text(
                                   _formatBalance(totalCoins),
-                                  style: const TextStyle(
-                                    fontFamily: 'Nunito',
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.w800,
-                                    color: _kEconomyTitleBlue,
-                                    height: 1.0,
-                                  ),
+                                  style: EconomyFigmaLayout.balanceStyle,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             RichText(
                               textAlign: TextAlign.center,
                               text: TextSpan(
                                 style: TextStyle(
                                   fontFamily: 'Nunito',
-                                  fontSize: 16,
+                                  fontSize: EconomyFigmaLayout.rublesFontSize,
                                   fontWeight: FontWeight.w400,
                                   color:
                                       Colors.black.withValues(alpha: 0.3),
@@ -433,24 +438,17 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       ),
                     ),
 
-                    Center(
-                      child: Container(
-                        width: 311,
-                        height: 1,
-                        color: Colors.black.withValues(alpha: 0.08),
-                      ),
-                    ),
+                    _EconomyDivider(),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 10, 19, 0),
+                      padding: EconomyFigmaLayout.coinCardOuterPad,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 16,
-                        ),
+                        padding: EconomyFigmaLayout.coinCardInnerPad,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(25),
+                          borderRadius: BorderRadius.circular(
+                            EconomyFigmaLayout.coinCardRadius,
+                          ),
                           border: Border.all(
                             color: Colors.black.withValues(alpha: 0.08),
                           ),
@@ -470,13 +468,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                 const Expanded(
                                   child: Text(
                                     'Управление монетами',
-                                    style: TextStyle(
-                                      fontFamily: 'Nunito',
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black,
-                                      height: 1.0,
-                                    ),
+                                    style: EconomyFigmaLayout.sectionTitleStyle,
                                   ),
                                 ),
                                 _CircleIconBtn(
@@ -496,7 +488,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             ),
                             Padding(
                               padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                                  const EdgeInsets.symmetric(vertical: 16),
                               child: Container(
                                 height: 1,
                                 color: Colors.black.withValues(alpha: 0.08),
@@ -505,122 +497,58 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             InkWell(
                               onTap: _editCoinRate,
                               borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 2),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Курс',
-                                            style: TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black,
-                                            ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Курс',
+                                          style:
+                                              EconomyFigmaLayout.sectionTitleStyle,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '10 монет = $rublesPer10Coins ₽',
+                                          style: const TextStyle(
+                                            fontFamily: 'Nunito',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w400,
+                                            color: Colors.black,
                                           ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            '10 монет = $_rublesPer10Coins ₽',
-                                            style: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w400,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                    Icon(
-                                      Icons.chevron_right,
-                                      size: 16,
-                                      color: kChildInkMuted,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 16,
+                                    color: kChildInkMuted,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
 
-                    Center(
-                      child: Container(
-                        width: 311,
-                        height: 1,
-                        color: Colors.black.withValues(alpha: 0.08),
-                      ),
-                    ),
+                    _EconomyDivider(),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 12, 19, 8),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Биржа задач',
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black,
-                                height: 1.0,
-                              ),
-                            ),
-                          ),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.black.withValues(alpha: 0.08),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: Colors.transparent,
-                              shape: const CircleBorder(),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () => showQuestCreateFigmaSheet(
-                                  context,
-                                  familyId: family.familyId,
-                                  onCreated: () => setState(
-                                    () => _questListVersion++,
-                                  ),
-                                ),
-                                child: const SizedBox(
-                                  width: 36,
-                                  height: 36,
-                                  child: Icon(
-                                    Icons.add,
-                                    size: 20,
-                                    color: kChildInk,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      padding: EconomyFigmaLayout.birzhaHeaderPad,
+                      child: const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Биржа задач',
+                          style: EconomyFigmaLayout.sectionTitleStyle,
+                        ),
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 19),
+                      padding: EconomyFigmaLayout.birzhaTabsPad,
                       child: Row(
                         children: [
                           Expanded(
@@ -631,7 +559,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               onTap: () => setState(() => _tab = 0),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: EconomyFigmaLayout.tabGap),
                           Expanded(
                             child: _EconomySegmentTab(
                               label: 'Проверка',
@@ -643,7 +571,22 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    if (_tab == 2) ...[
+                      const SizedBox(height: 12),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: EconomyFigmaLayout.hMargin,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'На проверке',
+                            style: EconomyFigmaLayout.reviewSectionHintStyle,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                     if (_tab == 0)
                       _QuestsList(
                         key: ValueKey<int>(_questListVersion),
@@ -651,11 +594,40 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       )
                     else
                       _QuestReviewList(familyId: family.familyId),
-                    const SizedBox(height: 96),
+                    const SizedBox(height: 88),
                   ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EconomyDivider extends StatelessWidget {
+  const _EconomyDivider({this.margin = EdgeInsets.zero});
+
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: margin.add(
+        const EdgeInsets.symmetric(
+          vertical: EconomyFigmaLayout.dividerVerticalPad,
+        ),
+      ),
+      child: Container(
+        height: EconomyFigmaLayout.dividerHeight,
+        margin: const EdgeInsets.symmetric(
+          horizontal: EconomyFigmaLayout.hMargin,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(
+            EconomyFigmaLayout.dividerHeight,
           ),
         ),
       ),
@@ -707,13 +679,13 @@ class _EconomySegmentTab extends StatelessWidget {
       }
     } else if (selected) {
       deco = BoxDecoration(
-        color: _kEconomyTabInactive,
+        color: EconomyFigmaLayout.tabActiveGrey,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
       );
     } else {
       deco = BoxDecoration(
-        color: filled ? Colors.white : _kEconomyTabInactive,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(40),
         border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
       );
@@ -723,18 +695,10 @@ class _EconomySegmentTab extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 48,
+        height: EconomyFigmaLayout.tabHeight,
         alignment: Alignment.center,
         decoration: deco,
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-        ),
+        child: Text(label, style: EconomyFigmaLayout.tabLabelStyle),
       ),
     );
   }
@@ -747,33 +711,13 @@ class _EconomyTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.centerLeft,
-      children: [
-        Positioned(
-          left: 0,
-          right: 24,
-          bottom: 2,
-          child: Container(
-            height: 16,
-            decoration: BoxDecoration(
-              color: _kEconomyTitleMarker,
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-        ),
-        Text(
-          text,
-          style: const TextStyle(
-            fontFamily: 'Nunito',
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
-            height: 1.0,
-          ),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 5, 12, 5),
+      decoration: BoxDecoration(
+        color: _kEconomyTitleMarker,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(text, style: EconomyFigmaLayout.titleStyle),
     );
   }
 }
@@ -805,7 +749,7 @@ class _WalletChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(EconomyFigmaLayout.walletChipPad),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -820,8 +764,8 @@ class _WalletChip extends StatelessWidget {
               color: Colors.black.withValues(
                 alpha: selected ? 0.1 : 0.08,
               ),
-              blurRadius: selected ? 16 : 24,
-              offset: const Offset(0, 8),
+              blurRadius: selected ? 20 : 40,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -829,8 +773,8 @@ class _WalletChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: EconomyFigmaLayout.walletAvatar,
+              height: EconomyFigmaLayout.walletAvatar,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -841,39 +785,33 @@ class _WalletChip extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: icon != null
-                  ? Icon(icon, color: kChildInk, size: 28)
+                  ? Icon(icon, color: kChildInk, size: 30)
                   : (userKey != null
                       ? UserAvatar(
                           userKey: userKey!,
-                          size: 56,
+                          size: EconomyFigmaLayout.walletAvatar,
                           fallbackText: label.characters.first.toUpperCase(),
                         )
                       : Image.asset(
                           _avatarAssetForName(label),
-                          width: 56,
-                          height: 56,
+                          width: EconomyFigmaLayout.walletAvatar,
+                          height: EconomyFigmaLayout.walletAvatar,
                           fit: BoxFit.cover,
                           errorBuilder: (_, e, s) => Text(
                             label.characters.first.toUpperCase(),
-                            style: const TextStyle(fontSize: 18),
+                            style: const TextStyle(fontSize: 20),
                           ),
                         )),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: EconomyFigmaLayout.walletAvatarGap),
             SizedBox(
-              width: 68,
+              width: EconomyFigmaLayout.walletLabelWidth,
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.black,
-                  height: 1.0,
-                ),
+                style: EconomyFigmaLayout.walletLabelStyle,
                 textHeightBehavior: const TextHeightBehavior(
                   applyHeightToFirstAscent: false,
                   applyHeightToLastDescent: false,
@@ -1272,7 +1210,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 19),
+          padding: EconomyFigmaLayout.listHorizontalPad,
           children: [
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator()),
@@ -1282,7 +1220,7 @@ class _QuestsListState extends ConsumerState<_QuestsList> {
             if (shown.isEmpty &&
                 snapshot.connectionState != ConnectionState.waiting)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Center(
                   child: Text(
                     onlyReverseQueued
@@ -1496,7 +1434,7 @@ class _QuestReviewListState extends ConsumerState<_QuestReviewList> {
         return ListView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EconomyFigmaLayout.listHorizontalPad,
           children: [
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator()),
@@ -1506,7 +1444,7 @@ class _QuestReviewListState extends ConsumerState<_QuestReviewList> {
             if (list.isEmpty &&
                 snapshot.connectionState != ConnectionState.waiting)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
+                padding: EdgeInsets.symmetric(vertical: 16),
                 child: Center(
                   child: Text(
                     'Нет заявок на проверку',
@@ -1698,7 +1636,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                   color: Colors.black,
                 ),
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 12),
               if (reward != null)
                 Text(
                   '$reward монет',
@@ -1709,7 +1647,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                     color: Colors.black,
                   ),
                 ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 8),
               Text(
                 widget.item.childName,
                 style: const TextStyle(
@@ -1747,8 +1685,8 @@ class _CircleIconBtn extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 44,
-          height: 44,
+          width: EconomyFigmaLayout.circleBtnSize,
+          height: EconomyFigmaLayout.circleBtnSize,
           child: Icon(icon, color: kChildInk, size: 22),
         ),
       ),
