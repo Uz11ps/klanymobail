@@ -100,10 +100,9 @@ services:
       dockerfile: ./infra/nginx/Dockerfile
     ports:
       - "${HTTP_PORT:-8782}:80"
-      # Telegram allows webhooks on 8443 (HTTPS required)
-      - "${HTTPS_PORT:-8443}:443"
-    volumes:
-      - "${NGINX_CERTS_DIR:-/opt/klany/shared/certs}:/etc/nginx/certs:ro"
+    # Optional TLS: mount certs and add listen 443 ssl in nginx config when needed.
+    # volumes:
+    #   - "${NGINX_CERTS_DIR:-/opt/klany/shared/certs}:/etc/nginx/certs:ro"
     depends_on:
       api:
         condition: service_healthy

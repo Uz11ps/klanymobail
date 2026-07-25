@@ -17,6 +17,14 @@
     { "comment": "Разделитель секций (линия как в фрейме, PNG @2×)" },
     { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "162:306", "path": "assets/figma/child_dashboard_divider.png", "format": "png", "scale": 2 },
 
+    { "comment": "Bottom sheet «Создать задачу» node 256:447" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "251:337", "path": "assets/figma/quest_create_calendar.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "251:330", "path": "assets/figma/quest_create_alarm.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:610", "path": "assets/figma/quest_create_chevron.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:566", "path": "assets/figma/quest_create_radio_on.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:559", "path": "assets/figma/quest_create_radio_off.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:647", "path": "assets/figma/quest_create_coin.png", "format": "png", "scale": 2 },
+
     { "comment": "В файле kwVu на макете выбран «Дом» — отдельной outline-ноды нет в фрейме; outline из legacy z72 или найти: dart run … suggest 118:1305 --file=kwVuEbSWPdrTEFsrIvZVB3" },
     { "nodeId": "0:134", "path": "assets/figma/nav_home_outline.svg" },
 
