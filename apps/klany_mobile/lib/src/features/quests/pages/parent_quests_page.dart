@@ -16,6 +16,9 @@ import '../../../core/value_bump.dart';
 import 'quest_create_figma_sheet.dart';
 
 const Color _kEconomyTitleBlue = Color(0xFF4563B1);
+const Color _kEconomyBg = Color(0xFFFAFBFD);
+const Color _kEconomyTitleMarker = Color(0xFFF9E8A5);
+const Color _kEconomyTabInactive = Color(0xFFF3F4F6);
 const Color _kFigmaReviewMint = Color(0xFFD9F6C2);
 const Color _kFigmaReviewSky = Color(0xFFBFD3FF);
 const Color _kFigmaReviewLavender = Color(0xFFD8CBF7);
@@ -268,29 +271,23 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: CloudBackground(
+        opacity: 0.05,
+        backgroundColor: _kEconomyBg,
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
               Expanded(
                 child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 8, 19, 16),
+                      padding: const EdgeInsets.fromLTRB(19, 4, 19, 8),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(
-                            child: Text(
-                              'Экономика',
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black,
-                                height: 1.0,
-                              ),
-                            ),
+                          Expanded(
+                            child: _EconomyTitle(text: 'Экономика'),
                           ),
                           DecoratedBox(
                             decoration: BoxDecoration(
@@ -336,8 +333,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
 
                     SizedBox(
-                      // 73 + отступы + подпись Nunito 16 — 124 было впритык и давало overflow 1–3 px.
-                      height: 142,
+                      height: 108,
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.fromLTRB(19, 0, 19, 0),
@@ -369,7 +365,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
 
                     Center(
                       child: Container(
-                        margin: const EdgeInsets.only(top: 8),
+                        margin: const EdgeInsets.only(top: 4),
                         width: 311,
                         height: 1,
                         color: Colors.black.withValues(alpha: 0.08),
@@ -377,7 +373,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 20),
+                      padding: const EdgeInsets.fromLTRB(19, 10, 19, 10),
                       child: ValueBumpWrap(
                         changeKey:
                             '${totalCoins}_${_rublesPer10Coins}_${sel?.childId ?? -1}',
@@ -390,16 +386,16 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               children: [
                                 Image.asset(
                                   'assets/figma/coin_stack.png',
-                                  width: 32,
-                                  height: 29,
+                                  width: 28,
+                                  height: 26,
                                   fit: BoxFit.contain,
                                 ),
-                                const SizedBox(width: 3),
+                                const SizedBox(width: 4),
                                 Text(
                                   _formatBalance(totalCoins),
                                   style: const TextStyle(
                                     fontFamily: 'Nunito',
-                                    fontSize: 40,
+                                    fontSize: 36,
                                     fontWeight: FontWeight.w800,
                                     color: _kEconomyTitleBlue,
                                     height: 1.0,
@@ -407,14 +403,14 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 4),
                             RichText(
                               textAlign: TextAlign.center,
                               text: TextSpan(
                                 style: TextStyle(
                                   fontFamily: 'Nunito',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
                                   color:
                                       Colors.black.withValues(alpha: 0.3),
                                 ),
@@ -446,11 +442,11 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 0),
+                      padding: const EdgeInsets.fromLTRB(19, 10, 19, 0),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 15,
-                          vertical: 30,
+                          vertical: 16,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -500,7 +496,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                             ),
                             Padding(
                               padding:
-                                  const EdgeInsets.symmetric(vertical: 20),
+                                  const EdgeInsets.symmetric(vertical: 12),
                               child: Container(
                                 height: 1,
                                 color: Colors.black.withValues(alpha: 0.08),
@@ -528,7 +524,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                               color: Colors.black,
                                             ),
                                           ),
-                                          const SizedBox(height: 10),
+                                          const SizedBox(height: 6),
                                           Text(
                                             '10 монет = $_rublesPer10Coins ₽',
                                             style: const TextStyle(
@@ -554,7 +550,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
 
                     Center(
                       child: Container(
@@ -565,7 +561,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     ),
 
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(19, 20, 19, 15),
+                      padding: const EdgeInsets.fromLTRB(19, 12, 19, 8),
                       child: Row(
                         children: [
                           const Expanded(
@@ -580,21 +576,43 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               ),
                             ),
                           ),
-                          TextButton(
-                            onPressed: () => showQuestCreateFigmaSheet(
-                              context,
-                              familyId: family.familyId,
-                              onCreated: () => setState(
-                                () => _questListVersion++,
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.08),
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.06),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              'Добавить',
-                              style: TextStyle(
-                                fontFamily: 'Nunito',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: _kEconomyTitleBlue,
+                            child: Material(
+                              color: Colors.transparent,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => showQuestCreateFigmaSheet(
+                                  context,
+                                  familyId: family.familyId,
+                                  onCreated: () => setState(
+                                    () => _questListVersion++,
+                                  ),
+                                ),
+                                child: const SizedBox(
+                                  width: 36,
+                                  height: 36,
+                                  child: Icon(
+                                    Icons.add,
+                                    size: 20,
+                                    color: kChildInk,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -625,7 +643,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
                     if (_tab == 0)
                       _QuestsList(
                         key: ValueKey<int>(_questListVersion),
@@ -633,7 +651,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       )
                     else
                       _QuestReviewList(familyId: family.familyId),
-                    const SizedBox(height: 120),
+                    const SizedBox(height: 96),
                   ],
                 ),
               ),
@@ -689,41 +707,73 @@ class _EconomySegmentTab extends StatelessWidget {
       }
     } else if (selected) {
       deco = BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.35),
+        color: _kEconomyTabInactive,
         borderRadius: BorderRadius.circular(40),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.34)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
       );
     } else {
       deco = BoxDecoration(
-        color: Colors.white,
+        color: filled ? Colors.white : _kEconomyTabInactive,
         borderRadius: BorderRadius.circular(40),
         border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
       );
     }
 
-    Widget child = Container(
-      height: 54,
-      alignment: Alignment.center,
-      decoration: deco,
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Nunito',
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Colors.black,
-        ),
-      ),
-    );
-
-    if (!filled && selected) {
-      child = Opacity(opacity: 0.58, child: child);
-    }
-
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: child,
+      child: Container(
+        height: 48,
+        alignment: Alignment.center,
+        decoration: deco,
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EconomyTitle extends StatelessWidget {
+  const _EconomyTitle({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.centerLeft,
+      children: [
+        Positioned(
+          left: 0,
+          right: 24,
+          bottom: 2,
+          child: Container(
+            height: 16,
+            decoration: BoxDecoration(
+              color: _kEconomyTitleMarker,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+        ),
+        Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 32,
+            fontWeight: FontWeight.w800,
+            color: Colors.black,
+            height: 1.0,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -755,7 +805,7 @@ class _WalletChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -770,8 +820,8 @@ class _WalletChip extends StatelessWidget {
               color: Colors.black.withValues(
                 alpha: selected ? 0.1 : 0.08,
               ),
-              blurRadius: selected ? 20 : 40,
-              offset: const Offset(0, 10),
+              blurRadius: selected ? 16 : 24,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -779,8 +829,8 @@ class _WalletChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 73,
-              height: 73,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
@@ -791,27 +841,27 @@ class _WalletChip extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               alignment: Alignment.center,
               child: icon != null
-                  ? Icon(icon, color: kChildInk, size: 33)
+                  ? Icon(icon, color: kChildInk, size: 28)
                   : (userKey != null
                       ? UserAvatar(
                           userKey: userKey!,
-                          size: 73,
+                          size: 56,
                           fallbackText: label.characters.first.toUpperCase(),
                         )
                       : Image.asset(
                           _avatarAssetForName(label),
-                          width: 73,
-                          height: 73,
+                          width: 56,
+                          height: 56,
                           fit: BoxFit.cover,
                           errorBuilder: (_, e, s) => Text(
                             label.characters.first.toUpperCase(),
-                            style: const TextStyle(fontSize: 22),
+                            style: const TextStyle(fontSize: 18),
                           ),
                         )),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             SizedBox(
-              width: 80,
+              width: 68,
               child: Text(
                 label,
                 maxLines: 1,
@@ -819,7 +869,7 @@ class _WalletChip extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: 'Nunito',
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: Colors.black,
                   height: 1.0,
@@ -1697,9 +1747,9 @@ class _CircleIconBtn extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 57,
-          height: 57,
-          child: Icon(icon, color: kChildInk, size: 24),
+          width: 44,
+          height: 44,
+          child: Icon(icon, color: kChildInk, size: 22),
         ),
       ),
     );
