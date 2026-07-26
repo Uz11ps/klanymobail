@@ -252,7 +252,6 @@ class _NotificationsInteractiveContentState
             builder: (_) =>
                 const ParentTaskExchangePage(
                   initialSegment: 2,
-                  showBackButton: true,
                 ),
           ),
         );

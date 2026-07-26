@@ -18,6 +18,7 @@ import '../../subscriptions/subscription_repository.dart';
 import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
+import '../parent_screen_header.dart';
 import 'document_page.dart';
 import 'parent_account_edit_dialog.dart';
 import 'tech_support_page.dart';
@@ -216,7 +217,9 @@ class _ParentPremiumAnalyticsSectionState
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ParentFamilySettingsPage extends ConsumerStatefulWidget {
-  const ParentFamilySettingsPage({super.key});
+  const ParentFamilySettingsPage({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<ParentFamilySettingsPage> createState() =>
@@ -793,7 +796,7 @@ class _ParentFamilySettingsPageState
                           ),
                           child: ListView(
                             physics: const ClampingScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(0, 31, 0, 40),
+                            padding: const EdgeInsets.fromLTRB(0, 0, 0, 40),
                             children: [
                               Padding(
                                 padding: EdgeInsets.symmetric(
@@ -804,76 +807,34 @@ class _ParentFamilySettingsPageState
                                       CrossAxisAlignment.stretch,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    SizedBox(
-                                      height: 48,
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          SizedBox(
-                                            width: 48,
-                                            child: Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints.tightFor(
-                                                      width: 48,
-                                                      height: 48,
-                                                    ),
-                                                icon: const Icon(
-                                                  Icons.arrow_back,
-                                                  color: Colors.black,
-                                                  size: 24,
-                                                ),
-                                                onPressed: () => Navigator.of(
-                                                  context,
-                                                ).maybePop(),
-                                              ),
+                                    ParentScreenHeader(
+                                      title: 'Настройки',
+                                      onBack: widget.onBack,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        0,
+                                        16,
+                                        0,
+                                        12,
+                                      ),
+                                      trailing: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 48,
+                                              height: 48,
                                             ),
-                                          ),
-                                          const Expanded(
-                                            child: Text(
-                                              'Настройки',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontFamily: 'Nunito',
-                                                fontSize: 32,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.black,
-                                                height: 1.0,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: 48,
-                                            child: Align(
-                                              alignment: Alignment.centerRight,
-                                              child: IconButton(
-                                                padding: EdgeInsets.zero,
-                                                constraints:
-                                                    const BoxConstraints.tightFor(
-                                                      width: 48,
-                                                      height: 48,
-                                                    ),
-                                                icon: const Icon(
-                                                  Icons.logout_outlined,
-                                                  color: Colors.black,
-                                                  size: 24,
-                                                ),
-                                                onPressed: _busy
-                                                    ? null
-                                                    : () => ref
-                                                          .read(
-                                                            authActionsProvider,
-                                                          )
-                                                          .signOut(),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                        icon: const Icon(
+                                          Icons.logout_outlined,
+                                          color: Colors.black,
+                                          size: 24,
+                                        ),
+                                        onPressed: _busy
+                                            ? null
+                                            : () => ref
+                                                  .read(
+                                                    authActionsProvider,
+                                                  )
+                                                  .signOut(),
                                       ),
                                     ),
                                     const SizedBox(height: 20),

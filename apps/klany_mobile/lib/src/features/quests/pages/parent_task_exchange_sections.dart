@@ -50,11 +50,12 @@ class _ParentTaskExchangeReviewListState
         }
         final list = snapshot.data ?? const <ParentReviewItem>[];
         if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
+          return SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.32,
+            child: const Center(
               child: Text(
                 'Нет заявок на проверку',
+                textAlign: TextAlign.center,
                 style: TextStyle(color: kChildInkMuted),
               ),
             ),

@@ -23,12 +23,14 @@ class ParentScreenHeader extends StatelessWidget {
     this.onBack,
     this.trailing,
     this.showBackButton = true,
+    this.padding,
   });
 
   final String title;
   final VoidCallback? onBack;
   final Widget? trailing;
   final bool showBackButton;
+  final EdgeInsetsGeometry? padding;
 
   void _handleBack(BuildContext context) {
     if (onBack != null) {
@@ -41,7 +43,7 @@ class ParentScreenHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: ParentScreenHeaderLayout.padding,
+      padding: padding ?? ParentScreenHeaderLayout.padding,
       child: SizedBox(
         height: ParentScreenHeaderLayout.barHeight,
         child: Row(

@@ -545,17 +545,6 @@ class _EconomyDivider extends StatelessWidget {
   }
 }
 
-class _EconomyTitle extends StatelessWidget {
-  const _EconomyTitle({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: EconomyFigmaLayout.titleStyle);
-  }
-}
-
 class _WalletChip extends StatelessWidget {
   const _WalletChip({
     required this.label,
