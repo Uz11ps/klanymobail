@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../theme/klany_figma_style.dart';
+
 /// Единая шапка родительских экранов: «назад» в фиксированной точке слева, заголовок по центру экрана.
 abstract final class ParentScreenHeaderLayout {
   static const double barHeight = 48;
   static const double backButtonSize = 48;
-  static const double backIconSize = 24;
+  static const double backIconSize = 18;
   static const double sideSlotWidth = 48;
   static const EdgeInsets padding = EdgeInsets.fromLTRB(19, 16, 19, 12);
 
@@ -47,10 +49,24 @@ class ParentScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scale = context.klanyScale;
+    final basePad = padding ?? ParentScreenHeaderLayout.padding;
+    final resolvedPad = basePad is EdgeInsets
+        ? EdgeInsets.fromLTRB(
+            basePad.left * scale,
+            basePad.top * scale,
+            basePad.right * scale,
+            basePad.bottom * scale,
+          )
+        : basePad;
+    final barHeight = context.klanySize(ParentScreenHeaderLayout.barHeight);
+    final backSlot = context.klanySize(ParentScreenHeaderLayout.backButtonSize);
+    final backIcon = context.klanySize(ParentScreenHeaderLayout.backIconSize);
+
     return Padding(
-      padding: padding ?? ParentScreenHeaderLayout.padding,
+      padding: resolvedPad,
       child: SizedBox(
-        height: ParentScreenHeaderLayout.barHeight,
+        height: barHeight,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -60,7 +76,7 @@ class ParentScreenHeader extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: ParentScreenHeaderLayout.titleStyle,
+                style: context.klanyTextStyle(ParentScreenHeaderLayout.titleStyle),
               ),
             ),
             if (showBackButton)
@@ -68,7 +84,7 @@ class ParentScreenHeader extends StatelessWidget {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: ParentScreenHeaderLayout.backButtonSize,
+                width: backSlot,
                 child: GestureDetector(
                   onTap: () => _handleBack(context),
                   behavior: HitTestBehavior.opaque,
@@ -76,8 +92,8 @@ class ParentScreenHeader extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: SvgPicture.asset(
                       'assets/figma/exchange_back_arrow.svg',
-                      width: ParentScreenHeaderLayout.backIconSize,
-                      height: ParentScreenHeaderLayout.backIconSize,
+                      width: backIcon,
+                      height: backIcon,
                     ),
                   ),
                 ),

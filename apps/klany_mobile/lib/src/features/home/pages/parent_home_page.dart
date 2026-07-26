@@ -712,8 +712,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
     final bottomPad = 40 +
         MediaQuery.viewPaddingOf(context).bottom +
         24 +
-        ParentMainBottomBarLayout.pillHeight +
-        16 +
+        ParentMainBottomBarLayout.scaledPillHeight(context) +
+        context.klanySize(16) +
         24;
 
     late final List<Widget> listChildren;

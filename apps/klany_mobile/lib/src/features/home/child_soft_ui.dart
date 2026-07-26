@@ -778,9 +778,9 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!embeddedInPage)
-            const SizedBox(height: kFigmaLandingTitleTopSpacer),
           if (banner != null && banner.isNotEmpty) ...[
+            if (!embeddedInPage)
+              const SizedBox(height: kFigmaLandingTitleTopSpacer),
             Text(
               banner,
               textAlign: TextAlign.center,
@@ -789,24 +789,26 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
             const SizedBox(height: kFigmaLandingHeaderToCarouselGap),
           ],
           SizedBox(
-            height: 48,
+            height: 40,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 48,
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 44,
+                  child: GestureDetector(
+                    onTap: onBack,
+                    behavior: HitTestBehavior.opaque,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: SvgPicture.asset(
+                        'assets/figma/exchange_back_arrow.svg',
+                        width: kFigmaAuthBackIconSize,
+                        height: kFigmaAuthBackIconSize,
+                      ),
                     ),
-                    icon: const Icon(
-                      Icons.arrow_back_rounded,
-                      color: kFigmaAuthTitleBlack,
-                      size: 24,
-                    ),
-                    onPressed: onBack,
                   ),
                 ),
                 Padding(
@@ -829,35 +831,13 @@ class FigmaAuthDoubleDeckHeader extends StatelessWidget {
   }
 }
 
-/// Фон экранов входа/регистрации — как на лендинге Figma (градиент, облака, боке).
+/// Фон auth-экранов — общий фон задаётся в [App] (`kBgCloud` + `cloud_bg.png`).
 class FigmaAuthScreenBackground extends StatelessWidget {
   const FigmaAuthScreenBackground({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFF8FCFF), Color(0xFFEFF6FB), Color(0xFFE6F0F8)],
-        ),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/figma/cloud_bg.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            color: Colors.white.withValues(alpha: 0.55),
-            colorBlendMode: BlendMode.softLight,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          ),
-          const CustomPaint(painter: FigmaBokehPainter()),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 

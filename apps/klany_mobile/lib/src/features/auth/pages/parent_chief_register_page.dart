@@ -298,7 +298,7 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
 
     final topInset = math.max(
       MediaQuery.paddingOf(context).top,
-      kFigmaLandingMinTopInset,
+      kFigmaAuthMinTopInset,
     );
     final bottomInset = math.max(
       MediaQuery.paddingOf(context).bottom,
@@ -306,7 +306,7 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE6F0F8),
+      backgroundColor: Colors.transparent,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

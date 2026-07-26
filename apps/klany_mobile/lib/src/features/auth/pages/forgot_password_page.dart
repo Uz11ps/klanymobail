@@ -78,7 +78,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             padding: EdgeInsets.only(
               top: math.max(
                 MediaQuery.paddingOf(context).top,
-                kFigmaLandingMinTopInset,
+                kFigmaAuthMinTopInset,
               ),
               bottom: math.max(
                 MediaQuery.paddingOf(context).bottom,

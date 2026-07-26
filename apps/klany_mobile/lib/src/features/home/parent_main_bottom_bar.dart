@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../theme/klany_figma_style.dart';
+
 /// Figma [node 1:141](https://www.figma.com/design/YsSajeAgXSHK88ETbeV4N9/Untitled?node-id=1-141).
 enum ParentMainTab { home, exchange, shop, settings }
 
@@ -14,6 +16,9 @@ abstract final class ParentMainBottomBarLayout {
   static const Color activeBlue = Color(0xFF4563B1);
   static const Color borderBlue = Color(0xFF22459E);
   static const Color inactiveGray = Color(0xFFACACAC);
+
+  static double scaledPillHeight(BuildContext context) =>
+      context.klanySize(pillHeight);
 }
 
 class ParentMainBottomBar extends StatelessWidget {
@@ -29,33 +34,37 @@ class ParentMainBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final scale = context.klanyScale;
+    final pillHeight = context.klanySize(ParentMainBottomBarLayout.pillHeight);
+    final pillRadius = context.klanySize(ParentMainBottomBarLayout.pillRadius);
+    final hMargin = context.klanySize(ParentMainBottomBarLayout.horizontalMargin);
+    final bottomPad = context.klanySize(16);
+
     return SizedBox(
-      height: ParentMainBottomBarLayout.pillHeight + 16 + bottomInset,
+      height: pillHeight + bottomPad + bottomInset,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          ParentMainBottomBarLayout.horizontalMargin,
+          hMargin,
           0,
-          ParentMainBottomBarLayout.horizontalMargin,
-          16 + bottomInset,
+          hMargin,
+          bottomPad + bottomInset,
         ),
         child: SizedBox(
           width: double.infinity,
-          height: ParentMainBottomBarLayout.pillHeight,
+          height: pillHeight,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(
-                ParentMainBottomBarLayout.pillRadius,
-              ),
+              borderRadius: BorderRadius.circular(pillRadius),
               border: Border.all(
                 color: ParentMainBottomBarLayout.borderBlue,
-                width: 1.5,
+                width: 1.5 * scale,
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  blurRadius: 16 * scale,
+                  offset: Offset(0, 4 * scale),
                 ),
               ],
             ),
@@ -90,7 +99,7 @@ class ParentMainBottomBar extends StatelessWidget {
                     label: 'Настройки',
                     asset: 'assets/figma/nav_tune.svg',
                     selected: current == ParentMainTab.settings,
-                    iconSize: 26,
+                    iconSize: ParentMainBottomBarLayout.iconSize,
                     onTap: () => onSelected(ParentMainTab.settings),
                   ),
                 ),
@@ -120,6 +129,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final circle = context.klanySize(ParentMainBottomBarLayout.iconCircle);
+    final icon = context.klanySize(iconSize);
+    final labelSize = context.klanySize(ParentMainBottomBarLayout.labelSize);
     final circleColor =
         selected ? ParentMainBottomBarLayout.activeBlue : Colors.white;
     final iconColor =
@@ -135,39 +147,41 @@ class _NavItem extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: ParentMainBottomBarLayout.iconCircle,
-                height: ParentMainBottomBarLayout.iconCircle,
-                decoration: BoxDecoration(
-                  color: circleColor,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: SvgPicture.asset(
-                  asset,
-                  width: iconSize,
-                  height: iconSize,
-                  colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-                ),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: circle,
+              height: circle,
+              decoration: BoxDecoration(
+                color: circleColor,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 4),
-              Text(
+              alignment: Alignment.center,
+              child: SvgPicture.asset(
+                asset,
+                width: icon,
+                height: icon,
+                colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+              ),
+            ),
+            SizedBox(height: context.klanySize(4)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
                 label,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Nunito',
-                  fontSize: ParentMainBottomBarLayout.labelSize,
+                  fontSize: labelSize,
                   fontWeight: labelWeight,
                   color: labelColor,
                   height: 1.0,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }

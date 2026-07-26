@@ -76,10 +76,14 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
               return const Center(child: Text('Семья не найдена'));
             }
             final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-            final mainNavInset = widget.onBack != null
-                ? ParentMainBottomBarLayout.pillHeight + 16
-                : 0.0;
-            final fabBottom = 24 + bottomInset + mainNavInset;
+            final navPillHeight =
+                ParentMainBottomBarLayout.scaledPillHeight(context);
+            final mainNavInset =
+                widget.onBack != null ? navPillHeight + context.klanySize(16) : 0.0;
+            final fabBottom = context.klanySize(24) + bottomInset + mainNavInset;
+            final fabSize = context.klanySize(TaskExchangeFigmaLayout.fabHitSize);
+            final tabGap = context.klanySize(TaskExchangeFigmaLayout.tabGap);
+            final listHMargin = context.klanySize(TaskExchangeFigmaLayout.hMargin);
             return SafeArea(
               bottom: false,
               child: Stack(
@@ -92,7 +96,12 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                           onBack: widget.onBack,
                         ),
                         Padding(
-                          padding: TaskExchangeFigmaLayout.tabsPad,
+                          padding: EdgeInsets.fromLTRB(
+                            listHMargin,
+                            context.klanySize(8),
+                            listHMargin,
+                            context.klanySize(12),
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -102,7 +111,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                                   onTap: () => setState(() => _segment = 0),
                                 ),
                               ),
-                              const SizedBox(width: TaskExchangeFigmaLayout.tabGap),
+                              SizedBox(width: tabGap),
                               Expanded(
                                 child: _ExchangeTab(
                                   label: 'В работе',
@@ -110,7 +119,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                                   onTap: () => setState(() => _segment = 1),
                                 ),
                               ),
-                              const SizedBox(width: TaskExchangeFigmaLayout.tabGap),
+                              SizedBox(width: tabGap),
                               Expanded(
                                 child: _ExchangeTab(
                                   label: 'Проверка',
@@ -127,12 +136,10 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                             child: ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
                               padding: EdgeInsets.fromLTRB(
-                                19,
+                                listHMargin,
                                 0,
-                                19,
-                                fabBottom +
-                                    TaskExchangeFigmaLayout.fabHitSize +
-                                    16,
+                                listHMargin,
+                                fabBottom + fabSize + context.klanySize(16),
                               ),
                               children: [
                                 if (_segment == 0)
@@ -150,7 +157,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                       ],
                     ),
                     Positioned(
-                      right: 11,
+                      right: context.klanySize(11),
                       bottom: fabBottom,
                       child: Material(
                         color: TaskExchangeFigmaLayout.fabFill,
@@ -162,13 +169,13 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                           onTap: _createQuest,
                           customBorder: const CircleBorder(),
                           child: SizedBox(
-                            width: TaskExchangeFigmaLayout.fabHitSize,
-                            height: TaskExchangeFigmaLayout.fabHitSize,
+                            width: fabSize,
+                            height: fabSize,
                             child: Center(
                               child: SvgPicture.asset(
                                 'assets/figma/exchange_fab_plus.svg',
-                                width: 28,
-                                height: 28,
+                                width: context.klanySize(28),
+                                height: context.klanySize(28),
                               ),
                             ),
                           ),
@@ -196,24 +203,34 @@ class _ExchangeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tabHeight = context.klanySize(TaskExchangeFigmaLayout.tabHeight);
+    final tabRadius = context.klanySize(TaskExchangeFigmaLayout.tabRadius);
+    final baseStyle = selected
+        ? TaskExchangeFigmaLayout.tabActiveStyle
+        : TaskExchangeFigmaLayout.tabIdleStyle;
+    final textStyle = context.klanyTextStyle(baseStyle);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: TaskExchangeFigmaLayout.tabHeight,
+        height: tabHeight,
         alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: context.klanySize(4)),
         decoration: BoxDecoration(
           color: selected
               ? TaskExchangeFigmaLayout.tabActiveFill
               : Colors.white,
-          borderRadius:
-              BorderRadius.circular(TaskExchangeFigmaLayout.tabRadius),
+          borderRadius: BorderRadius.circular(tabRadius),
           border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
         ),
-        child: Text(
-          label,
-          style: selected
-              ? TaskExchangeFigmaLayout.tabActiveStyle
-              : TaskExchangeFigmaLayout.tabIdleStyle,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: textStyle,
+          ),
         ),
       ),
     );
@@ -256,7 +273,9 @@ class _ExchangeNewQuestList extends ConsumerWidget {
                   coins: q.rewardAmount,
                   trailing: Text(
                     _formatCreated(q.createdAt),
-                    style: TaskExchangeFigmaLayout.metaStyle,
+                    style: context.klanyTextStyle(
+                      TaskExchangeFigmaLayout.metaStyle,
+                    ),
                   ),
                 ),
               ),
@@ -304,7 +323,9 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
                   assigneeLabel: q.childIds.isEmpty ? 'Биржа' : 'Исполнитель',
                   trailing: Text(
                     _formatDeadline(q.timeLimitMinutes),
-                    style: TaskExchangeFigmaLayout.deadlineStyle,
+                    style: context.klanyTextStyle(
+                      TaskExchangeFigmaLayout.deadlineStyle,
+                    ),
                   ),
                   coinsStyle: TaskExchangeFigmaLayout.cardCoinsBoldStyle,
                 ),
@@ -329,7 +350,10 @@ class _ExchangeEmptyState extends StatelessWidget {
         child: Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: kChildInkMuted, fontSize: 16),
+          style: TextStyle(
+            color: kChildInkMuted,
+            fontSize: context.klanySize(16),
+          ),
         ),
       ),
     );
@@ -355,17 +379,22 @@ class _ExchangeQuestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardRadius = context.klanySize(TaskExchangeFigmaLayout.cardRadius);
+    final padH = context.klanySize(16);
+    final padTop = context.klanySize(16);
+    final padBottom = context.klanySize(14);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: EdgeInsets.fromLTRB(padH, padTop, padH, padBottom),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(TaskExchangeFigmaLayout.cardRadius),
+        borderRadius: BorderRadius.circular(cardRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: context.klanySize(12),
+            offset: Offset(0, context.klanySize(4)),
           ),
         ],
       ),
@@ -376,33 +405,45 @@ class _ExchangeQuestCard extends StatelessWidget {
             Column(
               children: [
                 Container(
-                  width: 43,
-                  height: 43,
+                  width: context.klanySize(43),
+                  height: context.klanySize(43),
                   decoration: const BoxDecoration(
                     color: Color(0xFFD9D9D9),
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: context.klanySize(4)),
                 Text(
                   assigneeLabel,
-                  style: const TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                  style: context.klanyTextStyle(
+                    const TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: context.klanySize(12)),
           ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TaskExchangeFigmaLayout.cardTitleStyle),
-                const SizedBox(height: 8),
-                Text('$coins монет', style: coinsStyle),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.klanyTextStyle(
+                    TaskExchangeFigmaLayout.cardTitleStyle,
+                  ),
+                ),
+                SizedBox(height: context.klanySize(8)),
+                Text(
+                  '$coins монет',
+                  style: context.klanyTextStyle(coinsStyle),
+                ),
               ],
             ),
           ),

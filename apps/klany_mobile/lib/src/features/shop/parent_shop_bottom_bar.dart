@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../theme/klany_figma_style.dart';
+
 /// Figma [node 1:904](https://www.figma.com/design/YsSajeAgXSHK88ETbeV4N9/Untitled?node-id=1-904).
 enum ParentShopTab { catalog, addProduct, purchaseRequests, economy }
 
@@ -14,7 +16,10 @@ abstract final class ParentShopBottomBarLayout {
   static const double idleCircle = 52;
   static const double iconSize = 26;
   static const double labelSize = 14;
-  static const double horizontalMargin = 16;
+  static const double horizontalMargin = 3;
+
+  static double scaledPillHeight(BuildContext context) =>
+      context.klanySize(pillHeight);
 }
 
 class ParentShopBottomBar extends StatelessWidget {
@@ -44,33 +49,37 @@ class ParentShopBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final scale = context.klanyScale;
+    final pillHeight = context.klanySize(ParentShopBottomBarLayout.pillHeight);
+    final pillRadius = context.klanySize(ParentShopBottomBarLayout.pillRadius);
+    final hMargin = context.klanySize(ParentShopBottomBarLayout.horizontalMargin);
+    final bottomPad = context.klanySize(16);
+
     return SizedBox(
-      height: ParentShopBottomBarLayout.pillHeight + 16 + bottomInset,
+      height: pillHeight + bottomPad + bottomInset,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          ParentShopBottomBarLayout.horizontalMargin,
+          hMargin,
           0,
-          ParentShopBottomBarLayout.horizontalMargin,
-          16 + bottomInset,
+          hMargin,
+          bottomPad + bottomInset,
         ),
         child: SizedBox(
           width: double.infinity,
-          height: ParentShopBottomBarLayout.pillHeight,
+          height: pillHeight,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(
-                ParentShopBottomBarLayout.pillRadius,
-              ),
+              borderRadius: BorderRadius.circular(pillRadius),
               border: Border.all(
                 color: ParentShopBottomBarLayout.borderBlue,
-                width: 1.5,
+                width: 1.5 * scale,
               ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  blurRadius: 16 * scale,
+                  offset: Offset(0, 4 * scale),
                 ),
               ],
             ),
@@ -132,9 +141,12 @@ class _ShopNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final circle = selected
+    final circleBase = selected
         ? ParentShopBottomBarLayout.activeCircle
         : ParentShopBottomBarLayout.idleCircle;
+    final circle = context.klanySize(circleBase);
+    final icon = context.klanySize(ParentShopBottomBarLayout.iconSize);
+    final labelSize = context.klanySize(ParentShopBottomBarLayout.labelSize);
     final circleColor =
         selected ? ParentShopBottomBarLayout.activeBlue : Colors.transparent;
     final iconColor =
@@ -164,8 +176,8 @@ class _ShopNavItem extends StatelessWidget {
                         BoxShadow(
                           color: ParentShopBottomBarLayout.activeBlue
                               .withValues(alpha: 0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                          blurRadius: context.klanySize(12),
+                          offset: Offset(0, context.klanySize(4)),
                         ),
                       ]
                     : null,
@@ -173,23 +185,25 @@ class _ShopNavItem extends StatelessWidget {
               alignment: Alignment.center,
               child: SvgPicture.asset(
                 asset,
-                width: ParentShopBottomBarLayout.iconSize,
-                height: ParentShopBottomBarLayout.iconSize,
+                width: icon,
+                height: icon,
                 colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: ParentShopBottomBarLayout.labelSize,
-                fontWeight: labelWeight,
-                color: labelColor,
-                height: 1.0,
+            SizedBox(height: context.klanySize(4)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: labelSize,
+                  fontWeight: labelWeight,
+                  color: labelColor,
+                  height: 1.0,
+                ),
               ),
             ),
           ],

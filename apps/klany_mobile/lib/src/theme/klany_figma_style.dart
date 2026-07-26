@@ -21,6 +21,9 @@ const double kFigmaLandingContentPaddingH = 12;
 /// Минимум отступа сверху как на лендинге 0-602 (в т.ч. web, где safe = 0).
 const double kFigmaLandingMinTopInset = 36;
 
+/// Верхний inset на экранах входа/регистрации (без «воздуха» лендинга).
+const double kFigmaAuthMinTopInset = 8;
+
 /// Минимум отступа снизу как на лендинге.
 const double kFigmaLandingMinBottomInset = 44;
 
@@ -96,7 +99,7 @@ const double kFigmaLandingCtaHeight = 72;
 /// Единый текст мятных / градиентных primary «таблеток» и тематических зелёных CTA.
 const TextStyle kFigmaLandingCtaTextStyle = TextStyle(
   fontFamily: 'Nunito',
-  fontSize: 16,
+  fontSize: 19,
   fontWeight: FontWeight.w700,
   color: Color(0xFF000000),
   height: 1.0,
@@ -186,10 +189,12 @@ const TextStyle kFigmaAuthLandingTitleStyle = TextStyle(
 /// Основной цвет текста в полях (как [kChildInk], без импорта home-слоя).
 const Color kFigmaAuthBodyInk = Color(0xFF1E2D52);
 
+const double kFigmaAuthBackIconSize = 18;
+
 /// Заголовок экрана («Регистрация») — не w900, плотный заголовок как в Figma.
 const TextStyle kFigmaAuthScreenTitleStyle = TextStyle(
   fontFamily: 'Nunito',
-  fontSize: 18,
+  fontSize: 26,
   fontWeight: FontWeight.w800,
   color: kFigmaAuthTitleBlack,
   height: 1.2,
@@ -211,7 +216,7 @@ const double kFigmaAuthFlowBannerToNavGap = 16;
 /// Подпись к полю (Email, …).
 const TextStyle kFigmaAuthFieldLabelStyle = TextStyle(
   fontFamily: 'Nunito',
-  fontSize: 16,
+  fontSize: 20,
   fontWeight: FontWeight.w800,
   color: kFigmaAuthTitleBlack,
   height: 1.25,
@@ -220,7 +225,7 @@ const TextStyle kFigmaAuthFieldLabelStyle = TextStyle(
 /// Текст в инпуте.
 const TextStyle kFigmaAuthInputTextStyle = TextStyle(
   fontFamily: 'Nunito',
-  fontSize: 15,
+  fontSize: 18,
   fontWeight: FontWeight.w600,
   color: kFigmaAuthBodyInk,
 );
@@ -275,4 +280,39 @@ double klanyResponsiveContentWidth(double screenWidth) {
       : _kKlanyResponsiveOuterGutterWide;
   final usable = math.max(0.0, screenWidth - gutter * 2);
   return math.min(usable, kKlanyResponsiveContentMaxWidth);
+}
+
+// ─── Масштаб UI от ширины экрана (390 = базовый Figma-фрейм) ───────────────
+
+/// Базовая ширина макета Figma (iPhone 14).
+const double kKlanyResponsiveDesignWidth = 390;
+
+const double _kKlanyResponsiveScaleMin = 0.78;
+const double _kKlanyResponsiveScaleMax = 1.14;
+
+/// Меньше 1 на узких экранах, больше 1 на широких; с clamp, чтобы не ломать вёрстку.
+double klanyResponsiveScale(double screenWidth) {
+  if (!screenWidth.isFinite || screenWidth <= 0) return 1;
+  return (screenWidth / kKlanyResponsiveDesignWidth)
+      .clamp(_kKlanyResponsiveScaleMin, _kKlanyResponsiveScaleMax);
+}
+
+double klanyResponsiveSize(double base, double screenWidth) =>
+    base * klanyResponsiveScale(screenWidth);
+
+TextStyle klanyResponsiveTextStyle(TextStyle style, double screenWidth) {
+  final fontSize = style.fontSize;
+  if (fontSize == null) return style;
+  return style.copyWith(fontSize: fontSize * klanyResponsiveScale(screenWidth));
+}
+
+extension KlanyResponsiveContext on BuildContext {
+  double get klanyScreenWidth => MediaQuery.sizeOf(this).width;
+
+  double get klanyScale => klanyResponsiveScale(klanyScreenWidth);
+
+  double klanySize(double base) => klanyResponsiveSize(base, klanyScreenWidth);
+
+  TextStyle klanyTextStyle(TextStyle base) =>
+      klanyResponsiveTextStyle(base, klanyScreenWidth);
 }

@@ -156,7 +156,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
             padding: EdgeInsets.only(
               top: math.max(
                 MediaQuery.paddingOf(context).top,
-                kFigmaLandingMinTopInset,
+                kFigmaAuthMinTopInset,
               ),
               bottom: math.max(
                 MediaQuery.paddingOf(context).bottom,

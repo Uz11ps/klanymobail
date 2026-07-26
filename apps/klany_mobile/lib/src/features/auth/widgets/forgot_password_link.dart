@@ -45,7 +45,7 @@ class ForgotPasswordLink extends StatelessWidget {
             'Забыли пароль?',
             style: TextStyle(
               fontFamily: 'Nunito',
-              fontSize: 15,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),
