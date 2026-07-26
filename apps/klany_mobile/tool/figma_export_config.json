@@ -28,6 +28,14 @@
     { "comment": "В файле kwVu на макете выбран «Дом» — отдельной outline-ноды нет в фрейме; outline из legacy z72 или найти: dart run … suggest 118:1305 --file=kwVuEbSWPdrTEFsrIvZVB3" },
     { "nodeId": "0:134", "path": "assets/figma/nav_home_outline.svg" },
 
+    { "comment": "Parent main nav + биржа (YsSajeAgXSHK88ETbeV4N9)" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:144;405:619", "path": "assets/figma/parent_nav_home.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:148;405:252", "path": "assets/figma/parent_nav_exchange.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:152;405:1026", "path": "assets/figma/parent_nav_shop.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1434;405:96", "path": "assets/figma/exchange_back_arrow.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1494;405:891", "path": "assets/figma/exchange_fab_plus.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1618;403:56", "path": "assets/figma/exchange_chevron_right.svg" },
+
     { "comment": "Файл z72tmzXGfrKzFPQMqrL1ZB (родитель / прочее)" },
     { "nodeId": "0:136", "path": "assets/figma/nav_tune.svg" },
     { "nodeId": "0:852", "path": "assets/figma/shop_nav_list.svg" },

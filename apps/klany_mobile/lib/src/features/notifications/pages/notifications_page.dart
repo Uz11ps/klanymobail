@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/pages/parent_access_requests_page.dart';
-import '../../quests/pages/parent_quests_page.dart';
+import '../../quests/pages/parent_task_exchange_page.dart';
 import '../../quests/quests_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
@@ -250,7 +250,10 @@ class _NotificationsInteractiveContentState
         Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
             builder: (_) =>
-                const ParentQuestsPage(initialEconomySegment: 2),
+                const ParentTaskExchangePage(
+                  initialSegment: 2,
+                  showBackButton: true,
+                ),
           ),
         );
         return;
