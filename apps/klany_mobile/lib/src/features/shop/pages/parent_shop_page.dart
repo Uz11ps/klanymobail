@@ -937,47 +937,16 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
               ),
               padding: EdgeInsets.fromLTRB(
                 19,
-                34,
+                0,
                 19,
                 _shopBodyBottomPadding(context),
               ),
               children: [
-                SizedBox(
-                  height: 48,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 24,
-                            height: 48,
-                          ),
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.black,
-                            size: 30,
-                          ),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                      ),
-                      const Text(
-                        'Запросы',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black,
-                          height: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
+                ParentScreenHeader(
+                  title: 'Запросы',
+                  onBack: widget.onBack,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(
                     child: Padding(
