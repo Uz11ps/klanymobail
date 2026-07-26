@@ -16,10 +16,18 @@ import '../../home/parent_screen_header.dart';
 import 'economy_figma_layout.dart';
 
 const Color _kEconomyTitleBlue = EconomyFigmaLayout.titleBlue;
-const Color _kEconomyBg = EconomyFigmaLayout.bg;
 
 class ParentQuestsPage extends ConsumerStatefulWidget {
-  const ParentQuestsPage({super.key});
+  const ParentQuestsPage({
+    super.key,
+    this.onBack,
+    this.showShopShortcut = true,
+    this.extraBottomPadding = 0,
+  });
+
+  final VoidCallback? onBack;
+  final bool showShopShortcut;
+  final double extraBottomPadding;
 
   @override
   ConsumerState<ParentQuestsPage> createState() => _ParentQuestsPageState();
@@ -259,12 +267,9 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: CloudBackground(
-        opacity: 0.04,
-        backgroundColor: _kEconomyBg,
-        child: SafeArea(
-          bottom: false,
-          child: Column(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
             children: [
               Expanded(
                 child: ListView(
@@ -272,47 +277,51 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                   children: [
                     ParentScreenHeader(
                       title: 'Экономика',
-                      trailing: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(41),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 2,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(41),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(41),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const ParentShopPage(),
+                      onBack: widget.onBack,
+                      trailing: widget.showShopShortcut
+                          ? DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(41),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 2,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                            ),
-                            child: SizedBox(
-                              width: EconomyFigmaLayout.shopBtnSize,
-                              height: EconomyFigmaLayout.shopBtnSize,
-                              child: Center(
-                                child: SvgPicture.asset(
-                                  'assets/figma/nav_shop.svg',
-                                  width: 24,
-                                  height: 24,
-                                  colorFilter: const ColorFilter.mode(
-                                    kChildInk,
-                                    BlendMode.srcIn,
+                              child: Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(41),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(41),
+                                  onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => const ParentShopPage(),
+                                    ),
+                                  ),
+                                  child: SizedBox(
+                                    width: EconomyFigmaLayout.shopBtnSize,
+                                    height: EconomyFigmaLayout.shopBtnSize,
+                                    child: Center(
+                                      child: SvgPicture.asset(
+                                        'assets/figma/nav_shop.svg',
+                                        width: 24,
+                                        height: 24,
+                                        colorFilter: const ColorFilter.mode(
+                                          kChildInk,
+                                          BlendMode.srcIn,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ),
-                      ),
+                            )
+                          : null,
                     ),
 
                     SizedBox(
@@ -504,14 +513,13 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 88),
+                    SizedBox(height: 88 + widget.extraBottomPadding),
                   ],
                 ),
               ),
             ],
           ),
         ),
-      ),
     );
   }
 }

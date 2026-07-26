@@ -8,7 +8,9 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/parent_screen_header.dart';
+import '../../quests/pages/parent_quests_page.dart';
 import '../../wallet/family_economy.dart';
+import '../parent_shop_bottom_bar.dart';
 import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
@@ -16,10 +18,9 @@ import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 import '../../../core/value_bump.dart';
 
-/// Снизу под плавающий `_ShopBottomBar` при `extendBody: true`: капсула 76 + поле 16 +
-/// системный вырез + небольшой зазор до контента.
+/// Снизу под плавающий `ParentShopBottomBar` при `extendBody: true`.
 double _shopBodyBottomPadding(BuildContext context) {
-  const pillH = 76.0;
+  const pillH = ParentShopBottomBarLayout.pillHeight;
   const barBottomPad = 16.0;
   const gapAboveBar = 20.0;
   return pillH +
@@ -31,7 +32,7 @@ double _shopBodyBottomPadding(BuildContext context) {
 class ParentShopPage extends ConsumerStatefulWidget {
   const ParentShopPage({super.key, this.initialTab = 0, this.onBack});
 
-  /// 0 каталог, 1 создание, 2 очередь заявок.
+  /// 0 каталог, 1 добавить товар, 2 запросы, 3 экономика.
   final int initialTab;
   final VoidCallback? onBack;
 
@@ -46,7 +47,7 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
   @override
   void initState() {
     super.initState();
-    _tab = widget.initialTab.clamp(0, 2);
+    _tab = widget.initialTab.clamp(0, 3);
     _coinRatePoll = Timer.periodic(kParentLivePollInterval, (_) {
       ref.invalidate(parentFamilyContextProvider);
     });
@@ -62,7 +63,7 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
   void didUpdateWidget(ParentShopPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
-      _tab = widget.initialTab.clamp(0, 2);
+      _tab = widget.initialTab.clamp(0, 3);
     }
   }
 
@@ -78,16 +79,28 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
         }
         final pages = <Widget>[
           _ParentProductsList(familyId: family.familyId, onBack: widget.onBack),
-          _ParentCreateProductForm(familyId: family.familyId, onBack: widget.onBack),
-          _ParentPurchasesQueue(familyId: family.familyId, onBack: widget.onBack),
+          _ParentCreateProductForm(
+            familyId: family.familyId,
+            onBack: widget.onBack,
+          ),
+          _ParentPurchasesQueue(
+            familyId: family.familyId,
+            onBack: widget.onBack,
+          ),
+          ParentQuestsPage(
+            onBack: () => setState(() => _tab = 0),
+            showShopShortcut: false,
+            extraBottomPadding: _shopBodyBottomPadding(context),
+          ),
         ];
         return Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
           body: pages[_tab],
-          bottomNavigationBar: _ShopBottomBar(
-            currentIndex: _tab,
-            onSelected: (i) => setState(() => _tab = i),
+          bottomNavigationBar: ParentShopBottomBar(
+            current: ParentShopBottomBar.tabFromIndex(_tab),
+            onSelected: (tab) =>
+                setState(() => _tab = ParentShopBottomBar.indexFromTab(tab)),
           ),
         );
       },
@@ -320,6 +333,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
                 ParentScreenHeader(
                   title: 'Магазин товаров',
                   onBack: widget.onBack,
+                  padding: ParentScreenHeaderLayout.paddingInInset,
                 ),
                 const SizedBox(height: 17),
                 if (snapshot.connectionState == ConnectionState.waiting)
@@ -634,6 +648,7 @@ class _ParentCreateProductFormState
           ParentScreenHeader(
             title: 'Добавить товар',
             onBack: widget.onBack,
+            padding: ParentScreenHeaderLayout.paddingInInset,
           ),
           const SizedBox(height: 17),
           Container(
@@ -945,6 +960,7 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
                 ParentScreenHeader(
                   title: 'Запросы',
                   onBack: widget.onBack,
+                  padding: ParentScreenHeaderLayout.paddingInInset,
                 ),
                 const SizedBox(height: 6),
                 if (snapshot.connectionState == ConnectionState.waiting)
@@ -1218,147 +1234,6 @@ class _PurchaseDecisionButton extends StatelessWidget {
                 height: 1.0,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShopBottomBar extends StatelessWidget {
-  const _ShopBottomBar({required this.currentIndex, required this.onSelected});
-  final int currentIndex;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    return SizedBox(
-      height: 76 + 16 + bottomInset,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: 278,
-            height: 76,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(45),
-                      border: Border.all(color: const Color(0xFF22459E)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    SizedBox(
-                      width: 76,
-                      height: 76,
-                      child: Center(
-                        child: _ShopNavBtn(
-                          icon: Icons.format_list_bulleted,
-                          selected: currentIndex == 0,
-                          big: currentIndex == 0,
-                          onTap: () => onSelected(0),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 76,
-                      height: 76,
-                      child: Center(
-                        child: _ShopNavBtn(
-                          icon: Icons.add,
-                          selected: currentIndex == 1,
-                          big: currentIndex == 1,
-                          onTap: () => onSelected(1),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 76,
-                      height: 76,
-                      child: Center(
-                        child: _ShopNavBtn(
-                          icon: Icons.shopping_bag_outlined,
-                          selected: currentIndex == 2,
-                          big: currentIndex == 2,
-                          onTap: () => onSelected(2),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShopNavBtn extends StatelessWidget {
-  const _ShopNavBtn({
-    required this.icon,
-    required this.selected,
-    required this.big,
-    required this.onTap,
-  });
-  final IconData icon;
-  final bool selected;
-  final bool big;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (big) {
-      return Material(
-        color: kChildBrandBlue,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        elevation: 6,
-        shadowColor: kChildBrandBlue.withValues(alpha: 0.4),
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: SizedBox(
-            width: 64,
-            height: 64,
-            child: Icon(icon, size: 30, color: Colors.white),
-          ),
-        ),
-      );
-    }
-    return Material(
-      color: selected
-          ? kChildBrandBlue.withValues(alpha: 0.12)
-          : Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 52,
-          height: 52,
-          child: Icon(
-            icon,
-            size: 24,
-            color: selected ? kChildBrandBlue : kChildInkMuted,
           ),
         ),
       ),

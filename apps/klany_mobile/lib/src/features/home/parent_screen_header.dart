@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// Единая шапка родительских экранов: отступ сверху, «назад» слева, заголовок по центру.
+/// Единая шапка родительских экранов: «назад» в фиксированной точке слева, заголовок по центру экрана.
 abstract final class ParentScreenHeaderLayout {
   static const double barHeight = 48;
+  static const double backButtonSize = 48;
+  static const double backIconSize = 24;
   static const double sideSlotWidth = 48;
   static const EdgeInsets padding = EdgeInsets.fromLTRB(19, 16, 19, 12);
+
+  /// Когда родительский [ListView] уже задаёт горизонтальный inset ([hMargin]).
+  static const EdgeInsets paddingInInset = EdgeInsets.fromLTRB(0, 16, 0, 12);
 
   static const TextStyle titleStyle = TextStyle(
     fontFamily: 'Nunito',
@@ -46,33 +51,10 @@ class ParentScreenHeader extends StatelessWidget {
       padding: padding ?? ParentScreenHeaderLayout.padding,
       child: SizedBox(
         height: ParentScreenHeaderLayout.barHeight,
-        child: Row(
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            SizedBox(
-              width: ParentScreenHeaderLayout.sideSlotWidth,
-              height: ParentScreenHeaderLayout.barHeight,
-              child: showBackButton
-                  ? Align(
-                      alignment: Alignment.centerLeft,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _handleBack(context),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: SvgPicture.asset(
-                              'assets/figma/exchange_back_arrow.svg',
-                              width: 24,
-                              height: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
-            Expanded(
+            Center(
               child: Text(
                 title,
                 textAlign: TextAlign.center,
@@ -81,16 +63,35 @@ class ParentScreenHeader extends StatelessWidget {
                 style: ParentScreenHeaderLayout.titleStyle,
               ),
             ),
-            SizedBox(
-              width: ParentScreenHeaderLayout.sideSlotWidth,
-              height: ParentScreenHeaderLayout.barHeight,
-              child: trailing != null
-                  ? Align(
-                      alignment: Alignment.centerRight,
-                      child: trailing,
-                    )
-                  : null,
-            ),
+            if (showBackButton)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: ParentScreenHeaderLayout.backButtonSize,
+                child: GestureDetector(
+                  onTap: () => _handleBack(context),
+                  behavior: HitTestBehavior.opaque,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SvgPicture.asset(
+                      'assets/figma/exchange_back_arrow.svg',
+                      width: ParentScreenHeaderLayout.backIconSize,
+                      height: ParentScreenHeaderLayout.backIconSize,
+                    ),
+                  ),
+                ),
+              ),
+            if (trailing != null)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: trailing,
+                ),
+              ),
           ],
         ),
       ),

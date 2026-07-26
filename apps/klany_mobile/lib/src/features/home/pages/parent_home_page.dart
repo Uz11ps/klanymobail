@@ -225,10 +225,12 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
               },
             ),
           ),
-          bottomNavigationBar: ParentMainBottomBar(
-            current: _mainTab,
-            onSelected: _onMainTab,
-          ),
+          bottomNavigationBar: _index == 2
+              ? null
+              : ParentMainBottomBar(
+                  current: _mainTab,
+                  onSelected: _onMainTab,
+                ),
         ),
       ),
     );

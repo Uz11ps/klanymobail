@@ -770,13 +770,9 @@ class _ParentFamilySettingsPageState
 
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              const FigmaAuthScreenBackground(),
-              SafeArea(
-                bottom: false,
-                child: LayoutBuilder(
+          body: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
                   builder: (context, constraints) {
                     final maxW = constraints.maxWidth;
                     final pageWidth = klanyResponsiveContentWidth(maxW);
@@ -798,6 +794,29 @@ class _ParentFamilySettingsPageState
                             physics: const ClampingScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(0, 0, 0, 40),
                             children: [
+                              ParentScreenHeader(
+                                title: 'Настройки',
+                                onBack: widget.onBack,
+                                trailing: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 48,
+                                    height: 48,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.logout_outlined,
+                                    color: Colors.black,
+                                    size: 24,
+                                  ),
+                                  onPressed: _busy
+                                      ? null
+                                      : () => ref
+                                            .read(
+                                              authActionsProvider,
+                                            )
+                                            .signOut(),
+                                ),
+                              ),
                               Padding(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: clanHorizontal,
@@ -807,36 +826,6 @@ class _ParentFamilySettingsPageState
                                       CrossAxisAlignment.stretch,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    ParentScreenHeader(
-                                      title: 'Настройки',
-                                      onBack: widget.onBack,
-                                      padding: const EdgeInsets.fromLTRB(
-                                        0,
-                                        16,
-                                        0,
-                                        12,
-                                      ),
-                                      trailing: IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 48,
-                                              height: 48,
-                                            ),
-                                        icon: const Icon(
-                                          Icons.logout_outlined,
-                                          color: Colors.black,
-                                          size: 24,
-                                        ),
-                                        onPressed: _busy
-                                            ? null
-                                            : () => ref
-                                                  .read(
-                                                    authActionsProvider,
-                                                  )
-                                                  .signOut(),
-                                      ),
-                                    ),
                                     const SizedBox(height: 20),
 
                                     // ── Clan card (3 rows in one card) ───────────────────────────
@@ -2063,8 +2052,6 @@ class _ParentFamilySettingsPageState
                   },
                 ),
               ),
-            ],
-          ),
         );
       },
     );

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_main_bottom_bar.dart';
 import '../../home/parent_screen_header.dart';
 import '../../../core/value_bump.dart';
 import '../quests_repository.dart';
@@ -74,12 +75,14 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
             if (family == null) {
               return const Center(child: Text('Семья не найдена'));
             }
-            return CloudBackground(
-              opacity: 0.04,
-              backgroundColor: const Color(0xFFFDFEFE),
-              child: SafeArea(
-                bottom: false,
-                child: Stack(
+            final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+            final mainNavInset = widget.onBack != null
+                ? ParentMainBottomBarLayout.pillHeight + 16
+                : 0.0;
+            final fabBottom = 24 + bottomInset + mainNavInset;
+            return SafeArea(
+              bottom: false,
+              child: Stack(
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,7 +126,14 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                             onRefresh: () async => setState(() {}),
                             child: ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
-                              padding: TaskExchangeFigmaLayout.listPad,
+                              padding: EdgeInsets.fromLTRB(
+                                19,
+                                0,
+                                19,
+                                fabBottom +
+                                    TaskExchangeFigmaLayout.fabHitSize +
+                                    16,
+                              ),
                               children: [
                                 if (_segment == 0)
                                   _ExchangeNewQuestList(familyId: family.familyId)
@@ -140,28 +150,25 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                       ],
                     ),
                     Positioned(
-                      right: 19,
-                      bottom: 24 + MediaQuery.viewPaddingOf(context).bottom,
+                      right: 11,
+                      bottom: fabBottom,
                       child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
+                        color: TaskExchangeFigmaLayout.fabFill,
                         elevation: 8,
-                        shadowColor: Colors.black.withValues(alpha: 0.15),
+                        shadowColor: Colors.black.withValues(alpha: 0.2),
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
                         child: InkWell(
                           onTap: _createQuest,
                           customBorder: const CircleBorder(),
                           child: SizedBox(
-                            width: TaskExchangeFigmaLayout.fabSize,
-                            height: TaskExchangeFigmaLayout.fabSize,
+                            width: TaskExchangeFigmaLayout.fabHitSize,
+                            height: TaskExchangeFigmaLayout.fabHitSize,
                             child: Center(
                               child: SvgPicture.asset(
                                 'assets/figma/exchange_fab_plus.svg',
-                                width: 24,
-                                height: 24,
-                                colorFilter: const ColorFilter.mode(
-                                  kChildInk,
-                                  BlendMode.srcIn,
-                                ),
+                                width: 28,
+                                height: 28,
                               ),
                             ),
                           ),
@@ -170,8 +177,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                     ),
                   ],
                 ),
-              ),
-            );
+              );
           },
         );
   }

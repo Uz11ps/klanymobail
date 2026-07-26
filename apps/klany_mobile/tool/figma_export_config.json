@@ -36,6 +36,12 @@
     { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1494;405:891", "path": "assets/figma/exchange_fab_plus.svg" },
     { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1618;403:56", "path": "assets/figma/exchange_chevron_right.svg" },
 
+    { "comment": "Parent shop nav (YsSaje node 1:904)" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:906", "path": "assets/figma/parent_shop_nav_catalog.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:908", "path": "assets/figma/parent_shop_nav_add.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:910", "path": "assets/figma/parent_shop_nav_requests.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:912", "path": "assets/figma/parent_shop_nav_economy.svg" },
+
     { "comment": "Файл z72tmzXGfrKzFPQMqrL1ZB (родитель / прочее)" },
     { "nodeId": "0:136", "path": "assets/figma/nav_tune.svg" },
     { "nodeId": "0:852", "path": "assets/figma/shop_nav_list.svg" },

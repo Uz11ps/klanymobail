@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_screen_header.dart';
 import '../../home/pages/parent_access_requests_page.dart';
 import '../../quests/pages/parent_task_exchange_page.dart';
 import '../../quests/quests_repository.dart';
@@ -70,15 +71,7 @@ class _NotificationsHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const Positioned.fill(child: FigmaAuthScreenBackground()),
-          Positioned.fill(
-            child: _NotificationsInteractiveContent(familyId: familyId),
-          ),
-        ],
-      ),
+      body: _NotificationsInteractiveContent(familyId: familyId),
     );
   }
 }
@@ -348,17 +341,36 @@ class _NotificationsInteractiveContentState
               child: RepaintBoundary(
                 child: ListView(
                   physics: const ClampingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    sidePadding,
-                    31,
-                    sidePadding,
-                    32,
-                  ),
+                  padding: const EdgeInsets.only(bottom: 32),
                   children: [
-                    _NotificationsHeader(
-                      onBack: () => Navigator.of(context).maybePop(),
-                      onRefresh: _reload,
+                    ParentScreenHeader(
+                      title: 'Уведомления',
+                      trailing: Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        elevation: 3,
+                        shadowColor: Colors.black.withValues(alpha: 0.18),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: _reload,
+                          customBorder: const CircleBorder(),
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Icon(
+                              Icons.refresh,
+                              color: Colors.black,
+                              size: 30,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: sidePadding),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                     if (_refreshInProgress) ...[
                       const SizedBox(height: 6),
                       const LinearProgressIndicator(
@@ -623,6 +635,9 @@ class _NotificationsInteractiveContentState
                         ),
                       ),
                     ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -673,58 +688,6 @@ class _NotificationsInteractiveContentState
       default:
         return 'В семье добавлена новая задача или покупка.';
     }
-  }
-}
-
-class _NotificationsHeader extends StatelessWidget {
-  const _NotificationsHeader({required this.onBack, required this.onRefresh});
-
-  final VoidCallback onBack;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
-          onPressed: onBack,
-        ),
-        const SizedBox(width: 6),
-        const Expanded(
-          child: Text(
-            'Уведомления',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-              height: 1.0,
-            ),
-          ),
-        ),
-        Material(
-          color: Colors.white,
-          shape: const CircleBorder(),
-          elevation: 3,
-          shadowColor: Colors.black.withValues(alpha: 0.18),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onRefresh,
-            customBorder: const CircleBorder(),
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.refresh, color: Colors.black, size: 30),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 
 import '../../../core/app_snackbar.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_screen_header.dart';
 import '../subscription_repository.dart';
 
 class SubscriptionPlansPage extends ConsumerStatefulWidget {
@@ -90,13 +91,9 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
 
         return Scaffold(
           backgroundColor: Colors.transparent,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              const FigmaAuthScreenBackground(),
-              SafeArea(
-                bottom: false,
-                child: LayoutBuilder(
+          body: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
                   builder: (context, constraints) {
                     final pageWidth =
                         klanyResponsiveContentWidth(constraints.maxWidth);
@@ -107,85 +104,55 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
                         width: pageWidth,
                         child: ListView(
                           physics: const ClampingScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(
-                            sidePadding,
-                            31,
-                            sidePadding,
-                            34,
-                          ),
+                          padding: const EdgeInsets.only(bottom: 34),
                           children: [
-                        _PlansHeader(
-                          onBack: () => Navigator.of(context).maybePop(),
+                            const ParentScreenHeader(
+                              title: 'Тарифные планы',
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: sidePadding,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const SizedBox(height: 20),
+                                  const _StartPlanCard(),
+                                  const SizedBox(height: 20),
+                                  _PremiumPlanCard(
+                                    periods: _periods,
+                                    selectedIndex: _selectedPeriod,
+                                    isPremium: isPremium,
+                                    busy: _busy,
+                                    onSelect: (i) =>
+                                        setState(() => _selectedPeriod = i),
+                                    onBuy: _buyPremium,
+                                  ),
+                                  const SizedBox(height: 30),
+                                  Text(
+                                    'На тарифе СТАРТ “Биржа задач” и “Витрина товаров” заблокированы.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          Colors.black.withValues(alpha: 0.50),
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        const _StartPlanCard(),
-                        const SizedBox(height: 20),
-                        _PremiumPlanCard(
-                          periods: _periods,
-                          selectedIndex: _selectedPeriod,
-                          isPremium: isPremium,
-                          busy: _busy,
-                          onSelect: (i) => setState(() => _selectedPeriod = i),
-                          onBuy: _buyPremium,
-                        ),
-                        const SizedBox(height: 30),
-                        Text(
-                          'На тарифе СТАРТ “Биржа задач” и “Витрина товаров” заблокированы.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Nunito',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black.withValues(alpha: 0.50),
-                            height: 1.25,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-                  },
-                ),
-              ),
-            ],
+                      ),
+                    );
+              },
+            ),
           ),
         );
       },
-    );
-  }
-}
-
-class _PlansHeader extends StatelessWidget {
-  const _PlansHeader({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 36, height: 40),
-          icon: const Icon(Icons.arrow_back, color: Colors.black, size: 28),
-          onPressed: onBack,
-        ),
-        const SizedBox(width: 6),
-        const Expanded(
-          child: Text(
-            'Тарифные планы',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              color: Colors.black,
-              height: 1.0,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
