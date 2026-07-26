@@ -16,7 +16,6 @@ abstract final class TaskExchangeFigmaLayout {
   static const double tabRadius = 40;
   static const double tabGap = 10;
   static const double cardRadius = 19;
-  static const double fabVisualSize = 73;
   static const double fabHitSize = 88;
   static const Color fabFill = Color(0xFF4563B1);
 
