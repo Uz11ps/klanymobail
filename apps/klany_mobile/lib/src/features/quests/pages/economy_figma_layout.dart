@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../home/parent_screen_header.dart';
+
 /// Layout tokens for Figma [node 150:1125](https://www.figma.com/design/kwVuEbSWPdrTEFsrIvZVB3/Untitled?node-id=150-1125).
 abstract final class EconomyFigmaLayout {
   static const Color bg = Color(0xFFFDFEFE);
@@ -12,8 +14,7 @@ abstract final class EconomyFigmaLayout {
   static const double dividerHeight = 2;
   static const double dividerVerticalPad = 18;
 
-  /// Как на главной (`ListView` padding top: 16): отступ заголовка от верха SafeArea.
-  static const EdgeInsets screenHeaderPad = EdgeInsets.fromLTRB(20, 16, 19, 16);
+  static const EdgeInsets screenHeaderPad = ParentScreenHeaderLayout.padding;
   static const EdgeInsets balancePad = EdgeInsets.fromLTRB(19, 0, 19, 0);
   static const EdgeInsets coinCardOuterPad = EdgeInsets.fromLTRB(19, 0, 19, 0);
   static const EdgeInsets coinCardInnerPad = EdgeInsets.symmetric(
@@ -44,13 +45,7 @@ abstract final class EconomyFigmaLayout {
   static const double circleBtnSize = 50;
   static const double shopBtnSize = 44;
 
-  static const TextStyle titleStyle = TextStyle(
-    fontFamily: 'Nunito',
-    fontSize: 32,
-    fontWeight: FontWeight.w800,
-    color: Colors.black,
-    height: 1.0,
-  );
+  static const TextStyle titleStyle = ParentScreenHeaderLayout.titleStyle;
 
   static const TextStyle sectionTitleStyle = TextStyle(
     fontFamily: 'Nunito',

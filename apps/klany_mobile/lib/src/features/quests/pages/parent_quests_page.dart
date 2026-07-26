@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +12,7 @@ import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/value_bump.dart';
+import '../../home/parent_screen_header.dart';
 import 'economy_figma_layout.dart';
 
 const Color _kEconomyTitleBlue = EconomyFigmaLayout.titleBlue;
@@ -102,7 +103,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'РљРѕСЂСЂРµРєС‚РёСЂРѕРІРєР°: ${wallet.displayName}',
+                    'Корректировка: ${wallet.displayName}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'Nunito',
@@ -118,14 +119,14 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     keyboardType:
                         const TextInputType.numberWithOptions(signed: true),
                     decoration: const InputDecoration(
-                      labelText: 'РЎСѓРјРјР° (+/-)',
+                      labelText: 'Сумма (+/-)',
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: commentCtrl,
                     decoration: const InputDecoration(
-                      hintText: 'РљРѕРјРјРµРЅС‚Р°СЂРёР№',
+                      hintText: 'Комментарий',
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -152,7 +153,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
       await _loadWallets();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('РћС€РёР±РєР°: $e')));
+      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -180,7 +181,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'РљСѓСЂСЃ РјРѕРЅРµС‚',
+                    'Курс монет',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Nunito',
@@ -195,7 +196,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                     autofocus: true,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: '10 РјРѕРЅРµС‚ = ? СЂСѓР±Р»РµР№',
+                      labelText: '10 монет = ? рублей',
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -217,7 +218,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
         await ref.read(familyCoinRateProvider.notifier).setRate(rate);
       } catch (e) {
         if (!mounted) return;
-        context.showKlanySnackBar(SnackBar(content: Text('РћС€РёР±РєР°: $e')));
+        context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     }
   }
@@ -236,10 +237,10 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
   Widget build(BuildContext context) {
     return ref.watch(parentFamilyContextProvider).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('РћС€РёР±РєР°: $e')),
+          error: (e, _) => Center(child: Text('Ошибка: $e')),
           data: (family) {
             if (family == null) {
-              return const Center(child: Text('РЎРµРјСЊСЏ РЅРµ РЅР°Р№РґРµРЅР°'));
+              return const Center(child: Text('Семья не найдена'));
             }
             return _buildPage(family);
           },
@@ -269,57 +270,48 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    Padding(
-                      padding: EconomyFigmaLayout.screenHeaderPad,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Expanded(
-                            child: _EconomyTitle(text: 'Р­РєРѕРЅРѕРјРёРєР°'),
-                          ),
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(41),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 2,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                    ParentScreenHeader(
+                      title: 'Экономика',
+                      trailing: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(41),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 2,
+                              offset: const Offset(0, 4),
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(41),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(41),
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => const ParentShopPage(),
-                                  ),
-                                ),
-                                child: SizedBox(
-                                  width: EconomyFigmaLayout.shopBtnSize,
-                                  height: EconomyFigmaLayout.shopBtnSize,
-                                  child: Center(
-                                    child: SvgPicture.asset(
-                                      'assets/figma/nav_shop.svg',
-                                      width: 24,
-                                      height: 24,
-                                      colorFilter: const ColorFilter.mode(
-                                        kChildInk,
-                                        BlendMode.srcIn,
-                                      ),
-                                    ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(41),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(41),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const ParentShopPage(),
+                              ),
+                            ),
+                            child: SizedBox(
+                              width: EconomyFigmaLayout.shopBtnSize,
+                              height: EconomyFigmaLayout.shopBtnSize,
+                              child: Center(
+                                child: SvgPicture.asset(
+                                  'assets/figma/nav_shop.svg',
+                                  width: 24,
+                                  height: 24,
+                                  colorFilter: const ColorFilter.mode(
+                                    kChildInk,
+                                    BlendMode.srcIn,
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     ),
 
@@ -332,7 +324,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                         ),
                         children: [
                           _WalletChip(
-                            label: 'Р’СЃРµ',
+                            label: 'Все',
                             icon: Icons.person_outline,
                             selected: _selectedWallet == -1,
                             onTap: () => setState(() => _selectedWallet = -1),
@@ -342,7 +334,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                   padding: const EdgeInsets.only(left: 10),
                                   child: _WalletChip(
                                     label: e.value.displayName.trim().isEmpty
-                                        ? 'вЂ”'
+                                        ? '—'
                                         : e.value.displayName.trim(),
                                     userKey: 'child:${e.value.childId}',
                                     selected: _selectedWallet == e.key,
@@ -402,7 +394,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                         '${_formatBalance(rubles)} ',
                                   ),
                                   const TextSpan(
-                                    text: 'в‚Ѕ',
+                                    text: '₽',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -444,7 +436,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                               children: [
                                 const Expanded(
                                   child: Text(
-                                    'РЈРїСЂР°РІР»РµРЅРёРµ РјРѕРЅРµС‚Р°РјРё',
+                                    'Управление монетами',
                                     style: EconomyFigmaLayout.sectionTitleStyle,
                                   ),
                                 ),
@@ -482,13 +474,13 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          'РљСѓСЂСЃ',
+                                          'Курс',
                                           style:
                                               EconomyFigmaLayout.sectionTitleStyle,
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          '10 РјРѕРЅРµС‚ = $rublesPer10Coins в‚Ѕ',
+                                          '10 монет = $rublesPer10Coins ₽',
                                           style: const TextStyle(
                                             fontFamily: 'Nunito',
                                             fontSize: 16,

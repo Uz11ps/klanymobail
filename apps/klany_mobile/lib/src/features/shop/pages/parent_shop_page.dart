@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_screen_header.dart';
 import '../../wallet/family_economy.dart';
 import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
@@ -28,10 +29,11 @@ double _shopBodyBottomPadding(BuildContext context) {
 }
 
 class ParentShopPage extends ConsumerStatefulWidget {
-  const ParentShopPage({super.key, this.initialTab = 0});
+  const ParentShopPage({super.key, this.initialTab = 0, this.onBack});
 
   /// 0 каталог, 1 создание, 2 очередь заявок.
   final int initialTab;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<ParentShopPage> createState() => _ParentShopPageState();
@@ -75,9 +77,9 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
           return const Center(child: Text('Семья не найдена'));
         }
         final pages = <Widget>[
-          _ParentProductsList(familyId: family.familyId),
-          _ParentCreateProductForm(familyId: family.familyId),
-          _ParentPurchasesQueue(familyId: family.familyId),
+          _ParentProductsList(familyId: family.familyId, onBack: widget.onBack),
+          _ParentCreateProductForm(familyId: family.familyId, onBack: widget.onBack),
+          _ParentPurchasesQueue(familyId: family.familyId, onBack: widget.onBack),
         ];
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -94,8 +96,9 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage> {
 }
 
 class _ParentProductsList extends ConsumerStatefulWidget {
-  const _ParentProductsList({required this.familyId});
+  const _ParentProductsList({required this.familyId, this.onBack});
   final String familyId;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<_ParentProductsList> createState() =>
@@ -309,45 +312,16 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
               ),
               padding: EdgeInsets.fromLTRB(
                 19,
-                34,
+                0,
                 19,
                 _shopBodyBottomPadding(context),
               ),
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 24,
-                        height: 48,
-                      ),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Colors.black,
-                        size: 30,
-                      ),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                    ),
-                    const SizedBox(width: 22),
-                    const Expanded(
-                      child: Text(
-                        'Магазин товаров',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                  ],
+                ParentScreenHeader(
+                  title: 'Магазин товаров',
+                  onBack: widget.onBack,
                 ),
-                const SizedBox(height: 29),
+                const SizedBox(height: 17),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Padding(
                     padding: EdgeInsets.all(32),
@@ -529,8 +503,9 @@ class _FigmaProductCard extends ConsumerWidget {
 }
 
 class _ParentCreateProductForm extends ConsumerStatefulWidget {
-  const _ParentCreateProductForm({required this.familyId});
+  const _ParentCreateProductForm({required this.familyId, this.onBack});
   final String familyId;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<_ParentCreateProductForm> createState() =>
@@ -651,45 +626,16 @@ class _ParentCreateProductFormState
         physics: const ClampingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
           19,
-          34,
+          0,
           19,
           _shopBodyBottomPadding(context),
         ),
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 24,
-                  height: 48,
-                ),
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.black,
-                  size: 30,
-                ),
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-              const SizedBox(width: 22),
-              const Expanded(
-                child: Text(
-                  'Добавить товар',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black,
-                    height: 1.0,
-                  ),
-                ),
-              ),
-            ],
+          ParentScreenHeader(
+            title: 'Добавить товар',
+            onBack: widget.onBack,
           ),
-          const SizedBox(height: 29),
+          const SizedBox(height: 17),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(10, 30, 10, 30),
@@ -935,8 +881,9 @@ class _ParentCreateProductFormState
 }
 
 class _ParentPurchasesQueue extends ConsumerStatefulWidget {
-  const _ParentPurchasesQueue({required this.familyId});
+  const _ParentPurchasesQueue({required this.familyId, this.onBack});
   final String familyId;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<_ParentPurchasesQueue> createState() =>

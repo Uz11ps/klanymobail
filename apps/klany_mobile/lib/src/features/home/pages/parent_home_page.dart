@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +14,7 @@ import '../../notifications/notifications_repository.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
+import '../../quests/pages/parent_quests_page.dart';
 import '../../quests/pages/parent_task_exchange_page.dart';
 import '../../quests/quests_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
@@ -28,9 +29,9 @@ import '../child_soft_ui.dart';
 import '../parent_main_bottom_bar.dart';
 import 'parent_family_settings_page.dart';
 
-// Р РѕРґРёС‚РµР»СЊСЃРєРёР№ home: РєР°СЂРєР°СЃ РєР°Рє Сѓ ChildHomePage (SizedBox.expand, LayoutBuilder,
-// IndexedStack + StackFit.expand); РґР°С€Р±РѕСЂРґ вЂ” RefreshIndicator + ListView. Figma 0-81 + API.
-// в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+// Родительский home: каркас как у ChildHomePage (SizedBox.expand, LayoutBuilder,
+// IndexedStack + StackFit.expand); дашборд — RefreshIndicator + ListView. Figma 0-81 + API.
+// ═══════════════════════════════════════════════════════════════════════════
 
 String _formatThousandsRu(int n) {
   final neg = n < 0;
@@ -43,7 +44,7 @@ String _formatThousandsRu(int n) {
   return neg ? '-$buf' : buf.toString();
 }
 
-// в”Ђв”Ђв”Ђ РљРѕСЂРЅРµРІР°СЏ СЃС‚СЂР°РЅРёС†Р° (РѕР±РѕР»РѕС‡РєР° + РЅРёР¶РЅСЏСЏ РЅР°РІРёРіР°С†РёСЏ) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Корневая страница (оболочка + нижняя навигация) ───────────────────────
 
 class ParentHomePage extends ConsumerStatefulWidget {
   const ParentHomePage({super.key});
@@ -165,20 +166,29 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
     });
   }
 
+  void _goHomeTab() => setState(() => _index = 0);
+
+  void _openEconomy() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ParentQuestsPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
       _ParentDashboardView(
         onOpenQuests: () => setState(() => _index = 1),
+        onOpenEconomy: _openEconomy,
         onOpenWallet: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const ParentWalletsPage()),
           );
         },
       ),
-      const ParentTaskExchangePage(),
-      const ParentShopPage(),
-      const ParentFamilySettingsPage(),
+      ParentTaskExchangePage(onBack: _goHomeTab),
+      ParentShopPage(onBack: _goHomeTab),
+      ParentFamilySettingsPage(onBack: _goHomeTab),
     ];
 
     return PopScope(
@@ -225,7 +235,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
   }
 }
 
-// в”Ђв”Ђв”Ђ РќРёР¶РЅСЏСЏ В«С‚Р°Р±Р»РµС‚РєР°В» вЂ” С‚Рµ Р¶Рµ СЂР°Р·РјРµСЂС‹ Рё СЃРµС‚РєР°, С‡С‚Рѕ `_ShopBottomBar` (Р±РµР· СЃРјРµРЅС‹ С€РёСЂРёРЅС‹ С†РµРЅС‚СЂР°).
+// ─── Нижняя «таблетка» — те же размеры и сетка, что `_ShopBottomBar` (без смены ширины центра).
 class _DashboardSnapshot {
   const _DashboardSnapshot({
     required this.family,
@@ -245,10 +255,12 @@ class _DashboardSnapshot {
 class _ParentDashboardView extends ConsumerStatefulWidget {
   const _ParentDashboardView({
     required this.onOpenQuests,
+    required this.onOpenEconomy,
     required this.onOpenWallet,
   });
 
   final VoidCallback onOpenQuests;
+  final VoidCallback onOpenEconomy;
   final VoidCallback onOpenWallet;
 
   @override
@@ -541,7 +553,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      // РРЅР°С‡Рµ M3 РґРѕР±Р°РІР»СЏРµС‚ СЃРІРѕР№ drag-handle вЂ” РІРёР·СѓР°Р»СЊРЅРѕ В«РґРІРѕРёС‚СЃСЏВ» СЃ РїРѕР»РѕСЃРєРѕР№ РІ _ChildDetailsPanel.
+      // Иначе M3 добавляет свой drag-handle — визуально «двоится» с полоской в _ChildDetailsPanel.
       showDragHandle: false,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       backgroundColor: Colors.transparent,
@@ -606,7 +618,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           shadowColor: Colors.black.withValues(alpha: 0.14),
           child: Tooltip(
             message:
-                'РЈРІРµРґРѕРјР»РµРЅРёСЏ: Р»РµРЅС‚Р° СЃРµРјСЊРё Рё Р·Р°РґР°С‡Рё РѕС‚ СЂРµР±С‘РЅРєР° Рє СЂРѕРґРёС‚РµР»СЋ',
+                'Уведомления: лента семьи и задачи от ребёнка к родителю',
             waitDuration: const Duration(milliseconds: 500),
             child: InkWell(
             onTap: () {
@@ -728,8 +740,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           )
         else
           _LoadErrorCard(
-            title: 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ',
-            error: _loadError ?? 'РЎРµРјСЊСЏ РЅРµ РЅР°Р№РґРµРЅР°',
+            title: 'Не удалось загрузить данные',
+            error: _loadError ?? 'Семья не найдена',
             onRetry: () => _reload(),
           ),
       ];
@@ -750,7 +762,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           wallets: _wallets,
           onChildTap: _openChildSheet,
         ),
-        const _FigmaSectionTitle('РРЅС„Рѕ-РїР°РЅРµР»СЊ'),
+        const _FigmaSectionTitle('Инфо-панель'),
         const SizedBox(height: 11),
         _InfoPanelStrip(
           inProgress: activeQuests.length,
@@ -760,16 +772,16 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           onReviewBumpKey: _reviews.length,
           goalBumpKey: totalCoins,
           onQuestsTap: widget.onOpenQuests,
-          onGoalTap: widget.onOpenWallet,
+          onGoalTap: widget.onOpenEconomy,
         ),
-        const _FigmaSectionTitle('РќРµРґР°РІРЅРёРµ СЃРѕР±С‹С‚РёСЏ', bottomPadding: 18),
+        const _FigmaSectionTitle('Недавние события', bottomPadding: 18),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: ValueBumpWrap(
             changeKey: _dashboardFeedDigest(),
             alignment: Alignment.topCenter,
-            // РЎР»Р°Р±РµРµ Р·СѓРј вЂ” РјРµРЅСЊС€Рµ СЂРёСЃРєР° РЅР°РµС…Р°С‚СЊ РЅР° Р·Р°РіРѕР»РѕРІРѕРє Р±РµР· Р¶С‘СЃС‚РєРѕРіРѕ ClipRect
+            // Слабее зум — меньше риска наехать на заголовок без жёсткого ClipRect
             beginScale: 1.038,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 28),
@@ -798,7 +810,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
   }
 }
 
-// в”Ђв”Ђв”Ђ РљР°СЂС‚РѕС‡РєРё РјР°РєРµС‚Р° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+// ─── Карточки макета ────────────────────────────────────────────────────────
 
 class _SkeletonBlock extends StatelessWidget {
   const _SkeletonBlock({required this.height});
@@ -848,7 +860,7 @@ class _InfoTile extends StatelessWidget {
 
   final String title;
   final String value;
-  /// РђРЅРёРјР°С†РёСЏ В«РґС‘СЂРіР°РЅРёСЏВ» СЃС‚СЂРѕРєРё С‡РёСЃР»Р° РїСЂРё СЃРјРµРЅРµ СЌС‚РѕРіРѕ РєР»СЋС‡Р° (РЅР°РїСЂ. СЃС‡С‘С‚С‡РёРє).
+  /// Анимация «дёргания» строки числа при смене этого ключа (напр. счётчик).
   final Object? valueBumpKey;
   final String? footer;
   final VoidCallback? onTap;
@@ -964,10 +976,10 @@ class _InfoPanelStrip extends StatelessWidget {
       children: [
         Expanded(
           child: _InfoTile(
-            title: 'Р’ СЂР°Р±РѕС‚Рµ',
+            title: 'В работе',
             value: '$inProgress',
             valueBumpKey: inProgressBumpKey,
-            footer: 'РљР›РђРќ / Р’РЎР•',
+            footer: 'КЛАН / ВСЕ',
             onTap: onQuestsTap,
             background: const Color(0xFFC1D8F5),
             boxShadows: [
@@ -987,7 +999,7 @@ class _InfoPanelStrip extends StatelessWidget {
         const SizedBox(width: 7),
         Expanded(
           child: _InfoTile(
-            title: 'РќР° РїСЂРѕРІРµСЂРєРµ',
+            title: 'На проверке',
             value: '$onReview',
             valueBumpKey: onReviewBumpKey,
             background: const Color(0xFFF9E8A5),
@@ -1008,10 +1020,10 @@ class _InfoPanelStrip extends StatelessWidget {
         const SizedBox(width: 7),
         Expanded(
           child: _InfoTile(
-            title: 'РћР±С‰Р°СЏ С†РµР»СЊ',
+            title: 'Общая цель',
             value: _formatThousandsRu(goalTotal),
             valueBumpKey: goalBumpKey,
-            footer: 'РќР°РєРѕРїР»РµРЅРёСЏ',
+            footer: 'Накопления',
             onTap: onGoalTap,
             background: const Color(0xFFD9F6C2),
             boxShadows: [
@@ -1128,7 +1140,7 @@ class _MembersStripState extends State<_MembersStrip> {
     }
     final chips = widget.wallets.asMap().entries.map((e) {
       final name = e.value.displayName.trim().isEmpty
-          ? 'Р РµР±С‘РЅРѕРє'
+          ? 'Ребёнок'
           : e.value.displayName.trim();
       final initial = name.characters.first.toUpperCase();
       return _MemberAvatarCard(
@@ -1177,7 +1189,7 @@ class _MembersStripState extends State<_MembersStrip> {
 class _FigmaSectionTitle extends StatelessWidget {
   const _FigmaSectionTitle(this.text, {this.bottomPadding = 4});
   final String text;
-  /// РћС‚СЃС‚СѓРї РїРѕРґ Р·Р°РіРѕР»РѕРІРєРѕРј РґРѕ СЃР»РµРґСѓСЋС‰РµРіРѕ Р±Р»РѕРєР° СЃРїРёСЃРєР°.
+  /// Отступ под заголовком до следующего блока списка.
   final double bottomPadding;
 
   @override
@@ -1246,7 +1258,7 @@ class _MergedActivityFeed extends StatelessWidget {
     required this.wallets,
   });
 
-  /// РџРѕСЃР»Рµ РѕР±СЉРµРґРёРЅРµРЅРёСЏ СѓРІРµРґРѕРјР»РµРЅРёР№ Рё В«РЅР° РїСЂРѕРІРµСЂРєРµВ» РїРѕРєР°Р·С‹РІР°РµРј РЅРµ Р±РѕР»СЊС€Рµ СЃС‚РѕР»СЊРєРёС… СЃС‚СЂРѕРє.
+  /// После объединения уведомлений и «на проверке» показываем не больше стольких строк.
   static const int _kRecentEventsMaxItems = 10;
 
   final List<InAppNotificationItem> notifications;
@@ -1275,12 +1287,12 @@ class _MergedActivityFeed extends StatelessWidget {
     height: 1.35,
   );
 
-  /// РўРёРї СЃРѕР±С‹С‚РёСЏ РІ РµРґРёРЅРѕРј РІРёРґРµ РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ (Р±РµРєРµРЅРґ РјРѕР¶РµС‚ РѕС‚РґР°РІР°С‚СЊ С‚РѕС‡РєРё РёР»Рё РїРѕРґС‡С‘СЂРєРёРІР°РЅРёСЏ).
+  /// Тип события в едином виде для сравнения (бекенд может отдавать точки или подчёркивания).
   static String _eventType(InAppNotificationItem n) =>
       n.type.replaceAll('.', '_').trim();
 
-  /// РћРґРЅР° СЃС‚СЂРѕРєР° Р»РµРЅС‚С‹ РЅР° Р»РѕРіРёС‡РµСЃРєРѕРµ СЃРѕР±С‹С‚РёРµ: Р±СЌРєРµРЅРґ СЃРѕР·РґР°С‘С‚ РєРѕРїРёСЋ РЅР° РєР°Р¶РґРѕРіРѕ СЂРѕРґРёС‚РµР»СЏ
-  /// (РѕРґРёРЅ Рё С‚РѕС‚ Р¶Рµ `purchaseId` / РєРІРµСЃС‚ Рё С‚.Рґ.).
+  /// Одна строка ленты на логическое событие: бэкенд создаёт копию на каждого родителя
+  /// (один и тот же `purchaseId` / квест и т.д.).
   static String _recentFeedDedupeKey(InAppNotificationItem n) {
     final type = _eventType(n);
     final p = n.payload;
@@ -1320,7 +1332,7 @@ class _MergedActivityFeed extends StatelessWidget {
     return best.values.toList();
   }
 
-  /// РџРµСЂРІР°СЏ Р±СѓРєРІР° РёРјРµРЅРё вЂ” Р·Р°РіР»Р°РІРЅР°СЏ (РѕСЃС‚Р°Р»СЊРЅРѕРµ Р±РµР· В«РёСЃРїСЂР°РІР»РµРЅРёСЏВ» СЂРµРіРёСЃС‚СЂР°).
+  /// Первая буква имени — заглавная (остальное без «исправления» регистра).
   static String _displayActorName(String raw) {
     final t = raw.trim();
     if (t.isEmpty) return '';
@@ -1365,7 +1377,7 @@ class _MergedActivityFeed extends StatelessWidget {
     }
   }
 
-  /// РРјСЏ РІ Р»РµРЅС‚Рµ: СЃРЅР°С‡Р°Р»Р° payload (РїРѕСЃР»Рµ Р±СЌРєРµРЅРґ-РѕР±РѕРіР°С‰РµРЅРёСЏ), РёРЅР°С‡Рµ РєРѕС€РµР»С‘Рє СЂРµР±С‘РЅРєР° РїРѕ childId.
+  /// Имя в ленте: сначала payload (после бэкенд-обогащения), иначе кошелёк ребёнка по childId.
   static String _resolvedActorName(
     InAppNotificationItem n,
     Map<String, ParentChildWalletItem> walletByChildId,
@@ -1425,31 +1437,31 @@ class _MergedActivityFeed extends StatelessWidget {
     );
   }
 
-  /// РџРѕРґРїРёСЃСЊ С‚РѕРІР°СЂР° РІ РјР°РіР°Р·РёРЅРЅС‹С… СѓРІРµРґРѕРјР»РµРЅРёСЏС….
+  /// Подпись товара в магазинных уведомлениях.
   static String _productLine(InAppNotificationItem n) {
     return (n.payload['productTitle'] ?? n.payload['title'] ?? '')
         .toString()
         .trim();
   }
 
-  /// Р§РµР»РѕРІРµРєРѕС‡РёС‚Р°РµРјР°СЏ СЃС‚СЂРѕРєР° РґР»СЏ РЅРµРёР·РІРµСЃС‚РЅРѕРіРѕ С‚РёРїР° (РЅРёРєРѕРіРґР° РЅРµ РїРѕРєР°Р·С‹РІР°РµРј СЃС‹СЂРѕР№ РєР»СЋС‡ Р±РµРєРµРЅРґР°).
+  /// Человекочитаемая строка для неизвестного типа (никогда не показываем сырой ключ бекенда).
   static String _friendlyUnknownEventLabel(String rawType) {
     final key = rawType.replaceAll('.', '_').toLowerCase().trim();
     const map = <String, String>{
-      'shop_purchase_requested': 'РќРѕРІС‹Р№ Р·Р°РїСЂРѕСЃ РЅР° РїРѕРєСѓРїРєСѓ',
-      'shop_purchase_approved': 'РџРѕРєСѓРїРєР° РѕРґРѕР±СЂРµРЅР°',
-      'shop_purchase_rejected': 'РџРѕРєСѓРїРєР° РѕС‚РєР»РѕРЅРµРЅР°',
-      'child_access_requested': 'Р—Р°РїСЂРѕСЃ РЅР° РґРѕСЃС‚СѓРї Рє СЃРµРјСЊРµ',
-      'subscription_expiring': 'РЎРєРѕСЂРѕ РѕРєРѕРЅС‡РёС‚СЃСЏ РїРѕРґРїРёСЃРєР°',
-      'account_recovery_requested': 'Р—Р°РїСЂРѕСЃ РЅР° РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ РґРѕСЃС‚СѓРїР°',
+      'shop_purchase_requested': 'Новый запрос на покупку',
+      'shop_purchase_approved': 'Покупка одобрена',
+      'shop_purchase_rejected': 'Покупка отклонена',
+      'child_access_requested': 'Запрос на доступ к семье',
+      'subscription_expiring': 'Скоро окончится подписка',
+      'account_recovery_requested': 'Запрос на восстановление доступа',
     };
-    return map[key] ?? 'РћР±РЅРѕРІР»РµРЅРёРµ РІ СЃРµРјСЊРµ';
+    return map[key] ?? 'Обновление в семье';
   }
 
   static bool _isFemale(String name) {
     if (name.isEmpty) return false;
     final lower = name.toLowerCase();
-    return lower.endsWith('Р°') || lower.endsWith('СЏ');
+    return lower.endsWith('а') || lower.endsWith('я');
   }
 
   static Widget _notificationTextColumn(
@@ -1472,12 +1484,12 @@ class _MergedActivityFeed extends StatelessWidget {
     if (type == 'shop_purchase_requested') {
       final product = _productLine(n);
       final nm = actorName.trim();
-      final label = nm.isEmpty ? 'Р РµР±С‘РЅРѕРє' : nm;
+      final label = nm.isEmpty ? 'Ребёнок' : nm;
       final fem = _isFemale(label);
-      final verb = fem ? 'Р·Р°РїСЂРѕСЃРёР»Р° РїРѕРєСѓРїРєСѓ' : 'Р·Р°РїСЂРѕСЃРёР» РїРѕРєСѓРїРєСѓ';
+      final verb = fem ? 'запросила покупку' : 'запросил покупку';
 
       final priceSuffix =
-          reward != null && reward.isNotEmpty ? '($reward РјРѕРЅРµС‚)' : null;
+          reward != null && reward.isNotEmpty ? '($reward монет)' : null;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1487,15 +1499,15 @@ class _MergedActivityFeed extends StatelessWidget {
               style: _feedBody,
               children: [
                 TextSpan(text: label, style: _feedName),
-                const TextSpan(text: ' вЂ” '),
+                const TextSpan(text: ' — '),
                 TextSpan(text: verb),
                 if (product.isNotEmpty) ...[
-                  const TextSpan(text: ' В«'),
+                  const TextSpan(text: ' «'),
                   TextSpan(
                     text: product,
                     style: _feedBody.copyWith(fontWeight: FontWeight.w800),
                   ),
-                  const TextSpan(text: 'В»'),
+                  const TextSpan(text: '»'),
                 ],
               ],
             ),
@@ -1513,27 +1525,27 @@ class _MergedActivityFeed extends StatelessWidget {
       final nm = actorName.trim();
       final rejected = type == 'shop_purchase_rejected';
       final priceSuffix =
-          reward != null && reward.isNotEmpty ? '($reward РјРѕРЅРµС‚)' : null;
+          reward != null && reward.isNotEmpty ? '($reward монет)' : null;
 
       Widget mainLine;
       if (nm.isEmpty) {
         if (product.isEmpty) {
           mainLine = Text(
-            rejected ? 'Р—Р°СЏРІРєР° РЅР° РїРѕРєСѓРїРєСѓ РѕС‚РєР»РѕРЅРµРЅР°' : 'Р—Р°СЏРІРєР° РЅР° РїРѕРєСѓРїРєСѓ РѕРґРѕР±СЂРµРЅР°',
+            rejected ? 'Заявка на покупку отклонена' : 'Заявка на покупку одобрена',
             style: _feedBody,
           );
         } else {
-          final ending = rejected ? 'РѕС‚РєР»РѕРЅРµРЅР°' : 'РѕРґРѕР±СЂРµРЅР°';
+          final ending = rejected ? 'отклонена' : 'одобрена';
           mainLine = RichText(
             text: TextSpan(
               style: _feedBody,
               children: [
-                const TextSpan(text: 'РџРѕРєСѓРїРєР° В«'),
+                const TextSpan(text: 'Покупка «'),
                 TextSpan(
                   text: product,
                   style: _feedBody.copyWith(fontWeight: FontWeight.w800),
                 ),
-                TextSpan(text: 'В» $ending'),
+                TextSpan(text: '» $ending'),
               ],
             ),
           );
@@ -1546,8 +1558,8 @@ class _MergedActivityFeed extends StatelessWidget {
               TextSpan(text: nm, style: _feedName),
               TextSpan(
                 text: rejected
-                    ? ' вЂ” Р·Р°СЏРІРєСѓ РЅР° РїРѕРєСѓРїРєСѓ РѕС‚РєР»РѕРЅРёР»Рё'
-                    : ' вЂ” Р·Р°СЏРІРєСѓ РЅР° РїРѕРєСѓРїРєСѓ РѕРґРѕР±СЂРёР»Рё',
+                    ? ' — заявку на покупку отклонили'
+                    : ' — заявку на покупку одобрили',
               ),
             ],
           ),
@@ -1558,12 +1570,12 @@ class _MergedActivityFeed extends StatelessWidget {
             style: _feedBody,
             children: [
               TextSpan(text: nm, style: _feedName),
-              const TextSpan(text: ' вЂ” РїРѕРєСѓРїРєСѓ В«'),
+              const TextSpan(text: ' — покупку «'),
               TextSpan(
                 text: product,
                 style: _feedBody.copyWith(fontWeight: FontWeight.w800),
               ),
-              TextSpan(text: rejected ? 'В» РѕС‚РєР»РѕРЅРёР»Рё' : 'В» РѕРґРѕР±СЂРёР»Рё'),
+              TextSpan(text: rejected ? '» отклонили' : '» одобрили'),
             ],
           ),
         );
@@ -1587,32 +1599,32 @@ class _MergedActivityFeed extends StatelessWidget {
     if (type == 'quest_submitted') {
       final nm = actorName.trim();
       if (nm.isEmpty) {
-        verb = 'РћС‚РїСЂР°РІР»РµРЅР° Р·Р°РґР°С‡Р° РЅР° РїСЂРѕРІРµСЂРєСѓ';
+        verb = 'Отправлена задача на проверку';
       } else {
         verb =
-            '${_isFemale(nm) ? 'РћС‚РїСЂР°РІРёР»Р°' : 'РћС‚РїСЂР°РІРёР»'} Р·Р°РґР°С‡Сѓ РЅР° РїСЂРѕРІРµСЂРєСѓ';
+            '${_isFemale(nm) ? 'Отправила' : 'Отправил'} задачу на проверку';
       }
-      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward РјРѕРЅРµС‚)';
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward монет)';
     } else if (type == 'quest_approved') {
-      verb = 'Р—Р°РґР°С‡Р° РїСЂРёРЅСЏС‚Р° вЂ” РЅР°РіСЂР°РґР° РЅР°С‡РёСЃР»РµРЅР°';
-      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward РјРѕРЅРµС‚)';
+      verb = 'Задача принята — награда начислена';
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '(+$reward монет)';
     } else if (type == 'quest_rejected') {
-      verb = 'Р—Р°РґР°С‡Р° РѕС‚РїСЂР°РІР»РµРЅР° РЅР° РґРѕСЂР°Р±РѕС‚РєСѓ';
+      verb = 'Задача отправлена на доработку';
     } else if (type == 'wallet_adjusted') {
-      verb = 'Р‘Р°Р»Р°РЅСЃ РјРѕРЅРµС‚ РёР·РјРµРЅС‘РЅ';
+      verb = 'Баланс монет изменён';
       if (reward != null && reward.isNotEmpty) {
-        rewardSuffix = '($reward РјРѕРЅРµС‚)';
+        rewardSuffix = '($reward монет)';
       }
     } else if (type == 'access_request' || type == 'child_access_requested') {
-      verb = 'РќРѕРІС‹Р№ Р·Р°РїСЂРѕСЃ РґРѕСЃС‚СѓРїР° Рє СЃРµРјСЊРµ';
+      verb = 'Новый запрос доступа к семье';
     } else if (type == 'subscription_expiring') {
-      verb = 'РџРѕРґРїРёСЃРєР° СЃРєРѕСЂРѕ Р·Р°РєРѕРЅС‡РёС‚СЃСЏ вЂ” РїСЂРѕРґР»РёС‚Рµ, С‡С‚РѕР±С‹ РЅРµ РїРѕС‚РµСЂСЏС‚СЊ С„СѓРЅРєС†РёРё';
+      verb = 'Подписка скоро закончится — продлите, чтобы не потерять функции';
     } else if (type.startsWith('family_goal')) {
       final nm = actorName.trim();
       verb = nm.isEmpty
-          ? 'Р”РѕР±Р°РІР»РµРЅР° РЅРѕРІР°СЏ СЃРµРјРµР№РЅР°СЏ С†РµР»СЊ'
-          : '${_isFemale(nm) ? 'Р”РѕР±Р°РІРёР»Р°' : 'Р”РѕР±Р°РІРёР»'} СЃРµРјРµР№РЅСѓСЋ С†РµР»СЊ';
-      if (reward != null && reward.isNotEmpty) rewardSuffix = '($rewardв‚Ѕ)';
+          ? 'Добавлена новая семейная цель'
+          : '${_isFemale(nm) ? 'Добавила' : 'Добавил'} семейную цель';
+      if (reward != null && reward.isNotEmpty) rewardSuffix = '($reward₽)';
     } else {
       final msg =
           (n.payload['message']?.toString() ??
@@ -1648,15 +1660,15 @@ class _MergedActivityFeed extends StatelessWidget {
               style: _feedBody,
               children: [
                 TextSpan(text: nm, style: _feedName),
-                TextSpan(text: _isFemale(nm) ? ' вЂ” РѕС‚РїСЂР°РІРёР»Р°' : ' вЂ” РѕС‚РїСЂР°РІРёР»'),
-                const TextSpan(text: ' Р·Р°РґР°С‡Сѓ РЅР° РїСЂРѕРІРµСЂРєСѓ'),
+                TextSpan(text: _isFemale(nm) ? ' — отправила' : ' — отправил'),
+                const TextSpan(text: ' задачу на проверку'),
                 if (q.isNotEmpty) ...[
-                  const TextSpan(text: ' В«'),
+                  const TextSpan(text: ' «'),
                   TextSpan(
                     text: q,
                     style: _feedBody.copyWith(fontWeight: FontWeight.w800),
                   ),
-                  const TextSpan(text: 'В»'),
+                  const TextSpan(text: '»'),
                 ],
               ],
             ),
@@ -1685,16 +1697,16 @@ class _MergedActivityFeed extends StatelessWidget {
               if (actorName.trim().isNotEmpty &&
                   type != 'access_request') ...[
                 TextSpan(text: actorName.trim(), style: _feedName),
-                const TextSpan(text: ' вЂ” '),
+                const TextSpan(text: ' — '),
               ],
               TextSpan(text: verb),
               if (showQuotes) ...[
-                const TextSpan(text: ' В«'),
+                const TextSpan(text: ' «'),
                 TextSpan(
                   text: titleForQuotes,
                   style: _feedBody.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const TextSpan(text: 'В»'),
+                const TextSpan(text: '»'),
               ],
             ],
           ),
@@ -1708,7 +1720,7 @@ class _MergedActivityFeed extends StatelessWidget {
   }
 
   static Widget _reviewAvatar(ParentReviewItem r) {
-    final name = r.childName.trim().isEmpty ? 'Р РµР±С‘РЅРѕРє' : r.childName.trim();
+    final name = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     final fb = name.characters.first.toUpperCase();
     return SizedBox(
       width: 70,
@@ -1756,9 +1768,9 @@ class _MergedActivityFeed extends StatelessWidget {
   }
 
   static Widget _reviewTextColumn(ParentReviewItem r) {
-    final raw = r.childName.trim().isEmpty ? 'Р РµР±С‘РЅРѕРє' : r.childName.trim();
+    final raw = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     final name =
-        raw == 'Р РµР±С‘РЅРѕРє' ? raw : _displayActorName(raw);
+        raw == 'Ребёнок' ? raw : _displayActorName(raw);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1767,18 +1779,18 @@ class _MergedActivityFeed extends StatelessWidget {
             style: _feedBody,
             children: [
               TextSpan(text: name, style: _feedName),
-              const TextSpan(text: ' вЂ” Р·Р°РґР°С‡Р° В«'),
+              const TextSpan(text: ' — задача «'),
               TextSpan(
                 text: r.title,
                 style: _feedBody.copyWith(fontWeight: FontWeight.w800),
               ),
-              const TextSpan(text: 'В» РЅР° РїСЂРѕРІРµСЂРєРµ'),
+              const TextSpan(text: '» на проверке'),
             ],
           ),
         ),
         if (r.rewardAmount != null && r.rewardAmount! > 0) ...[
           const SizedBox(height: 4),
-          Text('(+${r.rewardAmount} РјРѕРЅРµС‚)', style: _feedMeta),
+          Text('(+${r.rewardAmount} монет)', style: _feedMeta),
         ],
       ],
     );
@@ -1791,7 +1803,7 @@ class _MergedActivityFeed extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
           child: Text(
-            'Р›РµРЅС‚Р° РїСѓСЃС‚Р°: РїРѕРєР° РЅРµС‚ РїСЂРѕРІРµСЂРѕРє Рё СЃРѕР±С‹С‚РёР№',
+            'Лента пуста: пока нет проверок и событий',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -1868,7 +1880,7 @@ class _ChildDetailsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final childLabel = wallet.displayName.trim().isEmpty
-        ? 'Р РµР±С‘РЅРѕРє'
+        ? 'Ребёнок'
         : wallet.displayName.trim();
     final childInitial = childLabel.characters.first.toUpperCase();
     return Container(
@@ -1909,7 +1921,7 @@ class _ChildDetailsPanel extends StatelessWidget {
                           final ok = await showAvatarPicker(
                             context: ctx,
                             userKey: 'child:${wallet.childId}',
-                            title: 'РђРІР°С‚Р°СЂ: $childLabel',
+                            title: 'Аватар: $childLabel',
                           );
                           if (ok) setLocal(() {});
                         },
@@ -1974,7 +1986,7 @@ class _ChildDetailsPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'РљР°СЂС‚РѕС‡РєР° СѓС‡Р°СЃС‚РЅРёРєР°',
+                            'Карточка участника',
                             style: TextStyle(
                               fontSize: 13,
                               color: kChildInkMuted,
@@ -1988,25 +2000,25 @@ class _ChildDetailsPanel extends StatelessWidget {
                 const SizedBox(height: 18),
                 _ChildDetailTile(
                   icon: Icons.account_balance_wallet_outlined,
-                  title: 'Р‘Р°Р»Р°РЅСЃ',
-                  value: '${wallet.balance} РјРѕРЅРµС‚',
+                  title: 'Баланс',
+                  value: '${wallet.balance} монет',
                 ),
                 const SizedBox(height: 10),
                 _ChildDetailTile(
                   icon: Icons.assignment_outlined,
-                  title: 'РђРєС‚РёРІРЅС‹Рµ Р·Р°РґР°С‡Рё',
+                  title: 'Активные задачи',
                   value: '$activeForChild',
                 ),
                 const SizedBox(height: 10),
                 _ChildDetailTile(
                   icon: Icons.fact_check_outlined,
-                  title: 'РќР° РїСЂРѕРІРµСЂРєРµ',
+                  title: 'На проверке',
                   value: '${reviewsForChild.length}',
                 ),
                 const SizedBox(height: 18),
                 if (reviewsForChild.isNotEmpty) ...[
                   const Text(
-                    'РћР¶РёРґР°СЋС‚ РїСЂРѕРІРµСЂРєРё',
+                    'Ожидают проверки',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -2050,7 +2062,7 @@ class _ChildDetailsPanel extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onOpenWallet,
                     icon: const Icon(Icons.account_balance_wallet),
-                    label: const Text('РћС‚РєСЂС‹С‚СЊ РєРѕС€РµР»С‘Рє'),
+                    label: const Text('Открыть кошелёк'),
                     style: FilledButton.styleFrom(
                       backgroundColor: kChildBrandBlue,
                       foregroundColor: Colors.white,
@@ -2064,7 +2076,7 @@ class _ChildDetailsPanel extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onOpenQuests,
                     icon: const Icon(Icons.work_outline),
-                    label: const Text('РћС‚РєСЂС‹С‚СЊ Р±РёСЂР¶Сѓ Р·Р°РґР°С‡'),
+                    label: const Text('Открыть биржу задач'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kChildBrandBlue,
                       side: const BorderSide(
@@ -2157,7 +2169,7 @@ class _AdminNoFamilyCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'РђРєРєР°СѓРЅС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°',
+            'Аккаунт администратора',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -2166,12 +2178,12 @@ class _AdminNoFamilyCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Р­С‚РѕС‚ Р°РєРєР°СѓРЅС‚ РЅРµ РїСЂРёРІСЏР·Р°РЅ Рє СЃРµРјСЊРµ. Р”Р»СЏ СЂР°Р±РѕС‚С‹ РёСЃРїРѕР»СЊР·СѓР№С‚Рµ РІРµР±-Р°РґРјРёРЅРєСѓ.',
+            'Этот аккаунт не привязан к семье. Для работы используйте веб-админку.',
             style: TextStyle(fontSize: 14, color: kChildInkMuted),
           ),
           const SizedBox(height: 16),
           ClanPrimaryButton(
-            label: 'Р’С‹Р№С‚Рё',
+            label: 'Выйти',
             icon: Icons.logout,
             onPressed: onSignOut,
           ),
@@ -2224,7 +2236,7 @@ class _LoadErrorCard extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           ClanPrimaryButton(
-            label: 'РџРѕРІС‚РѕСЂРёС‚СЊ',
+            label: 'Повторить',
             icon: Icons.refresh,
             onPressed: onRetry,
           ),

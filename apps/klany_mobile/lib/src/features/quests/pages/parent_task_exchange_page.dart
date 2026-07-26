@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_screen_header.dart';
 import '../../../core/value_bump.dart';
 import '../quests_repository.dart';
 import 'parent_task_exchange_sections.dart';
@@ -18,12 +19,12 @@ class ParentTaskExchangePage extends ConsumerStatefulWidget {
   const ParentTaskExchangePage({
     super.key,
     this.initialSegment = 0,
-    this.showBackButton = false,
+    this.onBack,
   });
 
-  /// 0 новые, 1 в работе, 2 проверка.
+  /// 0 свободные, 1 в работе, 2 проверка.
   final int initialSegment;
-  final bool showBackButton;
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<ParentTaskExchangePage> createState() =>
@@ -83,31 +84,9 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Padding(
-                          padding: TaskExchangeFigmaLayout.headerPad,
-                          child: Row(
-                            children: [
-                              if (widget.showBackButton) ...[
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () => Navigator.maybePop(context),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: SvgPicture.asset(
-                                        'assets/figma/exchange_back_arrow.svg',
-                                        width: 24,
-                                        height: 24,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              const Text('Биржа', style: TaskExchangeFigmaLayout.titleStyle),
-                            ],
-                          ),
+                        ParentScreenHeader(
+                          title: 'Биржа',
+                          onBack: widget.onBack,
                         ),
                         Padding(
                           padding: TaskExchangeFigmaLayout.tabsPad,
@@ -115,7 +94,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                             children: [
                               Expanded(
                                 child: _ExchangeTab(
-                                  label: 'Новые',
+                                  label: 'Свободные',
                                   selected: _segment == 0,
                                   onTap: () => setState(() => _segment = 0),
                                 ),
@@ -259,12 +238,7 @@ class _ExchangeNewQuestList extends ConsumerWidget {
             )
             .toList();
         if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text('Нет новых задач', style: TextStyle(color: kChildInkMuted)),
-            ),
-          );
+          return _ExchangeEmptyState(message: 'Нет свободных задач');
         }
         return Column(
           children: [
@@ -310,12 +284,7 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
             )
             .toList();
         if (list.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text('Нет задач в работе', style: TextStyle(color: kChildInkMuted)),
-            ),
-          );
+          return const _ExchangeEmptyState(message: 'Нет задач в работе');
         }
         return Column(
           children: [
@@ -337,6 +306,26 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _ExchangeEmptyState extends StatelessWidget {
+  const _ExchangeEmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.32,
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: kChildInkMuted, fontSize: 16),
+        ),
+      ),
     );
   }
 }

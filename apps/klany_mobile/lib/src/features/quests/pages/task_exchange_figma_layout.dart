@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../home/parent_screen_header.dart';
+
 /// Figma file YsSajeAgXSHK88ETbeV4N9 — экраны 1:1431, 1:1495, 1:1569.
 abstract final class TaskExchangeFigmaLayout {
   static const Color tabActiveFill = Color(0xFFBFDBFF);
   static const Color metaGray = Color(0xFF666666);
 
   static const double hMargin = 19;
-  static const EdgeInsets headerPad = EdgeInsets.fromLTRB(19, 16, 19, 12);
+  static const EdgeInsets headerPad = ParentScreenHeaderLayout.padding;
   static const EdgeInsets tabsPad = EdgeInsets.fromLTRB(19, 8, 19, 12);
   static const EdgeInsets listPad = EdgeInsets.fromLTRB(19, 0, 19, 100);
 
@@ -16,13 +18,7 @@ abstract final class TaskExchangeFigmaLayout {
   static const double cardRadius = 19;
   static const double fabSize = 73;
 
-  static const TextStyle titleStyle = TextStyle(
-    fontFamily: 'Nunito',
-    fontSize: 32,
-    fontWeight: FontWeight.w800,
-    color: Colors.black,
-    height: 1.0,
-  );
+  static const TextStyle titleStyle = ParentScreenHeaderLayout.titleStyle;
 
   static const TextStyle tabActiveStyle = TextStyle(
     fontFamily: 'Nunito',
