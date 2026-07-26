@@ -29,6 +29,8 @@ class ParentQuestItem {
     required this.scheduleType,
     required this.scheduleDays,
     required this.childIds,
+    this.dueAt,
+    this.assigneeSince,
   });
 
   final String id;
@@ -44,6 +46,8 @@ class ParentQuestItem {
   final String scheduleType;
   final List<String> scheduleDays;
   final List<String> childIds;
+  final DateTime? dueAt;
+  final DateTime? assigneeSince;
 }
 
 class ChildQuestAssignmentItem {
@@ -224,6 +228,10 @@ class QuestsRepository {
         childIds: (row['childIds'] as List<dynamic>? ?? const <dynamic>[])
             .map((e) => e.toString())
             .toList(),
+        dueAt: DateTime.tryParse((row['dueAt'] ?? '').toString()),
+        assigneeSince: DateTime.tryParse(
+          (row['assigneeSince'] ?? '').toString(),
+        ),
       );
     }).toList();
   }

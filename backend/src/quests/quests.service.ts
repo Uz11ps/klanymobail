@@ -556,7 +556,8 @@ export class QuestsService {
       where: { familyId, status: "active" },
       include: {
         assignees: {
-          select: { childId: true },
+          select: { childId: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -569,6 +570,7 @@ export class QuestsService {
           meta.distributionType === "reverse" && meta.reverseChildId
             ? [meta.reverseChildId]
             : q.assignees.map((a) => a.childId);
+        const assigneeSince = q.assignees[0]?.createdAt ?? null;
         return {
           ...q,
           description: meta.plainDescription,
@@ -578,6 +580,7 @@ export class QuestsService {
           scheduleType: meta.scheduleType,
           scheduleDays: meta.scheduleDays,
           childIds,
+          assigneeSince,
         };
       }),
     };

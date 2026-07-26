@@ -13,9 +13,9 @@ abstract final class ParentShopBottomBarLayout {
   static const Color activeBlue = Color(0xFF4563B1);
   static const Color inactiveGray = Color(0xFFACACAC);
   static const double activeCircle = 57;
-  static const double idleCircle = 52;
-  static const double iconSize = 26;
-  static const double labelSize = 14;
+  static const double idleCircle = 57;
+  static const double iconSize = 29;
+  static const double labelSize = 16;
   static const double horizontalMargin = 3;
 
   static double scaledPillHeight(BuildContext context) =>

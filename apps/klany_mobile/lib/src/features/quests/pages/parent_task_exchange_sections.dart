@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
 import '../quests_repository.dart';
+import 'exchange_quest_card.dart';
 import 'task_exchange_figma_layout.dart';
-
 class ParentTaskExchangeReviewList extends ConsumerStatefulWidget {
   const ParentTaskExchangeReviewList({super.key, required this.familyId});
   final String familyId;
@@ -68,6 +66,7 @@ class _ParentTaskExchangeReviewListState
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ExchangeReviewCard(
                   item: item,
+                  background: TaskExchangeFigmaLayout.cardColorForKey(item.questId),
                   onReviewCompleted: _reload,
                 ),
               ),
@@ -81,10 +80,12 @@ class _ParentTaskExchangeReviewListState
 class _ExchangeReviewCard extends ConsumerStatefulWidget {
   const _ExchangeReviewCard({
     required this.item,
+    required this.background,
     this.onReviewCompleted,
   });
 
   final ParentReviewItem item;
+  final Color background;
   final VoidCallback? onReviewCompleted;
 
   @override
@@ -204,99 +205,19 @@ class _ExchangeReviewCardState extends ConsumerState<_ExchangeReviewCard> {
   @override
   Widget build(BuildContext context) {
     final hasPhoto = (widget.item.evidenceUrl ?? '').isNotEmpty;
+    final cardRadius = context.klanySize(TaskExchangeFigmaLayout.cardRadius);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(TaskExchangeFigmaLayout.cardRadius),
+        borderRadius: BorderRadius.circular(cardRadius),
         onTap: _busy ? null : _openReviewSheet,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.circular(TaskExchangeFigmaLayout.cardRadius),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                children: [
-                  Container(
-                    width: 43,
-                    height: 43,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFD9D9D9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        widget.item.childName.isNotEmpty
-                            ? widget.item.childName.characters.first.toUpperCase()
-                            : '?',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.item.childName,
-                    style: const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.item.title,
-                      style: TaskExchangeFigmaLayout.cardTitleStyle,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${widget.item.rewardAmount ?? 0} монет',
-                      style: TaskExchangeFigmaLayout.cardCoinsStyle,
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        hasPhoto ? '1 фо' : '0 фо',
-                        style: TaskExchangeFigmaLayout.metaStyle,
-                      ),
-                      SvgPicture.asset(
-                        'assets/figma/exchange_chevron_right.svg',
-                        width: 16,
-                        height: 16,
-                        colorFilter: const ColorFilter.mode(
-                          TaskExchangeFigmaLayout.metaGray,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
+        child: ExchangeQuestCard(
+          background: widget.background,
+          title: widget.item.title,
+          coins: widget.item.rewardAmount ?? 0,
+          assigneeChildId: widget.item.childId,
+          assigneeName: widget.item.childName,
+          trailing: ExchangeReviewPhotoBadge(photoCount: hasPhoto ? 1 : 0),
         ),
       ),
     );

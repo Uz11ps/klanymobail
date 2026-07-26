@@ -13,6 +13,7 @@ import '../../../core/value_bump.dart';
 import '../quests_repository.dart';
 import 'parent_task_exchange_sections.dart';
 import 'quest_create_figma_sheet.dart';
+import 'exchange_quest_card.dart';
 import 'task_exchange_figma_layout.dart';
 
 /// Биржа задач — Figma 1:1431 / 1:1495 / 1:1569.
@@ -174,8 +175,8 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                             child: Center(
                               child: SvgPicture.asset(
                                 'assets/figma/exchange_fab_plus.svg',
-                                width: context.klanySize(28),
-                                height: context.klanySize(28),
+                                width: context.klanySize(TaskExchangeFigmaLayout.fabPlusSize),
+                                height: context.klanySize(TaskExchangeFigmaLayout.fabPlusSize),
                               ),
                             ),
                           ),
@@ -268,7 +269,8 @@ class _ExchangeNewQuestList extends ConsumerWidget {
             for (final q in list)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _ExchangeQuestCard(
+                child: ExchangeQuestCard(
+                  background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
                   coins: q.rewardAmount,
                   trailing: Text(
@@ -292,8 +294,12 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return FutureBuilder<List<ParentQuestItem>>(
-      future: ref.read(questsRepositoryProvider).getParentQuests(familyId),
+    final repo = ref.read(questsRepositoryProvider);
+    return FutureBuilder<(List<ParentQuestItem>, List<FamilyChildLite>)>(
+      future: Future.wait([
+        repo.getParentQuests(familyId),
+        repo.getFamilyChildren(familyId),
+      ]).then((r) => (r[0] as List<ParentQuestItem>, r[1] as List<FamilyChildLite>)),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -301,7 +307,12 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
         if (snapshot.hasError) {
           return Text('Ошибка: ${snapshot.error}');
         }
-        final list = (snapshot.data ?? const <ParentQuestItem>[])
+        final quests = snapshot.data?.$1 ?? const <ParentQuestItem>[];
+        final children = snapshot.data?.$2 ?? const <FamilyChildLite>[];
+        final namesById = {
+          for (final c in children) c.id: c.displayName,
+        };
+        final list = quests
             .where(
               (q) =>
                   q.status == 'active' &&
@@ -316,23 +327,55 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
             for (final q in list)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _ExchangeQuestCard(
+                child: ExchangeQuestCard(
+                  background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
                   coins: q.rewardAmount,
-                  showAssignee: true,
-                  assigneeLabel: q.childIds.isEmpty ? 'Биржа' : 'Исполнитель',
-                  trailing: Text(
-                    _formatDeadline(q.timeLimitMinutes),
-                    style: context.klanyTextStyle(
-                      TaskExchangeFigmaLayout.deadlineStyle,
-                    ),
-                  ),
+                  assigneeChildId:
+                      q.childIds.isEmpty ? null : q.childIds.first,
+                  assigneeName: q.childIds.isEmpty
+                      ? null
+                      : namesById[q.childIds.first],
+                  trailing: _ExchangeDeadlineLabel(quest: q),
                   coinsStyle: TaskExchangeFigmaLayout.cardCoinsBoldStyle,
                 ),
               ),
           ],
         );
       },
+    );
+  }
+}
+
+class _ExchangeDeadlineLabel extends StatelessWidget {
+  const _ExchangeDeadlineLabel({required this.quest});
+
+  final ParentQuestItem quest;
+
+  @override
+  Widget build(BuildContext context) {
+    final deadline = TaskExchangeFigmaLayout.resolveDeadline(
+      dueAt: quest.dueAt,
+      timeLimitMinutes: quest.timeLimitMinutes,
+      assigneeSince: quest.assigneeSince,
+      createdAt: quest.createdAt,
+    );
+    if (deadline == null) {
+      return Text(
+        'Без срока',
+        style: context.klanyTextStyle(TaskExchangeFigmaLayout.metaStyle),
+      );
+    }
+    final urgent = TaskExchangeFigmaLayout.isDeadlineUrgent(deadline);
+    return Text(
+      TaskExchangeFigmaLayout.remainingLabel(deadline),
+      textAlign: TextAlign.right,
+      style: context.klanyTextStyle(
+        TaskExchangeFigmaLayout.deadlineStyle.copyWith(
+          color: urgent ? TaskExchangeFigmaLayout.deadlineUrgent : Colors.black,
+          fontWeight: urgent ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
     );
   }
 }
@@ -360,100 +403,6 @@ class _ExchangeEmptyState extends StatelessWidget {
   }
 }
 
-class _ExchangeQuestCard extends StatelessWidget {
-  const _ExchangeQuestCard({
-    required this.title,
-    required this.coins,
-    this.trailing,
-    this.showAssignee = false,
-    this.assigneeLabel = '',
-    this.coinsStyle = TaskExchangeFigmaLayout.cardCoinsStyle,
-  });
-
-  final String title;
-  final int coins;
-  final Widget? trailing;
-  final bool showAssignee;
-  final String assigneeLabel;
-  final TextStyle coinsStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    final cardRadius = context.klanySize(TaskExchangeFigmaLayout.cardRadius);
-    final padH = context.klanySize(16);
-    final padTop = context.klanySize(16);
-    final padBottom = context.klanySize(14);
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(padH, padTop, padH, padBottom),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(cardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: context.klanySize(12),
-            offset: Offset(0, context.klanySize(4)),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showAssignee) ...[
-            Column(
-              children: [
-                Container(
-                  width: context.klanySize(43),
-                  height: context.klanySize(43),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFD9D9D9),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(height: context.klanySize(4)),
-                Text(
-                  assigneeLabel,
-                  style: context.klanyTextStyle(
-                    const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(width: context.klanySize(12)),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.klanyTextStyle(
-                    TaskExchangeFigmaLayout.cardTitleStyle,
-                  ),
-                ),
-                SizedBox(height: context.klanySize(8)),
-                Text(
-                  '$coins монет',
-                  style: context.klanyTextStyle(coinsStyle),
-                ),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing!,
-        ],
-      ),
-    );
-  }
-}
-
 String _formatCreated(DateTime dt) {
   final local = dt.toLocal();
   final now = DateTime.now();
@@ -462,11 +411,4 @@ String _formatCreated(DateTime dt) {
   final time = DateFormat('HH:mm').format(local);
   if (isToday) return 'Сегодня, $time';
   return DateFormat('d MMM, HH:mm', 'ru').format(local);
-}
-
-String _formatDeadline(int? minutes) {
-  if (minutes == null || minutes <= 0) return 'Без срока';
-  final h = minutes ~/ 60;
-  final m = minutes % 60;
-  return 'Осталось ${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:00';
 }
