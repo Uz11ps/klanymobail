@@ -26,6 +26,7 @@ import '../../../core/value_bump.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import '../parent_main_bottom_bar.dart';
+import 'parent_family_settings_page.dart';
 
 // Р РѕРґРёС‚РµР»СЊСЃРєРёР№ home: РєР°СЂРєР°СЃ РєР°Рє Сѓ ChildHomePage (SizedBox.expand, LayoutBuilder,
 // IndexedStack + StackFit.expand); РґР°С€Р±РѕСЂРґ вЂ” RefreshIndicator + ListView. Figma 0-81 + API.
@@ -697,7 +698,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
     final bottomPad = 40 +
         MediaQuery.viewPaddingOf(context).bottom +
         24 +
-        _kParentNavPillH +
+        ParentMainBottomBarLayout.pillHeight +
+        16 +
         24;
 
     late final List<Widget> listChildren;
