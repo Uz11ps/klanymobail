@@ -45,6 +45,7 @@ class ShopPurchaseItem {
     required this.status,
     this.avatarObjectKey,
     this.avatarImageUrl,
+    this.productId,
   });
 
   final String id;
@@ -56,6 +57,30 @@ class ShopPurchaseItem {
   final String status;
   final String? avatarObjectKey;
   final String? avatarImageUrl;
+  final String? productId;
+}
+
+/// Заявка ребёнка на покупку в магазине.
+class ChildShopPurchaseItem {
+  ChildShopPurchaseItem({
+    required this.id,
+    required this.productId,
+    required this.productTitle,
+    required this.totalPrice,
+    required this.status,
+    required this.createdAt,
+    this.decidedAt,
+  });
+
+  final String id;
+  final String productId;
+  final String productTitle;
+  final int totalPrice;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? decidedAt;
+
+  bool get isPending => status == 'requested';
 }
 
 bool _parseBool(dynamic raw, {bool defaultIfMissing = false}) {
@@ -206,6 +231,27 @@ class ShopRepository {
       accessToken: token,
       body: <String, dynamic>{'productId': productId, 'quantity': 1},
     );
+  }
+
+  Future<List<ChildShopPurchaseItem>> getChildPurchases() async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/shop/purchases/my', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return ChildShopPurchaseItem(
+        id: row['id'].toString(),
+        productId: row['productId'].toString(),
+        productTitle: (row['productTitle'] ?? '').toString(),
+        totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
+        status: (row['status'] ?? '').toString(),
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        decidedAt: DateTime.tryParse((row['decidedAt'] ?? '').toString()),
+      );
+    }).toList();
   }
 
   Future<List<ShopPurchaseItem>> getPendingPurchases(String familyId) async {

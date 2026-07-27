@@ -13,7 +13,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
-import '../../../core/value_bump.dart';
+import '../../../core/klany_live_poll.dart';
 
 /// Фон карточек по [Figma «Биржа задач» node 0:305+](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-285).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -127,60 +127,39 @@ class ChildQuestsPage extends ConsumerStatefulWidget {
 }
 
 class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   Future<List<ChildQuestAssignmentItem>>? _future;
   String? _assignmentsChildId;
   int _tab = 0; // 0 = Мои задачи, 1 = Биржа
-  Timer? _livePoll;
-
-  void _startLivePollIfNeeded() {
-    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
-      _reload(silent: true);
-    });
-  }
+  bool _reloadInFlight = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _startLivePollIfNeeded();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _livePoll?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _livePoll?.cancel();
-      _livePoll = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startLivePollIfNeeded();
-      Future<void>.microtask(() => _reload(silent: true));
-    }
+  void onKlanyLivePoll({bool silent = true}) {
+    _reload(silent: true);
   }
 
   Future<void> _reload({bool silent = false}) async {
+    if (_reloadInFlight) return;
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
-    final f = ref
-        .read(questsRepositoryProvider)
-        .getChildAssignments(session.childId);
-    if (!silent && mounted) {
-      setState(() {
+    _reloadInFlight = true;
+    try {
+      final f = ref
+          .read(questsRepositoryProvider)
+          .getChildAssignments(session.childId);
+      if (mounted) {
+        setState(() {
+          _assignmentsChildId = session.childId;
+          _future = f;
+        });
+      } else {
         _assignmentsChildId = session.childId;
         _future = f;
-      });
-    } else {
-      _assignmentsChildId = session.childId;
-      _future = f;
-      if (mounted) setState(() {});
+      }
+      await f;
+    } finally {
+      _reloadInFlight = false;
     }
-    await f;
   }
 
   @override

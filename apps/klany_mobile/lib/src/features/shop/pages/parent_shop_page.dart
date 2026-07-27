@@ -15,8 +15,8 @@ import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
-import '../../../core/value_bump.dart';
 
 /// Снизу под плавающий `ParentShopBottomBar` при `extendBody: true`.
 double _shopBodyBottomPadding(BuildContext context) {
@@ -40,23 +40,19 @@ class ParentShopPage extends ConsumerStatefulWidget {
   ConsumerState<ParentShopPage> createState() => _ParentShopPageState();
 }
 
-class _ParentShopPageState extends ConsumerState<ParentShopPage> {
+class _ParentShopPageState extends ConsumerState<ParentShopPage>
+    with KlanyLivePollConsumerMixin {
   late int _tab;
-  Timer? _coinRatePoll;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    ref.invalidate(parentFamilyContextProvider);
+  }
 
   @override
   void initState() {
     super.initState();
     _tab = widget.initialTab.clamp(0, 3);
-    _coinRatePoll = Timer.periodic(kParentLivePollInterval, (_) {
-      ref.invalidate(parentFamilyContextProvider);
-    });
-  }
-
-  @override
-  void dispose() {
-    _coinRatePoll?.cancel();
-    super.dispose();
   }
 
   @override
@@ -118,8 +114,14 @@ class _ParentProductsList extends ConsumerStatefulWidget {
       _ParentProductsListState();
 }
 
-class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
+class _ParentProductsListState extends ConsumerState<_ParentProductsList>
+    with KlanyLivePollConsumerMixin {
   Future<List<ShopProductItem>>? _future;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reload();
+  }
 
   @override
   void didChangeDependencies() {
@@ -324,37 +326,43 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList> {
                 parent: ClampingScrollPhysics(),
               ),
               padding: EdgeInsets.fromLTRB(
-                19,
+                context.klanySize(19),
                 0,
-                19,
+                context.klanySize(19),
                 _shopBodyBottomPadding(context),
               ),
               children: [
                 ParentScreenHeader(
                   title: 'Магазин товаров',
                   onBack: widget.onBack,
-                  padding: ParentScreenHeaderLayout.paddingInInset,
+                  padding: ParentScreenHeaderLayout.paddingInInset.copyWith(
+                    top: context.klanySize(10),
+                    bottom: context.klanySize(4),
+                  ),
                 ),
-                const SizedBox(height: 17),
+                SizedBox(height: context.klanySize(6)),
                 if (snapshot.connectionState == ConnectionState.waiting)
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
+                  Padding(
+                    padding: EdgeInsets.all(context.klanySize(24)),
+                    child: const Center(child: CircularProgressIndicator()),
                   ),
                 if (snapshot.hasError)
                   ChildSoftCard(
                     color: kBrandRose,
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(context.klanySize(12)),
                     child: Text('Ошибка: ${snapshot.error}'),
                   ),
                 if (products.isEmpty &&
                     snapshot.connectionState != ConnectionState.waiting)
                   ChildSoftCard(
                     color: kBrandLavender,
-                    padding: const EdgeInsets.all(16),
-                    child: const Text(
+                    padding: EdgeInsets.all(context.klanySize(12)),
+                    child: Text(
                       'Товаров пока нет — добавь первый!',
-                      style: TextStyle(color: kChildInk, fontSize: 14),
+                      style: TextStyle(
+                        color: kChildInk,
+                        fontSize: context.klanySize(14),
+                      ),
                     ),
                   ),
                 ...products.map(
@@ -386,74 +394,83 @@ class _FigmaProductCard extends ConsumerWidget {
         ? Colors.black
         : Colors.black.withValues(alpha: 0.45);
     final iconAsset = shopProductResolvedIcon(product).asset;
+    final cardRadius = context.klanySize(18);
+    final thumbSize = context.klanySize(52);
+    final padH = context.klanySize(10);
+    final padV = context.klanySize(8);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: context.klanySize(6)),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(cardRadius),
           child: Container(
-            height: 118,
             width: double.infinity,
             decoration: BoxDecoration(
               color: const Color(0xFFD8CBF7),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(cardRadius),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFD8CBF7).withValues(alpha: 0.35),
-                  blurRadius: 50,
-                  offset: const Offset(0, 20),
+                  color: const Color(0xFFD8CBF7).withValues(alpha: 0.28),
+                  blurRadius: context.klanySize(24),
+                  offset: Offset(0, context.klanySize(8)),
                 ),
                 BoxShadow(
-                  color: const Color(0xFFB3A5D3).withValues(alpha: 0.35),
-                  blurRadius: 20,
-                  offset: const Offset(0, 13),
+                  color: const Color(0xFFB3A5D3).withValues(alpha: 0.2),
+                  blurRadius: context.klanySize(12),
+                  offset: Offset(0, context.klanySize(5)),
                 ),
               ],
             ),
             foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(cardRadius),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.06),
+                  Colors.black.withValues(alpha: 0.05),
                   Colors.transparent,
-                  Colors.white.withValues(alpha: 0.18),
+                  Colors.white.withValues(alpha: 0.14),
                 ],
                 stops: const [0, 0.42, 1],
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 78,
-                  height: 86,
+                  width: thumbSize,
+                  height: thumbSize,
                   child: Center(
                     child: (product.imageUrl ?? '').isNotEmpty
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius:
+                                BorderRadius.circular(context.klanySize(14)),
                             child: ShopProductCachedImage(
                               imageUrl: product.imageUrl!,
                               productId: product.id,
                               imageStorageKey: product.imagePath,
-                              width: 76,
-                              height: 76,
+                              width: thumbSize,
+                              height: thumbSize,
                               fit: BoxFit.cover,
                               errorIconAsset: iconAsset,
-                              iconSize: 76,
+                              iconSize: thumbSize,
                             ),
                           )
-                        : ShopProductIconSvg(asset: iconAsset, size: 76),
+                        : ShopProductIconSvg(
+                            asset: iconAsset,
+                            size: thumbSize,
+                          ),
                   ),
                 ),
-                const SizedBox(width: 11),
+                SizedBox(width: context.klanySize(10)),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         product.title.trim().isEmpty
@@ -461,22 +478,17 @@ class _FigmaProductCard extends ConsumerWidget {
                             : product.title.trim(),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: titleColor,
-                          height: 0.92,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              offset: const Offset(0, 4),
-                              blurRadius: 4,
-                            ),
-                          ],
+                        style: context.klanyTextStyle(
+                          TextStyle(
+                            fontFamily: 'Nunito',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: titleColor,
+                            height: 1.1,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: context.klanySize(4)),
                       RichText(
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -489,16 +501,20 @@ class _FigmaProductCard extends ConsumerWidget {
                           children: [
                             TextSpan(
                               text: '${product.price} монет ',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
+                              style: context.klanyTextStyle(
+                                const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             TextSpan(
                               text: '($rubles ₽)',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
+                              style: context.klanyTextStyle(
+                                const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
                             ),
                           ],
@@ -905,8 +921,14 @@ class _ParentPurchasesQueue extends ConsumerStatefulWidget {
       _ParentPurchasesQueueState();
 }
 
-class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue> {
+class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue>
+    with KlanyLivePollConsumerMixin {
   Future<List<ShopPurchaseItem>>? _future;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reload();
+  }
 
   @override
   void didChangeDependencies() {

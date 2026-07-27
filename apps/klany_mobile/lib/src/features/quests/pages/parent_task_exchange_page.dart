@@ -9,7 +9,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/parent_main_bottom_bar.dart';
 import '../../home/parent_screen_header.dart';
-import '../../../core/value_bump.dart';
+import '../../../core/klany_live_poll.dart';
 import '../quests_repository.dart';
 import 'parent_task_exchange_sections.dart';
 import 'quest_create_figma_sheet.dart';
@@ -37,23 +37,19 @@ class ParentTaskExchangePage extends ConsumerStatefulWidget {
       _ParentTaskExchangePageState();
 }
 
-class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage> {
+class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
+    with KlanyLivePollConsumerMixin {
   late int _segment;
-  Timer? _poll;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
     _segment = widget.initialSegment.clamp(0, 2);
-    _poll = Timer.periodic(kParentLivePollInterval, (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _poll?.cancel();
-    super.dispose();
   }
 
   @override
@@ -68,7 +64,10 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
     final family = ref.read(parentFamilyContextProvider).asData?.value;
     if (family == null) return;
     await showQuestCreateFigmaSheet(context, familyId: family.familyId);
-    if (mounted) setState(() {});
+    if (mounted) {
+      klanyLivePollBump(ref);
+      setState(() {});
+    }
   }
 
   @override
@@ -100,13 +99,19 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                         ParentScreenHeader(
                           title: 'Биржа',
                           onBack: widget.onBack,
+                          padding: EdgeInsets.fromLTRB(
+                            listHMargin,
+                            context.klanySize(10),
+                            listHMargin,
+                            context.klanySize(4),
+                          ),
                         ),
                         Padding(
                           padding: EdgeInsets.fromLTRB(
                             listHMargin,
-                            context.klanySize(8),
+                            context.klanySize(4),
                             listHMargin,
-                            context.klanySize(12),
+                            context.klanySize(8),
                           ),
                           child: _ExchangeTabBar(
                             segment: _segment,
@@ -350,7 +355,9 @@ class _ExchangeNewQuestList extends ConsumerWidget {
           children: [
             for (final q in list)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(
+                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
+                ),
                 child: ExchangeQuestCard(
                   background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
@@ -402,7 +409,9 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
           children: [
             for (final q in list)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(
+                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
+                ),
                 child: ExchangeQuestCard(
                   background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
@@ -460,7 +469,7 @@ class _ExchangeEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.32,
+      height: MediaQuery.sizeOf(context).height * 0.2,
       child: Center(
         child: Text(
           message,

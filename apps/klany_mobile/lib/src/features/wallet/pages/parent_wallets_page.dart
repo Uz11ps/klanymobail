@@ -5,6 +5,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 
 class ParentWalletsPage extends ConsumerStatefulWidget {
   const ParentWalletsPage({super.key});
@@ -13,11 +14,17 @@ class ParentWalletsPage extends ConsumerStatefulWidget {
   ConsumerState<ParentWalletsPage> createState() => _ParentWalletsPageState();
 }
 
-class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage> {
+class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage>
+    with KlanyLivePollConsumerMixin {
   List<ParentChildWalletItem> _items = const [];
   bool _loading = true;
   Object? _error;
   bool _familyListenerAttached = false;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _loadWallets(silent: silent);
+  }
 
   @override
   void initState() {
@@ -42,7 +49,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage> {
     }
   }
 
-  Future<void> _loadWallets() async {
+  Future<void> _loadWallets({bool silent = false}) async {
     final family = ref.read(parentFamilyContextProvider).asData?.value;
     if (family == null) {
       if (mounted) {
@@ -53,7 +60,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage> {
       }
       return;
     }
-    if (mounted) {
+    if (mounted && !silent) {
       setState(() {
         _loading = true;
         _error = null;

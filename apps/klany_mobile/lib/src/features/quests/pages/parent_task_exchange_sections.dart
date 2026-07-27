@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../quests_repository.dart';
 import 'exchange_quest_card.dart';
 import 'task_exchange_figma_layout.dart';
@@ -16,8 +17,14 @@ class ParentTaskExchangeReviewList extends ConsumerStatefulWidget {
 }
 
 class _ParentTaskExchangeReviewListState
-    extends ConsumerState<ParentTaskExchangeReviewList> {
+    extends ConsumerState<ParentTaskExchangeReviewList>
+    with KlanyLivePollConsumerMixin {
   Future<List<ParentReviewItem>>? _future;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reload();
+  }
 
   void _reload() {
     setState(() {
@@ -49,7 +56,7 @@ class _ParentTaskExchangeReviewListState
         final list = snapshot.data ?? const <ParentReviewItem>[];
         if (list.isEmpty) {
           return SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.32,
+            height: MediaQuery.sizeOf(context).height * 0.2,
             child: const Center(
               child: Text(
                 'Нет заявок на проверку',
@@ -63,7 +70,9 @@ class _ParentTaskExchangeReviewListState
           children: [
             for (final item in list)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(
+                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
+                ),
                 child: _ExchangeReviewCard(
                   item: item,
                   background: TaskExchangeFigmaLayout.cardColorForKey(item.questId),

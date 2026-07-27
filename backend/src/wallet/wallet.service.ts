@@ -48,11 +48,17 @@ export class WalletService {
     const completedQuestsCount = await this.prisma.questAssignee.count({
       where: { childId: user.childId, status: "approved" },
     });
+    const shopPendingAgg = await this.prisma.shopPurchase.aggregate({
+      where: { childId: user.childId, status: "requested" },
+      _sum: { frozenAmount: true },
+    });
+    const shopFrozenAmount = Math.trunc(Number(shopPendingAgg._sum.frozenAmount ?? 0));
     return {
       walletId: wallet.id,
       balance: wallet.balance,
       goalAmount,
       completedQuestsCount,
+      shopFrozenAmount,
     };
   }
 

@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../auth/child_session.dart';
 import '../wallet/pages/child_wallet_page.dart';
 import '../wallet/wallet_repository.dart';
-import '../../core/value_bump.dart';
+import '../../core/klany_live_poll.dart';
 import 'avatar_store.dart';
 import 'child_soft_ui.dart';
 import 'presigned_member_avatar.dart';
@@ -79,6 +79,8 @@ class ChildDashboardProfileCard extends ConsumerStatefulWidget {
     this.displayNameWhenEmpty = 'Участник',
     this.onAvatarTap,
     this.openWalletOnTap = true,
+    this.balanceOverride,
+    this.shopFrozenAmountOverride,
   });
 
   final int completedCount;
@@ -91,6 +93,10 @@ class ChildDashboardProfileCard extends ConsumerStatefulWidget {
   /// На главном экране карточка не открывает кошелёк целиком (аватар отдельно).
   final bool openWalletOnTap;
 
+  /// Актуальный баланс с родительского экрана (магазин и т.д.).
+  final int? balanceOverride;
+  final int? shopFrozenAmountOverride;
+
   @override
   ConsumerState<ChildDashboardProfileCard> createState() =>
       _ChildDashboardProfileCardState();
@@ -98,40 +104,13 @@ class ChildDashboardProfileCard extends ConsumerStatefulWidget {
 
 class _ChildDashboardProfileCardState
     extends ConsumerState<ChildDashboardProfileCard>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   String? _walletMemoChildId;
   Future<WalletSummary?>? _walletFuture;
-  Timer? _walletPoll;
-
-  void _startWalletPollIfNeeded() {
-    _walletPoll ??= Timer.periodic(kChildLivePollInterval, (_) {
-      _reloadWallet(silent: true);
-    });
-  }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _startWalletPollIfNeeded();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _walletPoll?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _walletPoll?.cancel();
-      _walletPoll = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startWalletPollIfNeeded();
-      _reloadWallet(silent: true);
-    }
+  void onKlanyLivePoll({bool silent = true}) {
+    _reloadWallet(silent: true);
   }
 
   Future<WalletSummary?> _walletFutureForSession(ChildSession? session) {
@@ -259,7 +238,11 @@ class _ChildDashboardProfileCardState
     return FutureBuilder<WalletSummary?>(
       future: _walletFutureForSession(session),
       builder: (context, walletSnap) {
-        final balance = walletSnap.data?.balance ?? 0;
+        final balance =
+            widget.balanceOverride ?? walletSnap.data?.balance ?? 0;
+        final frozen = widget.shopFrozenAmountOverride ??
+            walletSnap.data?.shopFrozenAmount ??
+            0;
         final completed = walletSnap.data?.completedQuestsCount ??
             widget.completedCount;
 
@@ -301,6 +284,19 @@ class _ChildDashboardProfileCardState
                         color: Colors.black.withValues(alpha: 0.5),
                       ),
                     ),
+                    if (frozen > 0) ...[
+                      SizedBox(height: 4 * layoutScale),
+                      Text(
+                        'Заморожено: $frozen монет',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _profileNunito(
+                          fontSize: 12 * layoutScale,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF8B5E00),
+                        ),
+                      ),
+                    ],
                     SizedBox(height: 6 * layoutScale),
                     ConstrainedBox(
                       constraints: BoxConstraints(

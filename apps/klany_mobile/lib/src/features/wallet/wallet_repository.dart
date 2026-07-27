@@ -15,6 +15,7 @@ class WalletSummary {
     required this.balance,
     this.goalAmount = 10000,
     this.completedQuestsCount = 0,
+    this.shopFrozenAmount = 0,
   });
 
   final String walletId;
@@ -23,6 +24,8 @@ class WalletSummary {
   final int goalAmount;
   /// Число одобренных квестов (бекенд не отдаёт их в `/quests/child/assignments`).
   final int completedQuestsCount;
+  /// Монеты, замороженные под заявки в магазине (status `requested`).
+  final int shopFrozenAmount;
 }
 
 class WalletTxItem {
@@ -77,6 +80,7 @@ class WalletRepository {
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
       completedQuestsCount:
           (data['completedQuestsCount'] as num?)?.toInt() ?? 0,
+      shopFrozenAmount: (data['shopFrozenAmount'] as num?)?.toInt() ?? 0,
     );
   }
 

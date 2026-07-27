@@ -8,9 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/app_snackbar.dart';
-import '../../../core/value_bump.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../auth/child_session.dart';
-import '../../auth/child_pin_store.dart';
 import '../../auth/device_identity.dart';
 import '../../notifications/fcm.dart';
 import '../../notifications/notifications_repository.dart';
@@ -248,43 +247,21 @@ class _ChildHomeDashboard extends ConsumerStatefulWidget {
 }
 
 class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   bool _initialLoading = true;
   bool _refreshing = false;
   Object? _loadError;
   _OverviewModel? _model;
-  Timer? _refreshTimer;
 
-  void _startRefreshTimerIfNeeded() {
-    _refreshTimer ??= Timer.periodic(kChildLivePollInterval, (_) {
-      _load(silent: true);
-    });
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _load(silent: true);
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _load(showSpinner: true);
-    _startRefreshTimerIfNeeded();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _refreshTimer?.cancel();
-      _refreshTimer = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startRefreshTimerIfNeeded();
-      Future<void>.microtask(() => _load(silent: true));
-    }
   }
 
   Future<_OverviewModel> _fetch(String childId) async {
@@ -1119,19 +1096,6 @@ class _ChildAccountSheet extends ConsumerStatefulWidget {
 class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
   Future<String?>? _authCodeFuture;
   String? _authCodeToken;
-  late Future<bool> _pinFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _pinFuture = ChildPinStore.hasPin();
-  }
-
-  void _refreshPinFuture() {
-    setState(() {
-      _pinFuture = ChildPinStore.hasPin();
-    });
-  }
 
   Future<String?> _authCode(String accessToken) {
     return ref
@@ -1148,100 +1112,6 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
     await OnboardingStore.setChildTourSeen();
   }
 
-  Future<void> _changePin() async {
-    final pinCtl = TextEditingController();
-    final confirmCtl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('PIN-код ребёнка'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: pinCtl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Новый PIN (6 цифр)',
-                counterText: '',
-              ),
-            ),
-            TextField(
-              controller: confirmCtl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Повторите PIN',
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.of(ctx).pop(false),
-              onConfirm: () => Navigator.of(ctx).pop(true),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return;
-
-    final pin = pinCtl.text.trim();
-    final confirm = confirmCtl.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-      if (!mounted) return;
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('PIN должен состоять из 6 цифр')),
-      );
-      return;
-    }
-    if (pin != confirm) {
-      if (!mounted) return;
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('PIN-коды не совпадают')),
-      );
-      return;
-    }
-
-    await ChildPinStore.setPin(pin);
-    if (!mounted) return;
-    _refreshPinFuture();
-    context.showKlanySnackBar(const SnackBar(content: Text('PIN сохранён')));
-  }
-
-  Future<void> _dropPin() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Сброс PIN'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Удалить PIN-код для быстрого входа ребёнка?'),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.of(ctx).pop(false),
-              onConfirm: () => Navigator.of(ctx).pop(true),
-              confirmLabel: 'Удалить',
-              confirmGradient:
-                  FigmaDialogActionStack.destructiveGradientVertical,
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return;
-    await ChildPinStore.clear();
-    if (!mounted) return;
-    _refreshPinFuture();
-    context.showKlanySnackBar(const SnackBar(content: Text('PIN удалён')));
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
@@ -1251,62 +1121,44 @@ class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
       _authCodeFuture = _authCode(token);
     }
 
-    return FutureBuilder<bool>(
-      future: _pinFuture,
-      builder: (context, snap) {
-        final hasPin = snap.data ?? false;
-        return SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ListTile(
-                leading: Icon(Icons.info),
-                title: Text('Аккаунт'),
-                subtitle: Text('Ребёнок / доступ по подтверждению'),
-              ),
-              FutureBuilder<String?>(
-                future: _authCodeFuture,
-                builder: (context, codeSnap) {
-                  final code = codeSnap.data ?? '------';
-                  return ListTile(
-                    leading: const Icon(Icons.vpn_key),
-                    title: const Text('Код входа ребёнка'),
-                    subtitle: Text(
-                      '$code\nИспользуйте этот код для входа с другого телефона.',
-                    ),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.pin),
-                title: Text(hasPin ? 'Сменить PIN-код' : 'Установить PIN-код'),
-                subtitle: const Text('6 цифр для быстрого входа ребёнка'),
-                onTap: _changePin,
-              ),
-              if (hasPin)
-                ListTile(
-                  leading: const Icon(Icons.lock_reset),
-                  title: const Text('Сбросить PIN-код'),
-                  onTap: _dropPin,
-                ),
-              ListTile(
-                leading: const Icon(Icons.school),
-                title: const Text('Показать обучение снова'),
-                onTap: _tourAgain,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Выйти'),
-                onTap: widget.onSignOut,
-              ),
-              const SizedBox(height: 8),
-            ],
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ListTile(
+            leading: Icon(Icons.info),
+            title: Text('Аккаунт'),
+            subtitle: Text('Ребёнок / доступ по подтверждению'),
           ),
-        );
-      },
+          FutureBuilder<String?>(
+            future: _authCodeFuture,
+            builder: (context, codeSnap) {
+              final code = codeSnap.data ?? '------';
+              return ListTile(
+                leading: const Icon(Icons.vpn_key),
+                title: const Text('Код входа ребёнка'),
+                subtitle: Text(
+                  '$code\nИспользуйте этот код для входа с другого телефона.',
+                ),
+              );
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.school),
+            title: const Text('Показать обучение снова'),
+            onTap: _tourAgain,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Выйти'),
+            onTap: widget.onSignOut,
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

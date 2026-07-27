@@ -53,6 +53,12 @@ export class ShopController {
     return this.shop.requestPurchase(req.user, body.productId, body.quantity ?? 1);
   }
 
+  @Get("shop/purchases/my")
+  @Roles("child")
+  async myPurchases(@Req() req: any) {
+    return this.shop.listChildPurchases(req.user);
+  }
+
   @Get("shop/purchases/pending")
   @Roles("parent", "admin")
   async pending(@Req() req: any) {

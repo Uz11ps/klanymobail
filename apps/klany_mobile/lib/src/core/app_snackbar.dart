@@ -148,6 +148,11 @@ String userFriendlyErrorMessage(Object? error) {
     return 'Не удалось создать код. Попробуйте ещё раз.';
   }
 
+  if (lower.contains('заявка на этот товар уже отправлена') ||
+      lower.contains('already') && lower.contains('pending')) {
+    return 'Заявка на этот товар уже отправлена и ждёт решения родителя.';
+  }
+
   if (lower.startsWith('ошибка')) {
     return 'Не получилось выполнить действие. Попробуйте ещё раз.';
   }

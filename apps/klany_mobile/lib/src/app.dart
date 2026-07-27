@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/api_client.dart';
+import 'core/klany_live_poll.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
 import 'features/auth/auth_actions.dart';
@@ -47,6 +48,7 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    ref.watch(klanyLiveTickProvider);
 
     return MaterialApp.router(
       title: 'Clan Capital',

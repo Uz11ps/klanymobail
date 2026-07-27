@@ -144,6 +144,18 @@ export class ShopService {
     const total = product.price * quantity;
     if (wallet.balance < total) throw new BadRequestException("Недостаточно средств");
 
+    const existingPending = await this.prisma.shopPurchase.findFirst({
+      where: {
+        childId: user.childId,
+        productId: product.id,
+        status: "requested",
+      },
+      select: { id: true },
+    });
+    if (existingPending) {
+      throw new BadRequestException("Заявка на этот товар уже отправлена и ждёт решения родителя");
+    }
+
     const childProfile = await this.prisma.child.findUnique({
       where: { id: user.childId },
       select: { firstName: true, lastName: true, avatarObjectKey: true },
@@ -216,6 +228,29 @@ export class ShopService {
     );
 
     return { purchaseId: purchase.id };
+  }
+
+  async listChildPurchases(user: ChildUser) {
+    const rows = await this.prisma.shopPurchase.findMany({
+      where: {
+        childId: user.childId,
+        status: { in: ["requested", "approved", "rejected"] },
+      },
+      orderBy: { createdAt: "desc" },
+      include: { product: true },
+      take: 50,
+    });
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        productTitle: r.product.title,
+        totalPrice: r.totalPrice,
+        status: r.status,
+        createdAt: r.createdAt,
+        decidedAt: r.decidedAt,
+      })),
+    };
   }
 
   async listPending(user: ParentUser) {

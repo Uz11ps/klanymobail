@@ -22,6 +22,7 @@ import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
 import '../../../core/value_bump.dart';
 import '../avatar_store.dart';
@@ -53,11 +54,16 @@ class ParentHomePage extends ConsumerStatefulWidget {
   ConsumerState<ParentHomePage> createState() => _ParentHomePageState();
 }
 
-class _ParentHomePageState extends ConsumerState<ParentHomePage> {
+class _ParentHomePageState extends ConsumerState<ParentHomePage>
+    with KlanyLivePollConsumerMixin {
   int _index = 0;
   int _registerAttempts = 0;
   int _pendingRequestsCount = 0;
-  Timer? _pendingRequestsTimer;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _refreshPendingRequests();
+  }
 
   String _platformName() {
     if (kIsWeb) return 'web';
@@ -83,10 +89,6 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
     _registerDevice();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTour());
     _refreshPendingRequests();
-    _pendingRequestsTimer = Timer.periodic(
-      kParentLivePollInterval,
-      (_) => _refreshPendingRequests(),
-    );
   }
 
   Future<void> _maybeShowTour() async {
@@ -98,12 +100,6 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
       steps: parentTourSteps,
     );
     await OnboardingStore.setParentTourSeen();
-  }
-
-  @override
-  void dispose() {
-    _pendingRequestsTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _refreshPendingRequests() async {
@@ -271,7 +267,7 @@ class _ParentDashboardView extends ConsumerStatefulWidget {
 }
 
 class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   bool _initialLoading = true;
   bool _refreshing = false;
   Object? _loadError;
@@ -280,39 +276,16 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
   List<ParentReviewItem> _reviews = const [];
   List<ParentQuestItem> _quests = const [];
   List<InAppNotificationItem> _notifications = const [];
-  Timer? _refreshTimer;
 
-  void _startRefreshTimerIfNeeded() {
-    _refreshTimer ??= Timer.periodic(
-      kParentLivePollInterval,
-      (_) => _reload(silent: true),
-    );
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reload(silent: true);
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _reload(showLoading: true);
-    _startRefreshTimerIfNeeded();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _refreshTimer?.cancel();
-      _refreshTimer = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startRefreshTimerIfNeeded();
-      Future<void>.microtask(() => _reload(silent: true));
-    }
   }
 
   String _dashboardFeedDigest() {

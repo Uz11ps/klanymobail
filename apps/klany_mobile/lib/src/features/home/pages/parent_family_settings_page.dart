@@ -23,6 +23,7 @@ import 'document_page.dart';
 import 'parent_account_edit_dialog.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
 
 const Color _figmaSettingsMint = Color(0xFFD9F6C2);
@@ -227,7 +228,8 @@ class ParentFamilySettingsPage extends ConsumerStatefulWidget {
 }
 
 class _ParentFamilySettingsPageState
-    extends ConsumerState<ParentFamilySettingsPage> {
+    extends ConsumerState<ParentFamilySettingsPage>
+    with KlanyLivePollConsumerMixin {
   final _memberName = TextEditingController();
   final _inviteEmail = TextEditingController();
   final _promoCode = TextEditingController();
@@ -242,6 +244,15 @@ class _ParentFamilySettingsPageState
   String? _subscriptionsFamilyId;
   /// Обновляет FutureBuilder родителей/детей после PATCH профиля.
   int _familyRosterNonce = 0;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    final fid = ref.read(parentFamilyContextProvider).asData?.value?.familyId;
+    if (fid != null) {
+      _reloadFamilySubscriptions(fid);
+    }
+    setState(() => _familyRosterNonce++);
+  }
 
   void _reloadFamilySubscriptions(String familyId) {
     setState(() {

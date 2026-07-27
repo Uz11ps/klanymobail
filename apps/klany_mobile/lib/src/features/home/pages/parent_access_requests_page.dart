@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../auth/parent_access_repository.dart';
 import '../child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 
 class ParentAccessRequestsPage extends ConsumerStatefulWidget {
   const ParentAccessRequestsPage({super.key});
@@ -107,15 +108,22 @@ class _PendingRequestsBody extends ConsumerStatefulWidget {
       _PendingRequestsBodyState();
 }
 
-class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody> {
+class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody>
+    with KlanyLivePollConsumerMixin {
   Future<List<ChildAccessRequestItem>>? _requestsFuture;
-  Timer? _pollTimer;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reloadRequests();
+  }
 
   void _reloadRequests() {
     final fut = ref
         .read(parentAccessRepositoryProvider)
         .getPendingRequests(widget.family.familyId);
-    setState(() => _requestsFuture = fut);
+    setState(() {
+      _requestsFuture = fut;
+    });
   }
 
   @override
@@ -125,16 +133,6 @@ class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody> {
         .read(parentAccessRepositoryProvider)
         .getPendingRequests(widget.family.familyId);
     _requestsFuture = fut;
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!mounted) return;
-      _reloadRequests();
-    });
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    super.dispose();
   }
 
   @override
@@ -144,7 +142,9 @@ class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody> {
       final fut = ref
           .read(parentAccessRepositoryProvider)
           .getPendingRequests(widget.family.familyId);
-      setState(() => _requestsFuture = fut);
+      setState(() {
+        _requestsFuture = fut;
+      });
       return;
     }
     if (oldWidget.busy && !widget.busy) {

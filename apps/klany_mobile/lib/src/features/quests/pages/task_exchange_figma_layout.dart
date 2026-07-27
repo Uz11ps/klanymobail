@@ -12,11 +12,15 @@ abstract final class TaskExchangeFigmaLayout {
   static const EdgeInsets tabsPad = EdgeInsets.fromLTRB(19, 8, 19, 12);
   static const EdgeInsets listPad = EdgeInsets.fromLTRB(19, 0, 19, 100);
 
-  static const double tabHeight = 54;
-  static const double tabRadius = 40;
-  static const double tabGap = 10;
-  static const double cardRadius = 19;
-  static const double fabHitSize = 64;
+  static const double tabHeight = 44;
+  static const double tabRadius = 32;
+  static const double tabGap = 8;
+  static const double cardRadius = 16;
+  static const double cardListGap = 6;
+  static const double cardPadH = 12;
+  static const double cardPadV = 8;
+  static const double assigneeAvatarSize = 38;
+  static const double fabHitSize = 56;
   static const double fabPlusSize = 20;
   static const Color fabFill = Color(0xFF4563B1);
 
@@ -31,44 +35,45 @@ abstract final class TaskExchangeFigmaLayout {
       cardPalette[key.hashCode.abs() % cardPalette.length];
 
   static List<BoxShadow> cardShadows(Color bg, {double scale = 1}) {
+    final s = scale * 0.72;
     if (bg == cardMint) {
       return [
         BoxShadow(
-          color: const Color.fromRGBO(222, 247, 203, 0.35),
-          blurRadius: 50 * scale,
-          offset: Offset(0, 20 * scale),
+          color: const Color.fromRGBO(222, 247, 203, 0.28),
+          blurRadius: 24 * s,
+          offset: Offset(0, 8 * s),
         ),
         BoxShadow(
-          color: const Color.fromRGBO(173, 211, 165, 0.35),
-          blurRadius: 20 * scale,
-          offset: Offset(0, 13 * scale),
+          color: const Color.fromRGBO(173, 211, 165, 0.22),
+          blurRadius: 12 * s,
+          offset: Offset(0, 5 * s),
         ),
       ];
     }
     if (bg == cardLavender) {
       return [
         BoxShadow(
-          color: const Color.fromRGBO(216, 203, 247, 0.35),
-          blurRadius: 50 * scale,
-          offset: Offset(0, 20 * scale),
+          color: const Color.fromRGBO(216, 203, 247, 0.28),
+          blurRadius: 24 * s,
+          offset: Offset(0, 8 * s),
         ),
         BoxShadow(
-          color: const Color.fromRGBO(179, 165, 211, 0.35),
-          blurRadius: 20 * scale,
-          offset: Offset(0, 13 * scale),
+          color: const Color.fromRGBO(179, 165, 211, 0.22),
+          blurRadius: 12 * s,
+          offset: Offset(0, 5 * s),
         ),
       ];
     }
     return [
       BoxShadow(
-        color: const Color.fromRGBO(193, 220, 255, 0.35),
-        blurRadius: 50 * scale,
-        offset: Offset(0, 20 * scale),
+        color: const Color.fromRGBO(193, 220, 255, 0.28),
+        blurRadius: 24 * s,
+        offset: Offset(0, 8 * s),
       ),
       BoxShadow(
-        color: const Color.fromRGBO(191, 219, 255, 0.35),
-        blurRadius: 20 * scale,
-        offset: Offset(0, 10 * scale),
+        color: const Color.fromRGBO(191, 219, 255, 0.22),
+        blurRadius: 12 * s,
+        offset: Offset(0, 5 * s),
       ),
     ];
   }
@@ -77,62 +82,66 @@ abstract final class TaskExchangeFigmaLayout {
 
   static const TextStyle tabActiveStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: FontWeight.w700,
     color: Colors.black,
+    height: 1.05,
   );
 
   static const TextStyle tabIdleStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: FontWeight.w400,
     color: Colors.black,
+    height: 1.05,
   );
 
   static const TextStyle cardTitleStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: FontWeight.w700,
     color: Colors.black,
-    height: 1.25,
+    height: 1.2,
   );
 
   static const TextStyle cardCoinsStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w500,
     color: Colors.black,
+    height: 1.1,
   );
 
   static const TextStyle cardCoinsBoldStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: Colors.black,
+    height: 1.1,
   );
 
   static const TextStyle metaStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     color: metaGray,
-    height: 1.2,
+    height: 1.1,
   );
 
   static const TextStyle deadlineHeadStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: FontWeight.w500,
     color: metaGray,
-    height: 1.15,
+    height: 1.05,
   );
 
   static const TextStyle deadlineTimeStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: FontWeight.w600,
     color: Colors.black,
-    height: 1.15,
+    height: 1.05,
   );
 
   static const Color deadlineUrgent = Color(0xFF8B1A1A);

@@ -11,6 +11,7 @@ import '../../wallet/family_economy.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
 import '../../home/parent_screen_header.dart';
 import 'economy_figma_layout.dart';
@@ -33,27 +34,23 @@ class ParentQuestsPage extends ConsumerStatefulWidget {
   ConsumerState<ParentQuestsPage> createState() => _ParentQuestsPageState();
 }
 
-class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage> {
+class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
+    with KlanyLivePollConsumerMixin {
   int _selectedWallet = -1;
   List<ParentChildWalletItem> _wallets = const [];
 
   bool _walletsListenerSet = false;
-  Timer? _economyPoll;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _loadWallets();
+    ref.invalidate(parentFamilyContextProvider);
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadWallets());
-    _economyPoll = Timer.periodic(kParentLivePollInterval, (_) {
-      _loadWallets();
-      ref.invalidate(parentFamilyContextProvider);
-    });
-  }
-
-  @override
-  void dispose() {
-    _economyPoll?.cancel();
-    super.dispose();
   }
 
   @override

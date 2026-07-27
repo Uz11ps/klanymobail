@@ -11,7 +11,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
 import '../../../core/app_snackbar.dart';
-import '../../../core/value_bump.dart';
+import '../../../core/klany_live_poll.dart';
 
 /// Зелёный / красный сумм в ленте — как в Figma (node 0:522).
 const _kTxGreen = Color(0xFF6FFF00);
@@ -102,42 +102,15 @@ class ChildWalletPage extends ConsumerStatefulWidget {
 }
 
 class _ChildWalletPageState extends ConsumerState<ChildWalletPage>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   String? _memoChildId;
   Future<WalletSummary?>? _walletFuture;
   String? _memoWalletIdForTx;
   Future<List<WalletTxItem>>? _txFuture;
-  Timer? _livePoll;
-
-  void _startLivePollIfNeeded() {
-    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
-      _reloadWallet(silent: true);
-    });
-  }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _startLivePollIfNeeded();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _livePoll?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _livePoll?.cancel();
-      _livePoll = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startLivePollIfNeeded();
-      Future<void>.microtask(() => _reloadWallet(silent: true));
-    }
+  void onKlanyLivePoll({bool silent = true}) {
+    _reloadWallet(silent: true);
   }
 
   void _reloadWallet({bool silent = false}) {

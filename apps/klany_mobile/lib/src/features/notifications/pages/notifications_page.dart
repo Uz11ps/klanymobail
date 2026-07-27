@@ -13,6 +13,7 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
 
 bool _ruFemaleNameHint(String name) {
@@ -88,12 +89,17 @@ class _NotificationsInteractiveContent extends ConsumerStatefulWidget {
 }
 
 class _NotificationsInteractiveContentState
-    extends ConsumerState<_NotificationsInteractiveContent> {
+    extends ConsumerState<_NotificationsInteractiveContent>
+    with KlanyLivePollConsumerMixin {
   _NotificationsHubSnapshot? _hub;
   bool _initialLoading = true;
   Object? _loadError;
   bool _refreshInProgress = false;
-  Timer? _livePoll;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    Future<void>.microtask(_silentPoll);
+  }
 
   Future<_NotificationsHubSnapshot> _fetchHub(String familyId) async {
     final notifications = await ref
@@ -270,15 +276,6 @@ class _NotificationsInteractiveContentState
   void initState() {
     super.initState();
     Future<void>.microtask(_bootstrap);
-    _livePoll = Timer.periodic(kParentLivePollInterval, (_) {
-      Future<void>.microtask(_silentPoll);
-    });
-  }
-
-  @override
-  void dispose() {
-    _livePoll?.cancel();
-    super.dispose();
   }
 
   @override

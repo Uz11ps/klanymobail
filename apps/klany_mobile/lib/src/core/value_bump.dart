@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 /// блок «Экономика» родителя, экраны ребёнка). Не ниже разумной нагрузки на API.
 const Duration kParentLivePollInterval = Duration(seconds: 14);
 
+/// Общий интервал live-обновления всего приложения ([klanyLiveTickProvider]).
+const Duration kKlanyLivePollInterval = kParentLivePollInterval;
+
 /// То же для экранов ребёнка (дашборд, задачи, магазин, кошелёк).
-const Duration kChildLivePollInterval = kParentLivePollInterval;
+const Duration kChildLivePollInterval = kKlanyLivePollInterval;
 
 /// Короткая анимация масштаба при смене [changeKey] (например, баланса или счётчика).
 class ValueBumpWrap extends StatefulWidget {

@@ -16,7 +16,7 @@ import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../shop_repository.dart';
 import '../../../core/app_snackbar.dart';
-import '../../../core/value_bump.dart';
+import '../../../core/klany_live_poll.dart';
 
 /// Те же заливки карточек, что у квестов/биржи ([Figma]).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -102,42 +102,33 @@ class ChildShopPage extends ConsumerStatefulWidget {
 }
 
 class _ChildShopPageState extends ConsumerState<ChildShopPage>
-    with WidgetsBindingObserver {
+    with KlanyLivePollConsumerMixin {
   late Future<_ChildShopData> _future;
   String? _familyId;
   String? _childId;
-  Timer? _livePoll;
+  bool _refreshInFlight = false;
 
-  void _startLivePollIfNeeded() {
-    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
-      _refresh(silent: true);
-    });
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _refresh(silent: true);
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _fetchAll();
-    _startLivePollIfNeeded();
   }
 
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _livePoll?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      _livePoll?.cancel();
-      _livePoll = null;
-    } else if (state == AppLifecycleState.resumed) {
-      _startLivePollIfNeeded();
-      Future<void>.microtask(() => _refresh(silent: true));
-    }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final session = ref.read(childSessionProvider).asData?.value;
+    final fid = session?.familyId;
+    final cid = session?.childId;
+    if (fid == _familyId && cid == _childId) return;
+    _familyId = fid;
+    _childId = cid;
+    _future = _load();
   }
 
   void _fetchAll() {
@@ -148,11 +139,12 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
   }
 
   Future<_ChildShopData> _load() async {
-    final products = await ref
-        .read(shopRepositoryProvider)
-        .getProducts(_familyId ?? '');
+    final shopRepo = ref.read(shopRepositoryProvider);
+    final products = await shopRepo.getProducts(_familyId ?? '');
     var completed = 0;
     var balance = 0;
+    var shopFrozen = 0;
+    var purchases = const <ChildShopPurchaseItem>[];
     if ((_childId ?? '').isNotEmpty) {
       try {
         final wallet = await ref
@@ -160,43 +152,98 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
             .getChildWallet(_childId!);
         balance = wallet?.balance ?? 0;
         completed = wallet?.completedQuestsCount ?? 0;
+        shopFrozen = wallet?.shopFrozenAmount ?? 0;
+      } catch (_) {}
+      try {
+        purchases = await shopRepo.getChildPurchases();
       } catch (_) {}
     }
+    final pendingByProduct = <String, ChildShopPurchaseItem>{
+      for (final p in purchases.where((p) => p.isPending)) p.productId: p,
+    };
     return _ChildShopData(
       products: products,
       completedCount: completed,
       balance: balance,
+      shopFrozenAmount: shopFrozen,
+      pendingByProductId: pendingByProduct,
     );
   }
 
   Future<void> _refresh({bool silent = false}) async {
-    final next = _load();
-    if (mounted) setState(() => _future = next);
-    await next;
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
+    try {
+      final next = _load();
+      if (mounted) {
+        setState(() {
+          _future = next;
+        });
+      }
+      await next;
+    } finally {
+      _refreshInFlight = false;
+    }
   }
 
   Future<void> _buy(ShopProductItem p) async {
     try {
       await ref.read(shopRepositoryProvider).requestPurchase(p.id);
       if (!mounted) return;
+      await _refresh(silent: true);
+      if (!mounted) return;
+      klanyLivePollBump(ref);
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Запрос отправлен, средства заморожены')),
+        const SnackBar(
+          content: Text(
+            'Запрос отправлен! Монеты заморожены до решения родителя.',
+          ),
+        ),
       );
     } catch (e) {
+      if (!mounted) return;
+      await _refresh(silent: true);
       if (!mounted) return;
       final msg = e is ApiException ? e.message : '$e';
       context.showKlanySnackBar(SnackBar(content: Text(msg)));
     }
   }
 
+  void _onProductTap(ShopProductItem p, _ChildShopData? data) {
+    if (!p.isActive) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Этот товар сейчас недоступен')),
+      );
+      return;
+    }
+    final pending = data?.pendingByProductId[p.id];
+    if (pending != null) {
+      context.showKlanySnackBar(
+        SnackBar(
+          content: Text(
+            'Заявка на «${p.title}» уже отправлена и ждёт решения родителя.',
+          ),
+        ),
+      );
+      return;
+    }
+    final balance = data?.balance ?? 0;
+    if (balance < p.price) {
+      final frozen = data?.shopFrozenAmount ?? 0;
+      final hint = frozen > 0
+          ? ' Доступно $balance монет ($frozen заморожено под другие заявки).'
+          : ' Доступно $balance монет.';
+      context.showKlanySnackBar(
+        SnackBar(content: Text('Нужно ${p.price} монет.$hint')),
+      );
+      return;
+    }
+    _buy(p);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
-    if (session?.familyId != _familyId || session?.childId != _childId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _fetchAll());
-      });
-    }
 
     if (session == null) {
       return const Center(child: Text('Сессия ребёнка не найдена'));
@@ -215,6 +262,8 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
         final products = data?.products ?? const <ShopProductItem>[];
         final completed = data?.completedCount ?? 0;
         final balance = data?.balance ?? 0;
+        final shopFrozen = data?.shopFrozenAmount ?? 0;
+        final pendingCount = data?.pendingByProductId.length ?? 0;
 
         return Stack(
           fit: StackFit.expand,
@@ -313,9 +362,39 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                       ChildDashboardProfileCard(
                         layoutScale: layoutScale,
                         completedCount: completed,
+                        balanceOverride: balance,
+                        shopFrozenAmountOverride: shopFrozen,
                         onAvatarTap: () =>
                             runChildAvatarPickerFlow(context, ref),
                       ),
+                      if (pendingCount > 0) ...[
+                        SizedBox(height: context.klanySize(10)),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3D6),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFE8C96A),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.klanySize(12),
+                              vertical: context.klanySize(10),
+                            ),
+                            child: Text(
+                              pendingCount == 1
+                                  ? '1 заявка ждёт решения родителя'
+                                  : '$pendingCount заявки ждут решения родителя',
+                              style: GoogleFonts.nunito(
+                                fontSize: context.klanySize(14),
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF7A5A00),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       _shopDividerLine(),
                       const SizedBox(height: 20),
@@ -347,32 +426,9 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                           child: _ChildShopProductCard(
                             product: e.value,
                             balance: balance,
+                            pending: data?.pendingByProductId[e.value.id],
                             bg: _shopCardColors[e.key % _shopCardColors.length],
-                            onTap: e.value.isActive
-                                ? () {
-                                    if (balance < e.value.price) {
-                                      if (!context.mounted) return;
-                                      context.showKlanySnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Нужно ${e.value.price} монет, у вас $balance.',
-                                          ),
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    _buy(e.value);
-                                  }
-                                : () {
-                                    if (!context.mounted) return;
-                                    context.showKlanySnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Этот товар сейчас недоступен',
-                                        ),
-                                      ),
-                                    );
-                                  },
+                            onTap: () => _onProductTap(e.value, data),
                           ),
                         ),
                       ),
@@ -393,11 +449,15 @@ class _ChildShopData {
     required this.products,
     required this.completedCount,
     required this.balance,
+    required this.shopFrozenAmount,
+    required this.pendingByProductId,
   });
 
   final List<ShopProductItem> products;
   final int completedCount;
   final int balance;
+  final int shopFrozenAmount;
+  final Map<String, ChildShopPurchaseItem> pendingByProductId;
 }
 
 class _ChildShopProductCard extends StatelessWidget {
@@ -406,18 +466,21 @@ class _ChildShopProductCard extends StatelessWidget {
     required this.balance,
     required this.bg,
     required this.onTap,
+    this.pending,
   });
 
   final ShopProductItem product;
   final int balance;
   final Color bg;
   final VoidCallback onTap;
+  final ChildShopPurchaseItem? pending;
 
   @override
   Widget build(BuildContext context) {
     final active = product.isActive;
-    final canAfford = balance >= product.price;
-    final insufficient = active && !canAfford;
+    final isPending = pending != null;
+    final canAfford = !isPending && balance >= product.price;
+    final insufficient = active && !isPending && !canAfford;
 
     final titleStyle = GoogleFonts.nunito(
       fontSize: 20,
@@ -432,6 +495,8 @@ class _ChildShopProductCard extends StatelessWidget {
     );
     final btnLabel = !active
         ? 'Недоступно'
+        : isPending
+        ? 'На проверке у родителя'
         : insufficient
         ? 'Недостаточно монет'
         : 'Запросить награду';
@@ -440,9 +505,14 @@ class _ChildShopProductCard extends StatelessWidget {
       opacity: active ? 1 : 0.72,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: bg,
+          color: isPending ? bg.withValues(alpha: 0.82) : bg,
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: isPending
+                ? const Color(0xFFE8C96A)
+                : Colors.black.withValues(alpha: 0.08),
+            width: isPending ? 1.5 : 1,
+          ),
           boxShadow: _shopProductOuterShadows(bg),
         ),
         child: Material(
@@ -498,7 +568,17 @@ class _ChildShopProductCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text('${product.price} монет', style: priceStyle),
-                            if (!active) ...[
+                            if (isPending) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                'Заявка отправлена · ${pending!.totalPrice} монет заморожено',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF7A5A00),
+                                ),
+                              ),
+                            ] else if (!active) ...[
                               const SizedBox(height: 6),
                               Text(
                                 'Сейчас нельзя купить',
@@ -508,8 +588,7 @@ class _ChildShopProductCard extends StatelessWidget {
                                   color: kChildInkMuted.withValues(alpha: 0.75),
                                 ),
                               ),
-                            ],
-                            if (insufficient) ...[
+                            ] else if (insufficient) ...[
                               const SizedBox(height: 6),
                               Text(
                                 'Нужно ещё ${product.price - balance} монет',
@@ -528,7 +607,9 @@ class _ChildShopProductCard extends StatelessWidget {
                   const SizedBox(height: 16),
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isPending
+                          ? const Color(0xFFFFF3D6)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
@@ -549,7 +630,9 @@ class _ChildShopProductCard extends StatelessWidget {
                             style: GoogleFonts.nunito(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: active && !insufficient
+                              color: isPending
+                                  ? const Color(0xFF7A5A00)
+                                  : active && !insufficient
                                   ? kChildInk
                                   : kChildInkMuted,
                             ),
