@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import '../auth/child_session.dart';
 import '../wallet/pages/child_wallet_page.dart';
 import '../wallet/wallet_repository.dart';
+import '../../core/value_bump.dart';
 import 'avatar_store.dart';
 import 'child_soft_ui.dart';
 import 'presigned_member_avatar.dart';
@@ -95,9 +97,42 @@ class ChildDashboardProfileCard extends ConsumerStatefulWidget {
 }
 
 class _ChildDashboardProfileCardState
-    extends ConsumerState<ChildDashboardProfileCard> {
+    extends ConsumerState<ChildDashboardProfileCard>
+    with WidgetsBindingObserver {
   String? _walletMemoChildId;
   Future<WalletSummary?>? _walletFuture;
+  Timer? _walletPoll;
+
+  void _startWalletPollIfNeeded() {
+    _walletPoll ??= Timer.periodic(kChildLivePollInterval, (_) {
+      _reloadWallet(silent: true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startWalletPollIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _walletPoll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _walletPoll?.cancel();
+      _walletPoll = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startWalletPollIfNeeded();
+      _reloadWallet(silent: true);
+    }
+  }
 
   Future<WalletSummary?> _walletFutureForSession(ChildSession? session) {
     final id = session?.childId;
@@ -106,11 +141,27 @@ class _ChildDashboardProfileCardState
       _walletFuture = Future.value(null);
       return _walletFuture!;
     }
-    if (_walletMemoChildId != id) {
+    if (_walletMemoChildId != id || _walletFuture == null) {
       _walletMemoChildId = id;
       _walletFuture = ref.read(walletRepositoryProvider).getChildWallet(id);
     }
     return _walletFuture!;
+  }
+
+  void _reloadWallet({bool silent = false}) {
+    final session = ref.read(childSessionProvider).asData?.value;
+    final id = session?.childId;
+    if (id == null || id.isEmpty) return;
+    final next = ref.read(walletRepositoryProvider).getChildWallet(id);
+    setState(() {
+      _walletMemoChildId = id;
+      _walletFuture = next;
+    });
+    if (!silent) {
+      next.then((_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   Widget _buildAvatarLead({
@@ -209,6 +260,8 @@ class _ChildDashboardProfileCardState
       future: _walletFutureForSession(session),
       builder: (context, walletSnap) {
         final balance = walletSnap.data?.balance ?? 0;
+        final completed = walletSnap.data?.completedQuestsCount ??
+            widget.completedCount;
 
         final inner = Padding(
           padding: EdgeInsets.all(14 * layoutScale),
@@ -239,7 +292,7 @@ class _ChildDashboardProfileCardState
                     ),
                     SizedBox(height: 6 * layoutScale),
                     Text(
-                      '${widget.completedCount} ${_taskWord(widget.completedCount)} выполнено',
+                      '$completed ${_taskWord(completed)} выполнено',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _profileNunito(

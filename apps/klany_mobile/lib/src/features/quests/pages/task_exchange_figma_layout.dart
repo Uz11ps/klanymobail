@@ -91,37 +91,48 @@ abstract final class TaskExchangeFigmaLayout {
 
   static const TextStyle cardTitleStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: FontWeight.w700,
     color: Colors.black,
+    height: 1.25,
   );
 
   static const TextStyle cardCoinsStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: FontWeight.w500,
     color: Colors.black,
   );
 
   static const TextStyle cardCoinsBoldStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: FontWeight.w600,
     color: Colors.black,
   );
 
   static const TextStyle metaStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: FontWeight.w500,
     color: metaGray,
+    height: 1.2,
   );
 
-  static const TextStyle deadlineStyle = TextStyle(
+  static const TextStyle deadlineHeadStyle = TextStyle(
     fontFamily: 'Nunito',
-    fontSize: 20,
+    fontSize: 12,
     fontWeight: FontWeight.w500,
+    color: metaGray,
+    height: 1.15,
+  );
+
+  static const TextStyle deadlineTimeStyle = TextStyle(
+    fontFamily: 'Nunito',
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
     color: Colors.black,
+    height: 1.15,
   );
 
   static const Color deadlineUrgent = Color(0xFF8B1A1A);
@@ -141,15 +152,25 @@ abstract final class TaskExchangeFigmaLayout {
   }
 
   static String remainingLabel(DateTime deadline, [DateTime? now]) {
+    final parts = remainingParts(deadline, now);
+    return '${parts.$1} ${parts.$2}';
+  }
+
+  /// Первая строка — «Осталось» / «Просрочено», вторая — таймер `HH:MM:SS`.
+  static (String head, String time) remainingParts(
+    DateTime deadline, [
+    DateTime? now,
+  ]) {
     final clock = (now ?? DateTime.now()).toLocal();
     final remaining = deadline.toLocal().difference(clock);
-    if (remaining.isNegative) return 'Просрочено';
+    if (remaining.isNegative) return ('Просрочено', '');
     final h = remaining.inHours;
     final m = remaining.inMinutes.remainder(60);
     final s = remaining.inSeconds.remainder(60);
-    return 'Осталось ${h.toString().padLeft(2, '0')}:'
+    final time = '${h.toString().padLeft(2, '0')}:'
         '${m.toString().padLeft(2, '0')}:'
         '${s.toString().padLeft(2, '0')}';
+    return ('Осталось', time);
   }
 
   static bool isDeadlineUrgent(DateTime deadline, [DateTime? now]) {

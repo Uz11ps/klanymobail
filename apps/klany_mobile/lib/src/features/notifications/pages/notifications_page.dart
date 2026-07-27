@@ -242,10 +242,15 @@ class _NotificationsInteractiveContentState
       case 'quest_rejected':
         Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
-            builder: (_) =>
-                const ParentTaskExchangePage(
+            builder: (ctx) => Scaffold(
+              backgroundColor: Colors.transparent,
+              body: SizedBox.expand(
+                child: ParentTaskExchangePage(
                   initialSegment: 2,
+                  onBack: () => Navigator.of(ctx).pop(),
                 ),
+              ),
+            ),
           ),
         );
         return;

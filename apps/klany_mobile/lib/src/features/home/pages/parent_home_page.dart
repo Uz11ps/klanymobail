@@ -186,7 +186,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage> {
           );
         },
       ),
-      ParentTaskExchangePage(onBack: _goHomeTab),
+      ParentTaskExchangePage(onBack: _goHomeTab, embeddedInHomeTab: true),
       ParentShopPage(onBack: _goHomeTab),
       ParentFamilySettingsPage(onBack: _goHomeTab),
     ];

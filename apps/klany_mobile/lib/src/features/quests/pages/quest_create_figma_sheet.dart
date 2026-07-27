@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/app_snackbar.dart';
+import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 
@@ -394,7 +395,8 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
                   ...children.map(
                     (child) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _CreateRadioRow(
+                      child: _CreateChildRadioRow(
+                        childId: child.id,
                         label: child.displayName,
                         selected: _selectedChildren.contains(child.id),
                         onTap: () => setState(() {
@@ -701,39 +703,61 @@ class _CreateTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CreateFieldShell(
-      height: height,
-      child: Row(
-        children: [
-          if (prefix != null) ...[
-            prefix!,
-            const SizedBox(width: 11),
-          ],
-          Expanded(
-            child: TextFormField(
-              controller: controller,
-              keyboardType: keyboardType,
-              minLines: minLines,
-              maxLines: maxLines,
-              style: _kCreateFieldTextStyle,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: _kCreateFieldTextStyle.copyWith(
-                  color: Colors.black.withValues(alpha: 0.45),
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+    return FormField<String>(
+      validator: (_) => validator?.call(controller.text),
+      builder: (field) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CreateFieldShell(
+              height: height,
+              child: Row(
+                children: [
+                  if (prefix != null) ...[
+                    prefix!,
+                    const SizedBox(width: 11),
+                  ],
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: keyboardType,
+                      minLines: minLines,
+                      maxLines: maxLines,
+                      style: _kCreateFieldTextStyle,
+                      onChanged: field.didChange,
+                      decoration: InputDecoration(
+                        hintText: hint,
+                        hintStyle: _kCreateFieldTextStyle.copyWith(
+                          color: Colors.black.withValues(alpha: 0.45),
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              validator: validator,
             ),
-          ),
-        ],
-      ),
+            if (field.hasError && field.errorText != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 6),
+                child: Text(
+                  field.errorText!,
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red.shade700,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -769,6 +793,60 @@ class _CreateActionField extends StatelessWidget {
             'assets/figma/quest_create_chevron.svg',
             width: 16,
             height: 16,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateChildRadioRow extends StatelessWidget {
+  const _CreateChildRadioRow({
+    required this.childId,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String childId;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const double _avatarSize = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = label.trim();
+    final initial = trimmed.isEmpty
+        ? '?'
+        : String.fromCharCode(trimmed.runes.first).toUpperCase();
+
+    return _CreateFieldShell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          SvgPicture.asset(
+            selected
+                ? 'assets/figma/quest_create_radio_on.svg'
+                : 'assets/figma/quest_create_radio_off.svg',
+            width: 24,
+            height: 24,
+          ),
+          const SizedBox(width: 11),
+          UserAvatar(
+            userKey: 'child:$childId',
+            size: _avatarSize,
+            fallbackText: initial,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              label,
+              style: _kCreateFieldTextStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

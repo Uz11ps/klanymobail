@@ -18,7 +18,7 @@ class ExchangeAssigneeColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarSize = context.klanySize(43);
+    final avatarSize = context.klanySize(48);
     final label = name.trim().isEmpty ? '—' : name.trim();
     final initial = label == '—'
         ? '?'
@@ -27,11 +27,17 @@ class ExchangeAssigneeColumn extends StatelessWidget {
     return SizedBox(
       width: avatarSize,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          UserAvatar(
-            userKey: 'child:$childId',
-            size: avatarSize,
-            fallbackText: initial,
+          Expanded(
+            child: Align(
+              alignment: Alignment.center,
+              child: UserAvatar(
+                userKey: 'child:$childId',
+                size: avatarSize,
+                fallbackText: initial,
+              ),
+            ),
           ),
           SizedBox(height: context.klanySize(4)),
           Text(
@@ -42,9 +48,10 @@ class ExchangeAssigneeColumn extends StatelessWidget {
             style: context.klanyTextStyle(
               const TextStyle(
                 fontFamily: 'Nunito',
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: Colors.black,
+                height: 1.1,
               ),
             ),
           ),
@@ -65,6 +72,7 @@ class ExchangeQuestCard extends StatelessWidget {
     this.assigneeChildId,
     this.assigneeName,
     this.coinsStyle = TaskExchangeFigmaLayout.cardCoinsStyle,
+    this.minHeight,
   });
 
   final Color background;
@@ -74,69 +82,160 @@ class ExchangeQuestCard extends StatelessWidget {
   final String? assigneeChildId;
   final String? assigneeName;
   final TextStyle coinsStyle;
+  final double? minHeight;
 
   @override
   Widget build(BuildContext context) {
     final cardRadius = context.klanySize(TaskExchangeFigmaLayout.cardRadius);
-    final padH = context.klanySize(16);
-    final padTop = context.klanySize(16);
-    final padBottom = context.klanySize(14);
+    final padH = context.klanySize(14);
+    final padV = context.klanySize(12);
     final scale = context.klanyScale;
     final showAssignee =
         assigneeChildId != null && assigneeChildId!.trim().isNotEmpty;
+    final cardMinH = minHeight ?? context.klanySize(88);
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(padH, padTop, padH, padBottom),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(cardRadius),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-        boxShadow: TaskExchangeFigmaLayout.cardShadows(background, scale: scale),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showAssignee) ...[
-            ExchangeAssigneeColumn(
-              childId: assigneeChildId!,
-              name: assigneeName ?? '',
-            ),
-            SizedBox(width: context.klanySize(12)),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: cardMinH),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(cardRadius),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          boxShadow:
+              TaskExchangeFigmaLayout.cardShadows(background, scale: scale),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showAssignee) ...[
+                ExchangeAssigneeColumn(
+                  childId: assigneeChildId!,
+                  name: assigneeName ?? '',
+                ),
+                SizedBox(width: context.klanySize(10)),
+              ],
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.klanyTextStyle(
-                          TaskExchangeFigmaLayout.cardTitleStyle,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.klanyTextStyle(
+                              TaskExchangeFigmaLayout.cardTitleStyle,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (trailing != null) ...[
+                          SizedBox(width: context.klanySize(6)),
+                          trailing!,
+                        ],
+                      ],
                     ),
-                    if (trailing != null) ...[
-                      SizedBox(width: context.klanySize(8)),
-                      trailing!,
-                    ],
+                    SizedBox(height: context.klanySize(6)),
+                    Text(
+                      '$coins монет',
+                      style: context.klanyTextStyle(coinsStyle),
+                    ),
                   ],
                 ),
-                SizedBox(height: context.klanySize(8)),
-                Text(
-                  '$coins монет',
-                  style: context.klanyTextStyle(coinsStyle),
-                ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Две строки: «Осталось» и `HH:MM:SS` (Figma 1:1495).
+class ExchangeDeadlineColumn extends StatelessWidget {
+  const ExchangeDeadlineColumn({
+    super.key,
+    required this.deadline,
+    this.now,
+  });
+
+  final DateTime deadline;
+  final DateTime? now;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = TaskExchangeFigmaLayout.remainingParts(deadline, now);
+    final urgent = TaskExchangeFigmaLayout.isDeadlineUrgent(deadline, now);
+    final urgentColor = TaskExchangeFigmaLayout.deadlineUrgent;
+
+    if (parts.$2.isEmpty) {
+      return Text(
+        parts.$1,
+        textAlign: TextAlign.right,
+        style: context.klanyTextStyle(
+          TaskExchangeFigmaLayout.deadlineHeadStyle.copyWith(
+            color: urgent ? urgentColor : TaskExchangeFigmaLayout.metaGray,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          parts.$1,
+          textAlign: TextAlign.right,
+          style: context.klanyTextStyle(TaskExchangeFigmaLayout.deadlineHeadStyle),
+        ),
+        Text(
+          parts.$2,
+          textAlign: TextAlign.right,
+          style: context.klanyTextStyle(
+            TaskExchangeFigmaLayout.deadlineTimeStyle.copyWith(
+              color: urgent ? urgentColor : Colors.black,
+              fontWeight: urgent ? FontWeight.w700 : FontWeight.w600,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Статус «На проверке» вместо таймера.
+class ExchangeReviewStatusBadge extends StatelessWidget {
+  const ExchangeReviewStatusBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'На',
+          textAlign: TextAlign.right,
+          style: context.klanyTextStyle(TaskExchangeFigmaLayout.deadlineHeadStyle),
+        ),
+        Text(
+          'проверке',
+          textAlign: TextAlign.right,
+          style: context.klanyTextStyle(
+            TaskExchangeFigmaLayout.deadlineTimeStyle.copyWith(
+              color: TaskExchangeFigmaLayout.deadlineUrgent,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -149,6 +248,7 @@ class ExchangeReviewPhotoBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (photoCount <= 0) return const SizedBox.shrink();
     final label = photoCount == 1 ? '1 фото' : '$photoCount фото';
     return Row(
       mainAxisSize: MainAxisSize.min,

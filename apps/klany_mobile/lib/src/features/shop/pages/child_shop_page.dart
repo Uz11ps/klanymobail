@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,13 +10,13 @@ import '../../auth/child_session.dart';
 import '../../home/child_avatar_picker_flow.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
-import '../../quests/quests_repository.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../../core/api_client.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../shop_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 
 /// Те же заливки карточек, что у квестов/биржи ([Figma]).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -100,15 +101,43 @@ class ChildShopPage extends ConsumerStatefulWidget {
   ConsumerState<ChildShopPage> createState() => _ChildShopPageState();
 }
 
-class _ChildShopPageState extends ConsumerState<ChildShopPage> {
+class _ChildShopPageState extends ConsumerState<ChildShopPage>
+    with WidgetsBindingObserver {
   late Future<_ChildShopData> _future;
   String? _familyId;
   String? _childId;
+  Timer? _livePoll;
+
+  void _startLivePollIfNeeded() {
+    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
+      _refresh(silent: true);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchAll();
+    _startLivePollIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _livePoll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _livePoll?.cancel();
+      _livePoll = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startLivePollIfNeeded();
+      Future<void>.microtask(() => _refresh(silent: true));
+    }
   }
 
   void _fetchAll() {
@@ -130,19 +159,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
             .read(walletRepositoryProvider)
             .getChildWallet(_childId!);
         balance = wallet?.balance ?? 0;
-      } catch (_) {}
-      try {
-        final assignments = await ref
-            .read(questsRepositoryProvider)
-            .getChildAssignments(_childId!);
-        completed = assignments
-            .where(
-              (a) =>
-                  a.status == 'completed' ||
-                  a.status == 'done' ||
-                  a.status == 'approved',
-            )
-            .length;
+        completed = wallet?.completedQuestsCount ?? 0;
       } catch (_) {}
     }
     return _ChildShopData(
@@ -152,9 +169,9 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage> {
     );
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool silent = false}) async {
     final next = _load();
-    setState(() => _future = next);
+    if (mounted) setState(() => _future = next);
     await next;
   }
 

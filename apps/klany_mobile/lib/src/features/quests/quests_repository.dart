@@ -31,6 +31,7 @@ class ParentQuestItem {
     required this.childIds,
     this.dueAt,
     this.assigneeSince,
+    this.assigneeStatus,
   });
 
   final String id;
@@ -48,6 +49,8 @@ class ParentQuestItem {
   final List<String> childIds;
   final DateTime? dueAt;
   final DateTime? assigneeSince;
+  /// Статус назначения первого исполнителя (`in_progress`, `submitted`, …).
+  final String? assigneeStatus;
 }
 
 class ChildQuestAssignmentItem {
@@ -81,6 +84,34 @@ class ChildQuestAssignmentItem {
   final String? comment;
   final DateTime? dueAt;
 }
+
+/// Завершённые назначения (одобренные родителем или автопруф).
+bool isChildAssignmentCompleted(ChildQuestAssignmentItem item) {
+  switch (item.status) {
+    case 'completed':
+    case 'done':
+    case 'approved':
+      return true;
+    default:
+      return false;
+  }
+}
+
+int countCompletedChildAssignments(List<ChildQuestAssignmentItem> items) =>
+    items.where(isChildAssignmentCompleted).length;
+
+bool isParentQuestOnReview(ParentQuestItem quest) =>
+    quest.assigneeStatus == 'submitted';
+
+bool isParentQuestFreeOnExchange(ParentQuestItem quest) =>
+    quest.status == 'active' &&
+    quest.distributionType == 'exchange' &&
+    quest.childIds.isEmpty;
+
+bool isParentQuestInWork(ParentQuestItem quest) =>
+    quest.status == 'active' &&
+    !isParentQuestOnReview(quest) &&
+    (quest.childIds.isNotEmpty || quest.distributionType != 'exchange');
 
 class ParentReviewItem {
   ParentReviewItem({
@@ -232,6 +263,9 @@ class QuestsRepository {
         assigneeSince: DateTime.tryParse(
           (row['assigneeSince'] ?? '').toString(),
         ),
+        assigneeStatus: (row['assigneeStatus'] ?? '').toString().trim().isEmpty
+            ? null
+            : (row['assigneeStatus'] ?? '').toString(),
       );
     }).toList();
   }

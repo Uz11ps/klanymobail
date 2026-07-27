@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 /// Интервал тихого обновления агрегированных данных (дашборд, экран уведомлений,
-/// блок «Экономика» родителя). Не ниже разумной нагрузки на API.
+/// блок «Экономика» родителя, экраны ребёнка). Не ниже разумной нагрузки на API.
 const Duration kParentLivePollInterval = Duration(seconds: 14);
+
+/// То же для экранов ребёнка (дашборд, задачи, магазин, кошелёк).
+const Duration kChildLivePollInterval = kParentLivePollInterval;
 
 /// Короткая анимация масштаба при смене [changeKey] (например, баланса или счётчика).
 class ValueBumpWrap extends StatefulWidget {

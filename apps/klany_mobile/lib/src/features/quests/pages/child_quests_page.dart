@@ -13,6 +13,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 
 /// Фон карточек по [Figma «Биржа задач» node 0:305+](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-285).
 const _kMintCard = Color(0xFFD9F6C2);
@@ -125,21 +126,60 @@ class ChildQuestsPage extends ConsumerStatefulWidget {
   ConsumerState<ChildQuestsPage> createState() => _ChildQuestsPageState();
 }
 
-class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
+class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
+    with WidgetsBindingObserver {
   Future<List<ChildQuestAssignmentItem>>? _future;
   String? _assignmentsChildId;
   int _tab = 0; // 0 = Мои задачи, 1 = Биржа
+  Timer? _livePoll;
 
-  Future<void> _reload() async {
+  void _startLivePollIfNeeded() {
+    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
+      _reload(silent: true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startLivePollIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _livePoll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _livePoll?.cancel();
+      _livePoll = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startLivePollIfNeeded();
+      Future<void>.microtask(() => _reload(silent: true));
+    }
+  }
+
+  Future<void> _reload({bool silent = false}) async {
     final session = ref.read(childSessionProvider).asData?.value;
     if (session == null) return;
     final f = ref
         .read(questsRepositoryProvider)
         .getChildAssignments(session.childId);
-    setState(() {
+    if (!silent && mounted) {
+      setState(() {
+        _assignmentsChildId = session.childId;
+        _future = f;
+      });
+    } else {
       _assignmentsChildId = session.childId;
       _future = f;
-    });
+      if (mounted) setState(() {});
+    }
     await f;
   }
 
@@ -174,14 +214,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage> {
         final exchange = all
             .where((a) => a.distributionType == 'exchange')
             .toList();
-        final completed = all
-            .where(
-              (a) =>
-                  a.status == 'completed' ||
-                  a.status == 'done' ||
-                  a.status == 'approved',
-            )
-            .length;
+        final completed = countCompletedChildAssignments(all);
         final current = _tab == 0 ? personal : exchange;
 
         final screenW = MediaQuery.sizeOf(context).width;

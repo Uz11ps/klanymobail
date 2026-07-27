@@ -22,11 +22,15 @@ class ParentTaskExchangePage extends ConsumerStatefulWidget {
     super.key,
     this.initialSegment = 0,
     this.onBack,
+    this.embeddedInHomeTab = false,
   });
 
   /// 0 свободные, 1 в работе, 2 проверка.
   final int initialSegment;
   final VoidCallback? onBack;
+
+  /// Зарезервировать место под [ParentMainBottomBar] на главном экране.
+  final bool embeddedInHomeTab;
 
   @override
   ConsumerState<ParentTaskExchangePage> createState() =>
@@ -69,7 +73,8 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
 
   @override
   Widget build(BuildContext context) {
-    return ref.watch(parentFamilyContextProvider).when(
+    return SizedBox.expand(
+      child: ref.watch(parentFamilyContextProvider).when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Ошибка: $e')),
           data: (family) {
@@ -79,11 +84,11 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
             final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
             final navPillHeight =
                 ParentMainBottomBarLayout.scaledPillHeight(context);
-            final mainNavInset =
-                widget.onBack != null ? navPillHeight + context.klanySize(16) : 0.0;
+            final mainNavInset = widget.embeddedInHomeTab
+                ? navPillHeight + context.klanySize(16)
+                : 0.0;
             final fabBottom = context.klanySize(24) + bottomInset + mainNavInset;
             final fabSize = context.klanySize(TaskExchangeFigmaLayout.fabHitSize);
-            final tabGap = context.klanySize(TaskExchangeFigmaLayout.tabGap);
             final listHMargin = context.klanySize(TaskExchangeFigmaLayout.hMargin);
             return SafeArea(
               bottom: false,
@@ -103,32 +108,11 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                             listHMargin,
                             context.klanySize(12),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _ExchangeTab(
-                                  label: 'Свободные',
-                                  selected: _segment == 0,
-                                  onTap: () => setState(() => _segment = 0),
-                                ),
-                              ),
-                              SizedBox(width: tabGap),
-                              Expanded(
-                                child: _ExchangeTab(
-                                  label: 'В работе',
-                                  selected: _segment == 1,
-                                  onTap: () => setState(() => _segment = 1),
-                                ),
-                              ),
-                              SizedBox(width: tabGap),
-                              Expanded(
-                                child: _ExchangeTab(
-                                  label: 'Проверка',
-                                  selected: _segment == 2,
-                                  onTap: () => setState(() => _segment = 2),
-                                ),
-                              ),
-                            ],
+                          child: _ExchangeTabBar(
+                            segment: _segment,
+                            familyId: family.familyId,
+                            onSegmentSelected: (i) =>
+                                setState(() => _segment = i),
                           ),
                         ),
                         Expanded(
@@ -187,7 +171,76 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
                 ),
               );
           },
+        ),
+    );
+  }
+}
+
+class _ExchangeTabBar extends ConsumerWidget {
+  const _ExchangeTabBar({
+    required this.segment,
+    required this.familyId,
+    required this.onSegmentSelected,
+  });
+
+  final int segment;
+  final String familyId;
+  final ValueChanged<int> onSegmentSelected;
+
+  Future<({int free, int inWork, int review})> _loadCounts(WidgetRef ref) async {
+    final repo = ref.read(questsRepositoryProvider);
+    final results = await Future.wait([
+      repo.getParentQuests(familyId),
+      repo.getSubmittedForReview(familyId),
+    ]);
+    final quests = results[0] as List<ParentQuestItem>;
+    final reviews = results[1] as List<ParentReviewItem>;
+    return (
+      free: quests.where(isParentQuestFreeOnExchange).length,
+      inWork: quests.where(isParentQuestInWork).length,
+      review: reviews.length,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabGap = context.klanySize(TaskExchangeFigmaLayout.tabGap);
+    return FutureBuilder<({int free, int inWork, int review})>(
+      future: _loadCounts(ref),
+      builder: (context, snapshot) {
+        final counts = snapshot.data;
+        return Row(
+          children: [
+            Expanded(
+              child: _ExchangeTab(
+                label: 'Свободные',
+                selected: segment == 0,
+                badgeCount: counts?.free ?? 0,
+                onTap: () => onSegmentSelected(0),
+              ),
+            ),
+            SizedBox(width: tabGap),
+            Expanded(
+              child: _ExchangeTab(
+                label: 'В работе',
+                selected: segment == 1,
+                badgeCount: counts?.inWork ?? 0,
+                onTap: () => onSegmentSelected(1),
+              ),
+            ),
+            SizedBox(width: tabGap),
+            Expanded(
+              child: _ExchangeTab(
+                label: 'Проверка',
+                selected: segment == 2,
+                badgeCount: counts?.review ?? 0,
+                onTap: () => onSegmentSelected(2),
+              ),
+            ),
+          ],
         );
+      },
+    );
   }
 }
 
@@ -196,11 +249,13 @@ class _ExchangeTab extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -213,26 +268,58 @@ class _ExchangeTab extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: tabHeight,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: context.klanySize(4)),
-        decoration: BoxDecoration(
-          color: selected
-              ? TaskExchangeFigmaLayout.tabActiveFill
-              : Colors.white,
-          borderRadius: BorderRadius.circular(tabRadius),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            style: textStyle,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: tabHeight,
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(horizontal: context.klanySize(4)),
+            decoration: BoxDecoration(
+              color: selected
+                  ? TaskExchangeFigmaLayout.tabActiveFill
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(tabRadius),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: textStyle,
+              ),
+            ),
           ),
-        ),
+          if (badgeCount > 0)
+            Positioned(
+              top: -context.klanySize(4),
+              right: -context.klanySize(2),
+              child: Container(
+                constraints: BoxConstraints(
+                  minWidth: context.klanySize(17),
+                  minHeight: context.klanySize(17),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: context.klanySize(4)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD83A3A),
+                  borderRadius: BorderRadius.circular(context.klanySize(10)),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: context.klanySize(9),
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -254,12 +341,7 @@ class _ExchangeNewQuestList extends ConsumerWidget {
           return Text('Ошибка: ${snapshot.error}');
         }
         final list = (snapshot.data ?? const <ParentQuestItem>[])
-            .where(
-              (q) =>
-                  q.status == 'active' &&
-                  q.distributionType == 'exchange' &&
-                  q.childIds.isEmpty,
-            )
+            .where(isParentQuestFreeOnExchange)
             .toList();
         if (list.isEmpty) {
           return _ExchangeEmptyState(message: 'Нет свободных задач');
@@ -312,13 +394,7 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
         final namesById = {
           for (final c in children) c.id: c.displayName,
         };
-        final list = quests
-            .where(
-              (q) =>
-                  q.status == 'active' &&
-                  (q.childIds.isNotEmpty || q.distributionType != 'exchange'),
-            )
-            .toList();
+        final list = quests.where(isParentQuestInWork).toList();
         if (list.isEmpty) {
           return const _ExchangeEmptyState(message: 'Нет задач в работе');
         }
@@ -336,7 +412,9 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
                   assigneeName: q.childIds.isEmpty
                       ? null
                       : namesById[q.childIds.first],
-                  trailing: _ExchangeDeadlineLabel(quest: q),
+                  trailing: isParentQuestOnReview(q)
+                      ? const ExchangeReviewStatusBadge()
+                      : _ExchangeDeadlineLabel(quest: q),
                   coinsStyle: TaskExchangeFigmaLayout.cardCoinsBoldStyle,
                 ),
               ),
@@ -354,6 +432,9 @@ class _ExchangeDeadlineLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isParentQuestOnReview(quest)) {
+      return const ExchangeReviewStatusBadge();
+    }
     final deadline = TaskExchangeFigmaLayout.resolveDeadline(
       dueAt: quest.dueAt,
       timeLimitMinutes: quest.timeLimitMinutes,
@@ -363,20 +444,11 @@ class _ExchangeDeadlineLabel extends StatelessWidget {
     if (deadline == null) {
       return Text(
         'Без срока',
+        textAlign: TextAlign.right,
         style: context.klanyTextStyle(TaskExchangeFigmaLayout.metaStyle),
       );
     }
-    final urgent = TaskExchangeFigmaLayout.isDeadlineUrgent(deadline);
-    return Text(
-      TaskExchangeFigmaLayout.remainingLabel(deadline),
-      textAlign: TextAlign.right,
-      style: context.klanyTextStyle(
-        TaskExchangeFigmaLayout.deadlineStyle.copyWith(
-          color: urgent ? TaskExchangeFigmaLayout.deadlineUrgent : Colors.black,
-          fontWeight: urgent ? FontWeight.w700 : FontWeight.w500,
-        ),
-      ),
-    );
+    return ExchangeDeadlineColumn(deadline: deadline);
   }
 }
 

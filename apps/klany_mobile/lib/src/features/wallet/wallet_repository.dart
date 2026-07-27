@@ -14,12 +14,15 @@ class WalletSummary {
     required this.walletId,
     required this.balance,
     this.goalAmount = 10000,
+    this.completedQuestsCount = 0,
   });
 
   final String walletId;
   final int balance;
   /// Family savings goal from `/wallet/child` (audit «family_goal_set»).
   final int goalAmount;
+  /// Число одобренных квестов (бекенд не отдаёт их в `/quests/child/assignments`).
+  final int completedQuestsCount;
 }
 
 class WalletTxItem {
@@ -72,6 +75,8 @@ class WalletRepository {
       walletId: (data['walletId'] ?? '').toString(),
       balance: (data['balance'] as num?)?.toInt() ?? 0,
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+      completedQuestsCount:
+          (data['completedQuestsCount'] as num?)?.toInt() ?? 0,
     );
   }
 

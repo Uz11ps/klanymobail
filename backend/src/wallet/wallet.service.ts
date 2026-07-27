@@ -45,7 +45,15 @@ export class WalletService {
   async getChildWallet(user: ChildUser) {
     const wallet = await this.ensureWallet(user.childId, user.familyId);
     const goalAmount = await this.getFamilyGoalAmount(user.familyId);
-    return { walletId: wallet.id, balance: wallet.balance, goalAmount };
+    const completedQuestsCount = await this.prisma.questAssignee.count({
+      where: { childId: user.childId, status: "approved" },
+    });
+    return {
+      walletId: wallet.id,
+      balance: wallet.balance,
+      goalAmount,
+      completedQuestsCount,
+    };
   }
 
   async getChildTransactions(user: ChildUser) {

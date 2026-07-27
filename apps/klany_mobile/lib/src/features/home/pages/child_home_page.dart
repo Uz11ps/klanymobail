@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 import '../../auth/child_session.dart';
 import '../../auth/child_pin_store.dart';
 import '../../auth/device_identity.dart';
@@ -246,16 +247,44 @@ class _ChildHomeDashboard extends ConsumerStatefulWidget {
       _ChildHomeDashboardState();
 }
 
-class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
+class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
+    with WidgetsBindingObserver {
   bool _initialLoading = true;
   bool _refreshing = false;
   Object? _loadError;
   _OverviewModel? _model;
+  Timer? _refreshTimer;
+
+  void _startRefreshTimerIfNeeded() {
+    _refreshTimer ??= Timer.periodic(kChildLivePollInterval, (_) {
+      _load(silent: true);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load(showSpinner: true);
+    _startRefreshTimerIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startRefreshTimerIfNeeded();
+      Future<void>.microtask(() => _load(silent: true));
+    }
   }
 
   Future<_OverviewModel> _fetch(String childId) async {
@@ -269,14 +298,12 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
         .where(
           (a) =>
               a.distributionType != 'exchange' &&
-              a.status != 'done' &&
-              a.status != 'completed',
+              !isChildAssignmentCompleted(a) &&
+              a.status != 'submitted',
         )
         .length;
     final exchange = list.where((a) => a.distributionType == 'exchange').length;
-    final done = list
-        .where((a) => a.status == 'completed' || a.status == 'done')
-        .length;
+    final done = wallet?.completedQuestsCount ?? 0;
     final balance = wallet?.balance ?? 0;
     final rawGoal = wallet?.goalAmount ?? 10000;
     final goal = rawGoal > 0 ? rawGoal : 10000;
@@ -291,7 +318,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
     );
   }
 
-  Future<void> _load({bool showSpinner = false}) async {
+  Future<void> _load({bool showSpinner = false, bool silent = false}) async {
     final session = ref.read(childSessionProvider).asData?.value;
     if (!mounted) return;
     if (session == null) {
@@ -306,7 +333,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
       _loadError = null;
       if (showSpinner && _model == null) {
         _initialLoading = true;
-      } else if (_model != null) {
+      } else if (_model != null && !silent) {
         _refreshing = true;
       }
     });

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,9 +9,9 @@ import 'package:intl/intl.dart';
 import '../../auth/child_session.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
-import '../../quests/quests_repository.dart';
 import '../wallet_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/value_bump.dart';
 
 /// Зелёный / красный сумм в ленте — как в Figma (node 0:522).
 const _kTxGreen = Color(0xFF6FFF00);
@@ -100,11 +101,66 @@ class ChildWalletPage extends ConsumerStatefulWidget {
   ConsumerState<ChildWalletPage> createState() => _ChildWalletPageState();
 }
 
-class _ChildWalletPageState extends ConsumerState<ChildWalletPage> {
+class _ChildWalletPageState extends ConsumerState<ChildWalletPage>
+    with WidgetsBindingObserver {
   String? _memoChildId;
   Future<WalletSummary?>? _walletFuture;
   String? _memoWalletIdForTx;
   Future<List<WalletTxItem>>? _txFuture;
+  Timer? _livePoll;
+
+  void _startLivePollIfNeeded() {
+    _livePoll ??= Timer.periodic(kChildLivePollInterval, (_) {
+      _reloadWallet(silent: true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startLivePollIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _livePoll?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _livePoll?.cancel();
+      _livePoll = null;
+    } else if (state == AppLifecycleState.resumed) {
+      _startLivePollIfNeeded();
+      Future<void>.microtask(() => _reloadWallet(silent: true));
+    }
+  }
+
+  void _reloadWallet({bool silent = false}) {
+    final session = ref.read(childSessionProvider).asData?.value;
+    final childId = session?.childId;
+    if (childId == null || childId.isEmpty) return;
+    final next = ref.read(walletRepositoryProvider).getChildWallet(childId);
+    setState(() {
+      _memoChildId = childId;
+      _walletFuture = next;
+    });
+    next.then((wallet) {
+      if (!mounted || wallet == null) return;
+      if (_memoWalletIdForTx != wallet.walletId) {
+        setState(() {
+          _memoWalletIdForTx = wallet.walletId;
+          _txFuture = ref
+              .read(walletRepositoryProvider)
+              .getWalletTransactions(wallet.walletId);
+        });
+      }
+    });
+  }
 
   Future<WalletSummary?> _walletFutureFor(String childId) {
     if (_memoChildId != childId) {
@@ -145,6 +201,7 @@ class _ChildWalletPageState extends ConsumerState<ChildWalletPage> {
       builder: (context, walletSnap) {
         final wallet = walletSnap.data;
         final balance = wallet?.balance ?? 0;
+        final completed = wallet?.completedQuestsCount ?? 0;
 
         return Scaffold(
           backgroundColor: Colors.transparent,
@@ -211,7 +268,10 @@ class _ChildWalletPageState extends ConsumerState<ChildWalletPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _WalletProfileBlock(balance: balance),
+                      _WalletProfileBlock(
+                        balance: balance,
+                        completedCount: completed,
+                      ),
                       const SizedBox(height: 20),
                       _walletDividerLine(),
                       const SizedBox(height: 20),
@@ -291,49 +351,23 @@ class _ChildWalletPageState extends ConsumerState<ChildWalletPage> {
   }
 }
 
-class _WalletProfileBlock extends ConsumerStatefulWidget {
-  const _WalletProfileBlock({required this.balance});
+class _WalletProfileBlock extends StatelessWidget {
+  const _WalletProfileBlock({
+    required this.balance,
+    required this.completedCount,
+  });
 
   final int balance;
-
-  @override
-  ConsumerState<_WalletProfileBlock> createState() =>
-      _WalletProfileBlockState();
-}
-
-class _WalletProfileBlockState extends ConsumerState<_WalletProfileBlock> {
-  String? _memoChildId;
-  Future<List<ChildQuestAssignmentItem>>? _assignmentsFuture;
-
-  Future<List<ChildQuestAssignmentItem>> _assignmentsFutureFor(String childId) {
-    if (_memoChildId != childId) {
-      _memoChildId = childId;
-      _assignmentsFuture =
-          ref.read(questsRepositoryProvider).getChildAssignments(childId);
-    }
-    return _assignmentsFuture!;
-  }
+  final int completedCount;
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(childSessionProvider).asData?.value;
-    final name = session?.childDisplayName.trim().isNotEmpty == true
-        ? session!.childDisplayName.trim()
-        : 'Участник';
-
-    return FutureBuilder<List<ChildQuestAssignmentItem>>(
-      future: session == null
-          ? Future.value(const <ChildQuestAssignmentItem>[])
-          : _assignmentsFutureFor(session.childId),
-      builder: (context, snap) {
-        final completed = (snap.data ?? const <ChildQuestAssignmentItem>[])
-            .where(
-              (a) =>
-                  a.status == 'completed' ||
-                  a.status == 'done' ||
-                  a.status == 'approved',
-            )
-            .length;
+    return Consumer(
+      builder: (context, ref, _) {
+        final session = ref.watch(childSessionProvider).asData?.value;
+        final name = session?.childDisplayName.trim().isNotEmpty == true
+            ? session!.childDisplayName.trim()
+            : 'Участник';
         if (session == null) {
           return const SizedBox.shrink();
         }
@@ -377,7 +411,7 @@ class _WalletProfileBlockState extends ConsumerState<_WalletProfileBlock> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '$completed ${_taskWord(completed)} выполнено',
+                        '$completedCount ${_taskWord(completedCount)} выполнено',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.nunito(
@@ -406,7 +440,7 @@ class _WalletProfileBlockState extends ConsumerState<_WalletProfileBlock> {
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                _formatNumber(widget.balance),
+                                _formatNumber(balance),
                                 style: GoogleFonts.nunito(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800,

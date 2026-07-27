@@ -556,7 +556,7 @@ export class QuestsService {
       where: { familyId, status: "active" },
       include: {
         assignees: {
-          select: { childId: true, createdAt: true },
+          select: { childId: true, createdAt: true, status: true },
           orderBy: { createdAt: "asc" },
         },
       },
@@ -571,6 +571,7 @@ export class QuestsService {
             ? [meta.reverseChildId]
             : q.assignees.map((a) => a.childId);
         const assigneeSince = q.assignees[0]?.createdAt ?? null;
+        const assigneeStatus = q.assignees[0]?.status ?? null;
         return {
           ...q,
           description: meta.plainDescription,
@@ -581,6 +582,7 @@ export class QuestsService {
           scheduleDays: meta.scheduleDays,
           childIds,
           assigneeSince,
+          assigneeStatus,
         };
       }),
     };
@@ -971,6 +973,7 @@ export class QuestsService {
         childName: [row.child.firstName, row.child.lastName].filter(Boolean).join(" ").trim(),
         title: row.quest.title,
         submittedAt: row.submittedAt,
+        rewardAmount: row.rewardAmount > 0 ? row.rewardAmount : row.quest.reward,
         evidenceKey: evidence?.objectKey ?? null,
       });
     }
