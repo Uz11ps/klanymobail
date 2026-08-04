@@ -264,21 +264,6 @@ export class QuestsService {
       throw new BadRequestException("childIds обязателен для адресного квеста");
     }
 
-    const activeSub = await this.prisma.familySubscription.findFirst({
-      where: { familyId, status: "active" },
-      orderBy: { startedAt: "desc" },
-    });
-    const isBasic = (activeSub?.planCode ?? "basic").toLowerCase() === "basic";
-    if (isBasic) {
-      if (childIds.length > 1) {
-        throw new BadRequestException("На базовом тарифе квест назначается только одному ребенку");
-      }
-      const allowedTypes = new Set(["one_time", "recurring", "unique"]);
-      if (!allowedTypes.has(questType)) {
-        throw new BadRequestException("На базовом тарифе доступны только простые квесты");
-      }
-    }
-
     // Ensure children belong to family.
     const children = await this.prisma.child.findMany({ where: { id: { in: childIds } } });
     for (const c of children) {

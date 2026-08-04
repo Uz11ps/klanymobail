@@ -15,6 +15,7 @@ import {
 } from "../mail/auth-email-token.util";
 import { ResendMailService } from "../mail/resend-mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { grantDefaultPremiumSubscription } from "../subscriptions/default-premium";
 
 import { assertKlanyPasswordPlain } from "./password-policy";
 
@@ -232,6 +233,8 @@ export class AuthService {
           displayName: input.displayName,
         },
       });
+
+      await grantDefaultPremiumSubscription(tx, family.id);
 
       return { user, family, profile };
   }
