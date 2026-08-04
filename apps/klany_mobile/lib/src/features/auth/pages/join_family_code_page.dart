@@ -8,6 +8,7 @@ import '../auth_actions.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/family_access_code.dart';
 
 class JoinFamilyCodePage extends ConsumerStatefulWidget {
   const JoinFamilyCodePage({super.key, required this.role});
@@ -33,9 +34,11 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
   Future<void> _submit() async {
     if (_busy) return;
     final code = _code.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+    if (!kFamilyAccessCodePattern.hasMatch(code)) {
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Введите 6-значный код')),
+        SnackBar(
+          content: Text('Введите $kFamilyAccessCodeLength-значный код'),
+        ),
       );
       return;
     }
@@ -71,7 +74,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
       context.go('/child');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Не удалось войти: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -87,7 +90,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
       leading: const ClanBackButton(),
       title: title,
       subtitle:
-          'Введите персональный 6-значный код, который создал Глава Клана в настройках семьи.',
+          'Введите персональный 8-значный код, который создал Глава Клана в настройках семьи.',
       children: [
         ChildSoftCard(
           padding: const EdgeInsets.all(18),
@@ -97,9 +100,9 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
               TextField(
                 controller: _code,
                 keyboardType: TextInputType.number,
-                maxLength: 6,
+                maxLength: kFamilyAccessCodeLength,
                 decoration: clanInputDecoration(
-                  label: 'Код доступа (6 цифр)',
+                  label: 'Код доступа (8 цифр)',
                   icon: Icons.vpn_key,
                   counterText: '',
                 ),

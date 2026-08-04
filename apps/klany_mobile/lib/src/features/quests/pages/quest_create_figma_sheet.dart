@@ -282,9 +282,7 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка создания: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

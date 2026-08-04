@@ -67,9 +67,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
       context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

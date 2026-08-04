@@ -74,9 +74,7 @@ class _SubscriptionPlansPageState extends ConsumerState<SubscriptionPlansPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка создания платежа: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

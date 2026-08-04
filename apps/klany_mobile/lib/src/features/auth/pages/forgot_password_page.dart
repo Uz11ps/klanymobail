@@ -60,7 +60,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

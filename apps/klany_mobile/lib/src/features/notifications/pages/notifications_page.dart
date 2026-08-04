@@ -13,6 +13,7 @@ import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
 
@@ -51,7 +52,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     final familyAsync = ref.watch(parentFamilyContextProvider);
     return familyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Ошибка: $error')),
+      error: (error, stack) => KlanyErrorGoBack(error: error),
       data: (family) {
         if (family == null) {
           return const Center(child: Text('Семья не найдена'));
@@ -155,9 +156,7 @@ class _NotificationsInteractiveContentState
     } catch (e) {
       if (!mounted) return;
       setState(() => _refreshInProgress = false);
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось обновить ленту: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     }
   }
 
@@ -203,9 +202,7 @@ class _NotificationsInteractiveContentState
       await ref.read(notificationsRepositoryProvider).markRead(n.id);
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось отметить: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
       return;
     }
     if (!mounted) return;
@@ -298,7 +295,7 @@ class _NotificationsInteractiveContentState
       return const Center(child: CircularProgressIndicator());
     }
     if (_loadError != null && _hub == null) {
-      return Center(child: Text('Ошибка: $_loadError'));
+      return KlanyErrorGoBack(error: _loadError);
     }
 
     final hub = _hub ??
@@ -554,9 +551,7 @@ class _NotificationsInteractiveContentState
                                 );
                               } catch (e) {
                                 if (!context.mounted) return;
-                                context.showKlanySnackBar(
-                                  SnackBar(content: Text('Ошибка: $e')),
-                                );
+                                context.showKlanyErrorSnackBar(e);
                               }
                             },
                           ),

@@ -3,18 +3,60 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'api_client.dart';
+
+const String klanyNetworkErrorLabel = 'Ошибка сети';
+
+bool looksLikeNetworkError(Object? error) {
+  final lower = (error ?? '').toString().toLowerCase();
+  return lower.contains('network_timeout') ||
+      lower.contains('timeoutexception') ||
+      lower.contains('timeout') ||
+      lower.contains('socketexception') ||
+      lower.contains('clientexception') ||
+      lower.contains('failed host lookup') ||
+      lower.contains('connection refused') ||
+      lower.contains('connection reset') ||
+      lower.contains('connection closed') ||
+      lower.contains('failed to fetch') ||
+      lower.contains('network error') ||
+      lower.contains('httpexception') ||
+      lower.contains('handshakeexception') ||
+      lower.contains('ошибка сети');
+}
+
+/// Короткое сообщение: сеть → «Ошибка сети», иначе без стека.
+String klanyBriefErrorMessage(Object? error) {
+  if (error is ApiException) {
+    final code = error.statusCode;
+    if (code >= 400 && code < 500) return error.message;
+  }
+  if (looksLikeNetworkError(error)) return klanyNetworkErrorLabel;
+  return userFriendlyErrorMessage(error);
+}
+
+void showKlanyNetworkErrorSnackBar(BuildContext context, [Object? error]) {
+  context.showKlanyNetworkErrorSnackBar(error);
+}
+
 String userFriendlyErrorMessage(Object? error) {
+  if (error is ApiException) return error.message;
+
   var raw = (error ?? '').toString().trim();
   if (raw.isEmpty) return 'Что-то пошло не так. Попробуйте ещё раз.';
 
   raw = raw
       .replaceFirst(
-        RegExp(r'^(Exception|TimeoutException|FormatException):\s*'),
+        RegExp(r'^(Exception|TimeoutException|FormatException|StateError):\s*'),
         '',
       )
       .replaceFirst(RegExp(r'^Ошибка\s*:\s*', caseSensitive: false), '')
       .replaceFirst(
-        RegExp(r'^Не удалось войти\s*:\s*', caseSensitive: false),
+        RegExp(r'^Не удалось[^:\n]{0,48}:\s*', caseSensitive: false),
+        '',
+      )
+      .replaceFirst(
+        RegExp(r'^Ошибка[^:\n]{0,48}:\s*', caseSensitive: false),
         '',
       )
       .trim();
@@ -241,6 +283,20 @@ SnackBar _decorateKlanySnackBar(BuildContext context, SnackBar s) {
 }
 
 extension KlanySnackBarOnContext on BuildContext {
+  /// SnackBar «Ошибка сети» (или короткий текст для не-сетевых сбоев).
+  void showKlanyNetworkErrorSnackBar([Object? error]) {
+    showKlanySnackBar(
+      SnackBar(content: Text(klanyBriefErrorMessage(error))),
+    );
+  }
+
+  /// Показывает SnackBar с понятным текстом ошибки (без стека и Exception:).
+  void showKlanyErrorSnackBar(Object? error) {
+    showKlanySnackBar(
+      SnackBar(content: Text(klanyBriefErrorMessage(error))),
+    );
+  }
+
   /// Показывает SnackBar у нижнего края контента; на `/child` и `/parent`
   /// [Scaffold] уже держит слот над нижней навигацией — добавляется только небольшой зазор.
   /// Сбрасывает очередь — новое сообщение не «встаёт» третьим после двух минут показов.

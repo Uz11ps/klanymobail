@@ -14,7 +14,7 @@ type ChildUser = {
 };
 
 function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
+  return Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
 }
 
 @Injectable()
@@ -309,7 +309,7 @@ export class ChildService {
     const authCode = (input.authCode ?? "").trim();
     const deviceId = (input.deviceId ?? "").trim();
     const deviceKey = (input.deviceKey ?? "").trim();
-    if (!/^\d{6}$/.test(authCode)) throw new BadRequestException("authCode должен состоять из 6 цифр");
+    if (!/^\d{8}$/.test(authCode)) throw new BadRequestException("authCode должен состоять из 8 цифр");
     if (!deviceId || !deviceKey) throw new BadRequestException("deviceId/deviceKey обязательны");
 
     const child = await this.prisma.child.findFirst({ where: { authCode } });

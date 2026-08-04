@@ -13,6 +13,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
 /// Фон карточек по [Figma «Биржа задач» node 0:305+](https://www.figma.com/design/z72tmzXGfrKzFPQMqrL1ZB/Untitled?node-id=0-285).
@@ -340,7 +341,7 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
                           child: Center(child: CircularProgressIndicator()),
                         ),
                       if (snapshot.hasError)
-                        ChildSoftCard(child: Text('Ошибка: ${snapshot.error}')),
+                        ChildSoftCard(child: KlanyFriendlyErrorText(snapshot.error)),
                       if (!snapshot.hasError &&
                           snapshot.connectionState != ConnectionState.waiting &&
                           current.isEmpty)
@@ -588,7 +589,7 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -619,7 +620,7 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
       widget.onChanged();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

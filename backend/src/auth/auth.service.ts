@@ -281,7 +281,7 @@ export class AuthService {
 
   async signInWithFamilyCode(input: { code: string }) {
     const code = (input.code ?? "").trim();
-    if (!/^\d{6}$/.test(code)) throw new UnauthorizedException("Неверный код");
+    if (!/^\d{8}$/.test(code)) throw new UnauthorizedException("Неверный код");
 
     const memberCode = await this.prisma.familyMemberCode.findUnique({
       where: { code },

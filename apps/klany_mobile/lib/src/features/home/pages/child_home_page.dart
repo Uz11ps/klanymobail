@@ -250,7 +250,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
     with KlanyLivePollConsumerMixin {
   bool _initialLoading = true;
   bool _refreshing = false;
-  Object? _loadError;
   _OverviewModel? _model;
 
   @override
@@ -307,7 +306,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
     }
 
     setState(() {
-      _loadError = null;
       if (showSpinner && _model == null) {
         _initialLoading = true;
       } else if (_model != null && !silent) {
@@ -321,7 +319,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
       setState(() => _model = m);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loadError = e);
+      context.showKlanyNetworkErrorSnackBar(e);
     } finally {
       if (mounted) {
         setState(() {
@@ -429,7 +427,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
       _load();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     }
   }
 
@@ -482,53 +480,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
             scale: s,
             onReload: () => _load(),
             onMenu: _openAccountSheet,
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Не удалось загрузить данные',
-          textAlign: TextAlign.center,
-          style: _nunito(
-            fontSize: 16 * s,
-            fontWeight: FontWeight.w700,
-            color: kChildInkMuted,
-          ),
-        ),
-        SizedBox(height: 12 * s),
-        if (_loadError != null) ...[
-          Text(
-            userFriendlyErrorMessage(_loadError),
-            textAlign: TextAlign.center,
-            style: _nunito(
-              fontSize: 12 * s,
-              fontWeight: FontWeight.w500,
-              color: kChildInkMuted,
-              height: 1.35,
-            ),
-          ),
-          if (kDebugMode) ...[
-            SizedBox(height: 8 * s),
-            Text(
-              _loadError.toString(),
-              textAlign: TextAlign.center,
-              style: _nunito(
-                fontSize: 11 * s,
-                fontWeight: FontWeight.w400,
-                color: kChildInkMuted.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-          SizedBox(height: 12 * s),
-        ],
-        TextButton(
-          onPressed: () => _load(showSpinner: true),
-          child: Text(
-            'Повторить',
-            style: _nunito(
-              fontSize: 15 * s,
-              fontWeight: FontWeight.w700,
-              color: kFigmaChildScreenBlue,
-            ),
           ),
         ),
       ];

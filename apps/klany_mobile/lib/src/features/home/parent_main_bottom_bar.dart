@@ -19,6 +19,12 @@ abstract final class ParentMainBottomBarLayout {
 
   static double scaledPillHeight(BuildContext context) =>
       context.klanySize(pillHeight);
+
+  /// Нижний отступ для [ListView], чтобы контент не уходил под плавающий бар.
+  static double scrollBottomClearance(BuildContext context) {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return scaledPillHeight(context) + context.klanySize(16) + bottomInset;
+  }
 }
 
 class ParentMainBottomBar extends StatelessWidget {

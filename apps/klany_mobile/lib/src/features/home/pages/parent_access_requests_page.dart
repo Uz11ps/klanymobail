@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../auth/parent_access_repository.dart';
 import '../child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
 class ParentAccessRequestsPage extends ConsumerStatefulWidget {
@@ -40,9 +41,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка подтверждения: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -56,9 +55,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка отклонения: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -70,7 +67,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
 
     return familyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Ошибка: $error')),
+      error: (error, stack) => KlanyErrorGoBack(error: error),
       data: (family) {
         if (family == null) {
           return const Center(child: Text('Семья не найдена'));

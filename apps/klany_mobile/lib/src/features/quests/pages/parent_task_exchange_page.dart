@@ -9,6 +9,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/parent_main_bottom_bar.dart';
 import '../../home/parent_screen_header.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../quests_repository.dart';
 import 'parent_task_exchange_sections.dart';
@@ -75,7 +76,10 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
     return SizedBox.expand(
       child: ref.watch(parentFamilyContextProvider).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Ошибка: $e')),
+          error: (e, _) => KlanyErrorGoBack(
+            error: e,
+            onBack: widget.onBack,
+          ),
           data: (family) {
             if (family == null) {
               return const Center(child: Text('Семья не найдена'));
@@ -343,7 +347,7 @@ class _ExchangeNewQuestList extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Text('Ошибка: ${snapshot.error}');
+          return KlanyFriendlyErrorText(snapshot.error);
         }
         final list = (snapshot.data ?? const <ParentQuestItem>[])
             .where(isParentQuestFreeOnExchange)
@@ -394,7 +398,7 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Text('Ошибка: ${snapshot.error}');
+          return KlanyFriendlyErrorText(snapshot.error);
         }
         final quests = snapshot.data?.$1 ?? const <ParentQuestItem>[];
         final children = snapshot.data?.$2 ?? const <FamilyChildLite>[];

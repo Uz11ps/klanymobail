@@ -16,6 +16,7 @@ import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../shop_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
 /// Те же заливки карточек, что у квестов/биржи ([Figma]).
@@ -404,7 +405,7 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                           child: Center(child: CircularProgressIndicator()),
                         ),
                       if (snapshot.hasError)
-                        ChildSoftCard(child: Text('Ошибка: ${snapshot.error}')),
+                        ChildSoftCard(child: KlanyFriendlyErrorText(snapshot.error)),
                       if (!snapshot.hasError &&
                           snapshot.connectionState != ConnectionState.waiting &&
                           products.isEmpty)

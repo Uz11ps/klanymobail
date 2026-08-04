@@ -18,11 +18,13 @@ import '../../subscriptions/subscription_repository.dart';
 import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
+import '../parent_main_bottom_bar.dart';
 import '../parent_screen_header.dart';
 import 'document_page.dart';
 import 'parent_account_edit_dialog.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
 
@@ -30,6 +32,9 @@ const Color _figmaSettingsMint = Color(0xFFD9F6C2);
 const Color _figmaSettingsSkyButton = Color(0xFF9EC4F6);
 const Color _figmaSettingsLavender = Color(0xFFD8CBF7);
 const Color _figmaSettingsFieldBorder = Color(0x14000000);
+
+/// Временно скрываем блок подписки/промокода в настройках.
+const _kShowSubscriptionsInSettings = false;
 
 ButtonStyle _figmaSettingsButtonStyle({
   required Color backgroundColor,
@@ -123,9 +128,10 @@ class _SCard extends StatelessWidget {
 
 /// Section title shown at the top of each settings card, with horizontal divider underneath.
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text, {this.trailing});
+  const _SectionTitle(this.text, {this.trailing, this.description});
   final String text;
   final Widget? trailing;
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +154,19 @@ class _SectionTitle extends StatelessWidget {
             ?trailing,
           ],
         ),
+        if (description != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            description!,
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: kChildInkMuted,
+              height: 1.35,
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
         Divider(height: 1, color: Colors.black.withValues(alpha: 0.12)),
         const SizedBox(height: 20),
@@ -237,6 +256,7 @@ class _ParentFamilySettingsPageState
   final _goalAmount = TextEditingController();
   String _memberRole = 'child';
   bool _busy = false;
+  bool _memberCodeBusy = false;
   double _taxRate = 0.20;
   bool _pinEnabled = true;
   bool _parentalControl = true;
@@ -247,6 +267,7 @@ class _ParentFamilySettingsPageState
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
+    if (!_kShowSubscriptionsInSettings) return;
     final fid = ref.read(parentFamilyContextProvider).asData?.value?.familyId;
     if (fid != null) {
       _reloadFamilySubscriptions(fid);
@@ -268,6 +289,7 @@ class _ParentFamilySettingsPageState
     super.didChangeDependencies();
     final fid = ref.read(parentFamilyContextProvider).value?.familyId;
     if (fid == null) return;
+    if (!_kShowSubscriptionsInSettings) return;
     if (_subscriptionsFamilyId != fid) {
       _subscriptionsFamilyId = fid;
       _familySubscriptionsFuture = ref
@@ -293,7 +315,7 @@ class _ParentFamilySettingsPageState
   // ─── Async actions ────────────────────────────────────────────────────────
 
   Future<void> _createMemberCode() async {
-    if (_busy) return;
+    if (_memberCodeBusy) return;
     final name = _memberName.text.trim();
     if (name.isEmpty) {
       context.showKlanySnackBar(
@@ -301,7 +323,7 @@ class _ParentFamilySettingsPageState
       );
       return;
     }
-    setState(() => _busy = true);
+    setState(() => _memberCodeBusy = true);
     try {
       final code = await ref
           .read(parentAccessRepositoryProvider)
@@ -311,14 +333,12 @@ class _ParentFamilySettingsPageState
         SnackBar(content: Text('Код для ${code.displayName}: ${code.code}')),
       );
       _memberName.clear();
-      setState(() {});
+      setState(() => _familyRosterNonce++);
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка создания кода: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _memberCodeBusy = false);
     }
   }
 
@@ -347,9 +367,7 @@ class _ParentFamilySettingsPageState
       _inviteEmail.clear();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка приглашения: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -375,7 +393,7 @@ class _ParentFamilySettingsPageState
       _goalAmount.clear();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -397,9 +415,7 @@ class _ParentFamilySettingsPageState
       if (fid != null) _reloadFamilySubscriptions(fid);
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка промокода: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -465,7 +481,7 @@ class _ParentFamilySettingsPageState
         if (mounted) setState(() {});
       } catch (e) {
         if (mounted) {
-          context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+          context.showKlanyErrorSnackBar(e);
         }
       } finally {
         if (mounted) setState(() => _busy = false);
@@ -562,7 +578,7 @@ class _ParentFamilySettingsPageState
         if (mounted) setState(() {});
       } catch (e) {
         if (mounted) {
-          context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+          context.showKlanyErrorSnackBar(e);
         }
       } finally {
         if (mounted) setState(() => _busy = false);
@@ -585,7 +601,7 @@ class _ParentFamilySettingsPageState
       }
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -604,7 +620,7 @@ class _ParentFamilySettingsPageState
       }
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -645,7 +661,7 @@ class _ParentFamilySettingsPageState
       }
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -697,7 +713,7 @@ class _ParentFamilySettingsPageState
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -712,7 +728,7 @@ class _ParentFamilySettingsPageState
     return familyAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('Ошибка: $e'))),
+      error: (e, _) => KlanyErrorGoBack(error: e, onBack: widget.onBack),
       data: (family) {
         if (family == null) {
           return const Scaffold(body: Center(child: Text('Семья не найдена')));
@@ -733,12 +749,25 @@ class _ParentFamilySettingsPageState
       key: ValueKey<String>('fam-${family.familyId}-$_familyRosterNonce'),
       future: () async {
         final repo = ref.read(parentAccessRepositoryProvider);
-        final parents = await repo.getParentMembers(family.familyId);
-        final children = await repo.getChildren(family.familyId);
-        final codes = await repo.getFamilyMemberCodes();
-        return (parents, children, codes);
+        final results = await Future.wait<Object>([
+          repo.getParentMembers(family.familyId),
+          repo.getChildren(family.familyId),
+          repo.getFamilyMemberCodes(),
+        ]);
+        return (
+          results[0] as List<ParentMemberItem>,
+          results[1] as List<ChildMemberItem>,
+          results[2] as List<FamilyMemberCodeItem>,
+        );
       }(),
       builder: (context, snapshot) {
+        if (snapshot.hasError && snapshot.data == null) {
+          return KlanyErrorGoBack(
+            error: snapshot.error,
+            onBack: widget.onBack,
+          );
+        }
+
         final parents = snapshot.data?.$1 ?? const <ParentMemberItem>[];
         final children = snapshot.data?.$2 ?? const <ChildMemberItem>[];
         final codes = snapshot.data?.$3 ?? const <FamilyMemberCodeItem>[];
@@ -790,6 +819,9 @@ class _ParentFamilySettingsPageState
                     // Карточка «Клан» — прежние поля; контент ниже — шире (меньший inset).
                     final clanHorizontal = maxW < 430 ? 18.0 : 22.0;
                     final settingsHorizontal = maxW < 430 ? 8.0 : 11.0;
+                    final listBottomPad =
+                        ParentMainBottomBarLayout.scrollBottomClearance(context) +
+                        28;
                     return Center(
                       child: SizedBox(
                         width: pageWidth,
@@ -803,7 +835,7 @@ class _ParentFamilySettingsPageState
                           ),
                           child: ListView(
                             physics: const ClampingScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(0, 0, 0, 40),
+                            padding: EdgeInsets.fromLTRB(0, 0, 0, listBottomPad),
                             children: [
                               ParentScreenHeader(
                                 title: 'Настройки',
@@ -819,13 +851,11 @@ class _ParentFamilySettingsPageState
                                     color: Colors.black,
                                     size: 24,
                                   ),
-                                  onPressed: _busy
-                                      ? null
-                                      : () => ref
-                                            .read(
-                                              authActionsProvider,
-                                            )
-                                            .signOut(),
+                                  onPressed: () => ref
+                                        .read(
+                                          authActionsProvider,
+                                        )
+                                        .signOut(),
                                 ),
                               ),
                               Padding(
@@ -950,394 +980,6 @@ class _ParentFamilySettingsPageState
                                       CrossAxisAlignment.stretch,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // ── Family goal ──────────────────────────────────────────────
-                                    _SCard(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          const _SectionTitle(
-                                            'Общая цель семьи',
-                                          ),
-                                          const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 6,
-                                              bottom: 6,
-                                            ),
-                                            child: Text(
-                                              'Название цели',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                                color: kChildInk,
-                                              ),
-                                            ),
-                                          ),
-                                          TextField(
-                                            controller: _goalName,
-                                            style: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w500,
-                                              color: kChildInk,
-                                            ),
-                                            decoration: _settingsField(
-                                              'Купить велосипед',
-                                            ),
-                                          ),
-                                          const SizedBox(height: 14),
-                                          const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 6,
-                                              bottom: 6,
-                                            ),
-                                            child: Text(
-                                              'Сумма цели',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                                color: kChildInk,
-                                              ),
-                                            ),
-                                          ),
-                                          TextField(
-                                            controller: _goalAmount,
-                                            keyboardType: TextInputType.number,
-                                            style: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w500,
-                                              color: kChildInk,
-                                            ),
-                                            decoration: _settingsField(
-                                              family.goalAmount > 0
-                                                  ? '${family.goalAmount}'
-                                                  : 'Купить велосипед',
-                                            ),
-                                          ),
-                                          const SizedBox(height: 14),
-                                          FilledButton(
-                                            onPressed: _busy ? null : _saveGoal,
-                                            style: _figmaSettingsButtonStyle(
-                                              backgroundColor:
-                                                  _figmaSettingsMint,
-                                            ),
-                                            child: const Text('Сохранить цель'),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-
-                                    // ── Subscription ─────────────────────────────────────────────
-                                    FutureBuilder<List<FamilySubscriptionItem>>(
-                                      future: _familySubscriptionsFuture,
-                                      builder: (context, subSnap) {
-                                        final subs =
-                                            subSnap.data ??
-                                            const <FamilySubscriptionItem>[];
-                                        final current = subs.isNotEmpty
-                                            ? subs.first
-                                            : null;
-                                        final isPremium =
-                                            current?.planCode
-                                                .toLowerCase()
-                                                .contains('premium') ==
-                                            true;
-
-                                        return Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            if (isPremium) ...[
-                                              Container(
-                                                padding: const EdgeInsets.all(
-                                                  18,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: _figmaSettingsLavender,
-                                                  borderRadius:
-                                                      BorderRadius.circular(22),
-                                                ),
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text(
-                                                      'Мой тариф: PREMIUM',
-                                                      style: TextStyle(
-                                                        fontSize: 17,
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                        color: kChildInk,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      current?.expiresAt != null
-                                                          ? 'Активен до ${current!.expiresAt!.year}г.'
-                                                          : 'Активен',
-                                                      style: const TextStyle(
-                                                        fontSize: 14,
-                                                        color: kChildInk,
-                                                      ),
-                                                    ),
-                                                    const Text(
-                                                      'Участников: 1/999',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: kChildInk,
-                                                      ),
-                                                    ),
-                                                    const Text(
-                                                      'Обратные и VIP задачи: доступны',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: kChildInk,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 14),
-                                                    FilledButton(
-                                                      onPressed: _busy
-                                                          ? null
-                                                          : _buyPremium,
-                                                      style:
-                                                          _figmaSettingsButtonStyle(
-                                                            backgroundColor:
-                                                                Colors.white,
-                                                          ),
-                                                      child: const Text(
-                                                        'Управлять подпиской',
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(height: 14),
-                                              FilledButton(
-                                                onPressed: _busy
-                                                    ? null
-                                                    : _buyPremium,
-                                                style: _figmaSettingsButtonStyle(
-                                                  backgroundColor:
-                                                      _figmaSettingsSkyButton,
-                                                ),
-                                                child: const Text(
-                                                  'УПРАВЛЯТЬ ПОДПИСКОЙ',
-                                                ),
-                                              ),
-                                              const SizedBox(height: 24),
-                                            ],
-
-                                            // ── Economics ────────────────────────────────────────
-                                            _SCard(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  _SectionTitle(
-                                                    'Экономика Клана',
-                                                    trailing: GestureDetector(
-                                                      onTap: () {},
-                                                      child: const Icon(
-                                                        Icons.edit_outlined,
-                                                        color: kChildInk,
-                                                        size: 20,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const Text(
-                                                    'Курс монет: 10 монет = 100₽',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: kChildInk,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  Row(
-                                                    children: [
-                                                      const Expanded(
-                                                        child: Text(
-                                                          'Глобальный налог:',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            color:
-                                                                kChildInkMuted,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        '${(_taxRate * 100).round()}%',
-                                                        style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.w800,
-                                                          color: kChildInk,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  _TaxSegmentSlider(
-                                                    value: _taxRate,
-                                                    onChanged: (v) => setState(
-                                                      () => _taxRate = v,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 16),
-                                                  const Divider(
-                                                    height: 1,
-                                                    color: kChildOutline,
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Row(
-                                                    children: [
-                                                      const Expanded(
-                                                        child: Text(
-                                                          'PIN-код для Экономики',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: kChildInk,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Switch(
-                                                        value: _pinEnabled,
-                                                        activeTrackColor:
-                                                            _figmaSettingsMint,
-                                                        activeThumbColor:
-                                                            Colors.white,
-                                                        inactiveTrackColor:
-                                                            kChildOutline,
-                                                        inactiveThumbColor:
-                                                            Colors.white,
-                                                        onChanged: (v) =>
-                                                            setState(
-                                                              () =>
-                                                                  _pinEnabled =
-                                                                      v,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const Divider(
-                                                    height: 1,
-                                                    color: kChildOutline,
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Row(
-                                                    children: [
-                                                      const Expanded(
-                                                        child: Text(
-                                                          'Родительский контроль обратных задач',
-                                                          style: TextStyle(
-                                                            fontSize: 14,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: kChildInk,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Switch(
-                                                        value: _parentalControl,
-                                                        activeTrackColor:
-                                                            _figmaSettingsMint,
-                                                        activeThumbColor:
-                                                            Colors.white,
-                                                        inactiveTrackColor:
-                                                            kChildOutline,
-                                                        inactiveThumbColor:
-                                                            Colors.white,
-                                                        onChanged: (v) => setState(
-                                                          () =>
-                                                              _parentalControl =
-                                                                  v,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-
-                                            // ── Promo / subscription card ─────────────────────────
-                                            _SCard(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
-                                                children: [
-                                                  _SectionTitle(
-                                                    'Подписка: ${current?.planCode ?? 'basic'}',
-                                                  ),
-                                                  const Padding(
-                                                    padding: EdgeInsets.only(
-                                                      left: 6,
-                                                      bottom: 6,
-                                                    ),
-                                                    child: Text(
-                                                      'Промокод',
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w800,
-                                                        color: kChildInk,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  TextField(
-                                                    controller: _promoCode,
-                                                    style: const TextStyle(
-                                                      fontFamily: 'Nunito',
-                                                      fontSize: 20,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color: kChildInk,
-                                                    ),
-                                                    decoration: _settingsField(
-                                                      'промокод',
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 14),
-                                                  FilledButton(
-                                                    onPressed: _busy
-                                                        ? null
-                                                        : _activatePromo,
-                                                    style:
-                                                        _figmaSettingsButtonStyle(
-                                                          backgroundColor:
-                                                              _figmaSettingsMint,
-                                                        ),
-                                                    child: const Text(
-                                                      'Активировать промокод',
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  FilledButton(
-                                                    onPressed: _busy
-                                                        ? null
-                                                        : _buyPremium,
-                                                    style: _figmaSettingsButtonStyle(
-                                                      backgroundColor:
-                                                          _figmaSettingsSkyButton,
-                                                    ),
-                                                    child: const Text(
-                                                      'Оплатить премиум',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 24),
-
                                     // ── Members ──────────────────────────────────────────────────
                                     _SCard(
                                       child: Column(
@@ -1346,6 +988,8 @@ class _ParentFamilySettingsPageState
                                         children: [
                                           const _SectionTitle(
                                             'Участники клана',
+                                            description:
+                                                'Здесь вы можете добавить участников клана и дать им код доступа, чтобы они присоединились к вашей семье.',
                                           ),
                                           // Member tiles (square cards with avatar)
                                           SizedBox(
@@ -1466,6 +1110,10 @@ class _ParentFamilySettingsPageState
                                                   child: Text('Мама'),
                                                 ),
                                                 DropdownMenuItem(
+                                                  value: 'dad',
+                                                  child: Text('Папа'),
+                                                ),
+                                                DropdownMenuItem(
                                                   value: 'grandma',
                                                   child: Text('Бабушка'),
                                                 ),
@@ -1474,7 +1122,7 @@ class _ParentFamilySettingsPageState
                                                   child: Text('Дедушка'),
                                                 ),
                                               ],
-                                              onChanged: _busy
+                                              onChanged: _memberCodeBusy
                                                   ? null
                                                   : (v) {
                                                       if (v != null) {
@@ -1487,16 +1135,25 @@ class _ParentFamilySettingsPageState
                                           ),
                                           const SizedBox(height: 14),
                                           FilledButton(
-                                            onPressed: _busy
+                                            onPressed: _memberCodeBusy
                                                 ? null
                                                 : _createMemberCode,
                                             style: _figmaSettingsButtonStyle(
                                               backgroundColor:
                                                   _figmaSettingsMint,
                                             ),
-                                            child: const Text(
-                                              'Добавить участника',
-                                            ),
+                                            child: _memberCodeBusy
+                                                ? const SizedBox(
+                                                    width: 22,
+                                                    height: 22,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                    ),
+                                                  )
+                                                : const Text(
+                                                    'Добавить участника',
+                                                  ),
                                           ),
                                           if (codes.isNotEmpty) ...[
                                             const SizedBox(height: 12),
@@ -1620,6 +1277,380 @@ class _ParentFamilySettingsPageState
                                                   ),
                                                 ),
                                           ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+
+                                    // ── Family goal ──────────────────────────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const _SectionTitle(
+                                            'Общая цель семьи',
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.only(
+                                              left: 6,
+                                              bottom: 6,
+                                            ),
+                                            child: Text(
+                                              'Название цели',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: kChildInk,
+                                              ),
+                                            ),
+                                          ),
+                                          TextField(
+                                            controller: _goalName,
+                                            style: const TextStyle(
+                                              fontFamily: 'Nunito',
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w500,
+                                              color: kChildInk,
+                                            ),
+                                            decoration: _settingsField(
+                                              'Купить велосипед',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          const Padding(
+                                            padding: EdgeInsets.only(
+                                              left: 6,
+                                              bottom: 6,
+                                            ),
+                                            child: Text(
+                                              'Сумма цели',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: kChildInk,
+                                              ),
+                                            ),
+                                          ),
+                                          TextField(
+                                            controller: _goalAmount,
+                                            keyboardType: TextInputType.number,
+                                            style: const TextStyle(
+                                              fontFamily: 'Nunito',
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w500,
+                                              color: kChildInk,
+                                            ),
+                                            decoration: _settingsField(
+                                              family.goalAmount > 0
+                                                  ? '${family.goalAmount}'
+                                                  : 'Купить велосипед',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 14),
+                                          FilledButton(
+                                            onPressed: _busy ? null : _saveGoal,
+                                            style: _figmaSettingsButtonStyle(
+                                              backgroundColor:
+                                                  _figmaSettingsMint,
+                                            ),
+                                            child: const Text('Сохранить цель'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+
+                                    // ── Subscription (скрыто: _kShowSubscriptionsInSettings) ──
+                                    if (_kShowSubscriptionsInSettings)
+                                      FutureBuilder<List<FamilySubscriptionItem>>(
+                                      future: _familySubscriptionsFuture,
+                                      builder: (context, subSnap) {
+                                        final subs =
+                                            subSnap.data ??
+                                            const <FamilySubscriptionItem>[];
+                                        final current = subs.isNotEmpty
+                                            ? subs.first
+                                            : null;
+                                        final isPremium =
+                                            current?.planCode
+                                                .toLowerCase()
+                                                .contains('premium') ==
+                                            true;
+
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            if (_kShowSubscriptionsInSettings &&
+                                                isPremium) ...[
+                                              Container(
+                                                padding: const EdgeInsets.all(
+                                                  18,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: _figmaSettingsLavender,
+                                                  borderRadius:
+                                                      BorderRadius.circular(22),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'Мой тариф: PREMIUM',
+                                                      style: TextStyle(
+                                                        fontSize: 17,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        color: kChildInk,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    Text(
+                                                      current?.expiresAt != null
+                                                          ? 'Активен до ${current!.expiresAt!.year}г.'
+                                                          : 'Активен',
+                                                      style: const TextStyle(
+                                                        fontSize: 14,
+                                                        color: kChildInk,
+                                                      ),
+                                                    ),
+                                                    const Text(
+                                                      'Участников: 1/999',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: kChildInk,
+                                                      ),
+                                                    ),
+                                                    const Text(
+                                                      'Обратные и VIP задачи: доступны',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: kChildInk,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 14),
+                                                    FilledButton(
+                                                      onPressed: _busy
+                                                          ? null
+                                                          : _buyPremium,
+                                                      style:
+                                                          _figmaSettingsButtonStyle(
+                                                            backgroundColor:
+                                                                Colors.white,
+                                                          ),
+                                                      child: const Text(
+                                                        'Управлять подпиской',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 14),
+                                              FilledButton(
+                                                onPressed: _busy
+                                                    ? null
+                                                    : _buyPremium,
+                                                style: _figmaSettingsButtonStyle(
+                                                  backgroundColor:
+                                                      _figmaSettingsSkyButton,
+                                                ),
+                                                child: const Text(
+                                                  'УПРАВЛЯТЬ ПОДПИСКОЙ',
+                                                ),
+                                              ),
+                                              const SizedBox(height: 24),
+                                            ],
+
+                                            _SCard(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.stretch,
+                                                children: [
+                                                  _SectionTitle(
+                                                    'Подписка: ${current?.planCode ?? 'basic'}',
+                                                  ),
+                                                    const Padding(
+                                                      padding: EdgeInsets.only(
+                                                        left: 6,
+                                                        bottom: 6,
+                                                      ),
+                                                      child: Text(
+                                                        'Промокод',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                          color: kChildInk,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    TextField(
+                                                      controller: _promoCode,
+                                                      style: const TextStyle(
+                                                        fontFamily: 'Nunito',
+                                                        fontSize: 20,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: kChildInk,
+                                                      ),
+                                                      decoration: _settingsField(
+                                                        'промокод',
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 14),
+                                                    FilledButton(
+                                                      onPressed: _busy
+                                                          ? null
+                                                          : _activatePromo,
+                                                      style:
+                                                          _figmaSettingsButtonStyle(
+                                                            backgroundColor:
+                                                                _figmaSettingsMint,
+                                                          ),
+                                                      child: const Text(
+                                                        'Активировать промокод',
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    FilledButton(
+                                                      onPressed: _busy
+                                                          ? null
+                                                          : _buyPremium,
+                                                      style: _figmaSettingsButtonStyle(
+                                                        backgroundColor:
+                                                            _figmaSettingsSkyButton,
+                                                      ),
+                                                      child: const Text(
+                                                        'Оплатить премиум',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                    // ── Economics ────────────────────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          _SectionTitle(
+                                            'Экономика Клана',
+                                            trailing: GestureDetector(
+                                              onTap: () {},
+                                              child: const Icon(
+                                                Icons.edit_outlined,
+                                                color: kChildInk,
+                                                size: 20,
+                                              ),
+                                            ),
+                                          ),
+                                          const Text(
+                                            'Курс монет: 10 монет = 100₽',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w800,
+                                              color: kChildInk,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'Глобальный налог:',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: kChildInkMuted,
+                                                  ),
+                                                ),
+                                              ),
+                                              Text(
+                                                '${(_taxRate * 100).round()}%',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: kChildInk,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 10),
+                                          _TaxSegmentSlider(
+                                            value: _taxRate,
+                                            onChanged: (v) =>
+                                                setState(() => _taxRate = v),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          const Divider(
+                                            height: 1,
+                                            color: kChildOutline,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'PIN-код для Экономики',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: kChildInk,
+                                                  ),
+                                                ),
+                                              ),
+                                              Switch(
+                                                value: _pinEnabled,
+                                                activeTrackColor:
+                                                    _figmaSettingsMint,
+                                                activeThumbColor: Colors.white,
+                                                inactiveTrackColor:
+                                                    kChildOutline,
+                                                inactiveThumbColor:
+                                                    Colors.white,
+                                                onChanged: (v) => setState(
+                                                  () => _pinEnabled = v,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const Divider(
+                                            height: 1,
+                                            color: kChildOutline,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Row(
+                                            children: [
+                                              const Expanded(
+                                                child: Text(
+                                                  'Родительский контроль обратных задач',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: kChildInk,
+                                                  ),
+                                                ),
+                                              ),
+                                              Switch(
+                                                value: _parentalControl,
+                                                activeTrackColor:
+                                                    _figmaSettingsMint,
+                                                activeThumbColor: Colors.white,
+                                                inactiveTrackColor:
+                                                    kChildOutline,
+                                                inactiveThumbColor:
+                                                    Colors.white,
+                                                onChanged: (v) => setState(
+                                                  () => _parentalControl = v,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ],
                                       ),
                                     ),

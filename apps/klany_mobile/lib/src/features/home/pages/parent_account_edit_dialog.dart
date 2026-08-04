@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth/profile_display_name.dart';
+import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
@@ -103,9 +104,7 @@ class _ParentAccountEditDialogState extends State<_ParentAccountEditDialog> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось выбрать фото: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     }
   }
 

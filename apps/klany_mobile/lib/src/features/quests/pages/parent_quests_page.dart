@@ -11,6 +11,7 @@ import '../../wallet/family_economy.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
 import '../../home/parent_screen_header.dart';
@@ -158,7 +159,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
       await _loadWallets();
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     }
   }
 
@@ -223,7 +224,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
         await ref.read(familyCoinRateProvider.notifier).setRate(rate);
       } catch (e) {
         if (!mounted) return;
-        context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+        context.showKlanyErrorSnackBar(e);
       }
     }
   }
@@ -242,7 +243,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
   Widget build(BuildContext context) {
     return ref.watch(parentFamilyContextProvider).when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Ошибка: $e')),
+          error: (e, _) => KlanyErrorGoBack(error: e, onBack: widget.onBack),
           data: (family) {
             if (family == null) {
               return const Center(child: Text('Семья не найдена'));

@@ -15,6 +15,7 @@ import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
 
@@ -68,7 +69,10 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage>
     final familyAsync = ref.watch(parentFamilyContextProvider);
     return familyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Ошибка: $error')),
+      error: (error, stack) => KlanyErrorGoBack(
+        error: error,
+        onBack: widget.onBack,
+      ),
       data: (family) {
         if (family == null) {
           return const Center(child: Text('Семья не найдена'));
@@ -350,7 +354,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
                   ChildSoftCard(
                     color: kBrandRose,
                     padding: EdgeInsets.all(context.klanySize(12)),
-                    child: Text('Ошибка: ${snapshot.error}'),
+                    child: KlanyFriendlyErrorText(snapshot.error),
                   ),
                 if (products.isEmpty &&
                     snapshot.connectionState != ConnectionState.waiting)
@@ -597,9 +601,7 @@ class _ParentCreateProductFormState
       });
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка добавления: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -996,7 +998,7 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue>
                   ChildSoftCard(
                     color: kBrandRose,
                     padding: const EdgeInsets.all(16),
-                    child: Text('Ошибка: ${snapshot.error}'),
+                    child: KlanyFriendlyErrorText(snapshot.error),
                   ),
                 if (purchases.isEmpty &&
                     snapshot.connectionState != ConnectionState.waiting)

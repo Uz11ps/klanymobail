@@ -131,7 +131,7 @@ Future<void> runChildAvatarPickerFlow(
     await AvatarStore.setIndex('child:${session.childId}', selected);
   } catch (e) {
     if (origin.mounted) {
-      origin.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      origin.showKlanyErrorSnackBar(e);
     }
   }
 }

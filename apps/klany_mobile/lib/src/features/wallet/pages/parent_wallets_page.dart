@@ -5,6 +5,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
 class ParentWalletsPage extends ConsumerStatefulWidget {
@@ -198,9 +199,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage>
                             await _loadWallets();
                           } catch (e) {
                             if (!dialogCtx.mounted) return;
-                            dialogCtx.showKlanySnackBar(
-                              SnackBar(content: Text('Ошибка: $e')),
-                            );
+                            dialogCtx.showKlanyErrorSnackBar(e);
                           }
                         },
                       ),
@@ -220,7 +219,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage>
     final familyAsync = ref.watch(parentFamilyContextProvider);
     return familyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Ошибка: $error')),
+      error: (error, stack) => KlanyErrorGoBack(error: error),
       data: (family) {
         if (family == null) {
           return const Center(child: Text('Семья не найдена'));
@@ -252,7 +251,7 @@ class _ParentWalletsPageState extends ConsumerState<ParentWalletsPage>
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text('Ошибка: $_error'),
+                          child: KlanyFriendlyErrorText(_error),
                         ),
                       ),
                     ..._items.map(

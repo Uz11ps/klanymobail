@@ -45,7 +45,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,7 +82,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -100,6 +100,8 @@ String familyMemberTypeLabel(String value) {
   switch (value) {
     case 'mom':
       return 'Мама';
+    case 'dad':
+      return 'Папа';
     case 'child':
       return 'Ребёнок';
     case 'grandma':
@@ -271,25 +273,18 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/members', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return Future.wait(
-      items.map((row) async {
-        final objectKey = row['avatarObjectKey']?.toString();
-        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
-            ? await presignStorageDownload(
-                accessToken: token,
-                bucket: 'member-avatars',
-                objectKey: objectKey,
-              )
-            : null;
-        return ParentMemberItem(
-          userId: row['userId'].toString(),
-          displayName: (row['displayName'] ?? 'Родитель').toString(),
-          role: row['role'].toString(),
-          avatarObjectKey: objectKey,
-          avatarImageUrl: avatarImageUrl,
-        );
-      }),
-    );
+    return items
+        .map((row) {
+          final objectKey = row['avatarObjectKey']?.toString();
+          return ParentMemberItem(
+            userId: row['userId'].toString(),
+            displayName: (row['displayName'] ?? 'Родитель').toString(),
+            role: row['role'].toString(),
+            avatarObjectKey: objectKey,
+            avatarImageUrl: null,
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<List<ChildMemberItem>> getChildren(String familyId) async {
@@ -300,25 +295,18 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/children', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return Future.wait(
-      items.map((row) async {
-        final objectKey = row['avatarObjectKey']?.toString();
-        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
-            ? await presignStorageDownload(
-                accessToken: token,
-                bucket: 'member-avatars',
-                objectKey: objectKey,
-              )
-            : null;
-        return ChildMemberItem(
-          childId: row['childId'].toString(),
-          displayName: (row['displayName'] ?? '').toString(),
-          isActive: row['isActive'] == true,
-          avatarObjectKey: objectKey,
-          avatarImageUrl: avatarImageUrl,
-        );
-      }),
-    );
+    return items
+        .map((row) {
+          final objectKey = row['avatarObjectKey']?.toString();
+          return ChildMemberItem(
+            childId: row['childId'].toString(),
+            displayName: (row['displayName'] ?? '').toString(),
+            isActive: row['isActive'] == true,
+            avatarObjectKey: objectKey,
+            avatarImageUrl: null,
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<Map<String, dynamic>> getChildProfile(String childId) async {
@@ -410,28 +398,23 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/member-codes', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return Future.wait(
-      items.map((row) async {
-        final objectKey = row['avatarObjectKey']?.toString();
-        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
-            ? await presignStorageDownload(
-                accessToken: token,
-                bucket: 'member-avatars',
-                objectKey: objectKey,
-              )
-            : null;
-        return FamilyMemberCodeItem(
-          id: (row['id'] ?? '').toString(),
-          role: (row['role'] ?? '').toString(),
-          code: (row['code'] ?? '').toString(),
-          displayName: (row['displayName'] ?? '').toString(),
-          isActive: row['isActive'] != false,
-          createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ?? DateTime.now(),
-          avatarObjectKey: objectKey,
-          avatarImageUrl: avatarImageUrl,
-        );
-      }),
-    );
+    return items
+        .map((row) {
+          final objectKey = row['avatarObjectKey']?.toString();
+          return FamilyMemberCodeItem(
+            id: (row['id'] ?? '').toString(),
+            role: (row['role'] ?? '').toString(),
+            code: (row['code'] ?? '').toString(),
+            displayName: (row['displayName'] ?? '').toString(),
+            isActive: row['isActive'] != false,
+            createdAt:
+                DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+                DateTime.now(),
+            avatarObjectKey: objectKey,
+            avatarImageUrl: null,
+          );
+        })
+        .toList(growable: false);
   }
 
   /// Загружает фото в MinIO и сохраняет ключ в профиле ребёнка / взрослого по коду участника.
@@ -513,16 +496,7 @@ class ParentAccessRepository {
   Future<FamilyMemberCodeItem> _familyCodeItemFromResponse(
     Map<String, dynamic> data,
   ) async {
-    final token = _token;
     final objectKey = data['avatarObjectKey']?.toString();
-    final avatarImageUrl =
-        (token != null && objectKey != null && objectKey.isNotEmpty)
-        ? await presignStorageDownload(
-            accessToken: token,
-            bucket: 'member-avatars',
-            objectKey: objectKey,
-          )
-        : null;
     return FamilyMemberCodeItem(
       id: (data['id'] ?? '').toString(),
       role: (data['role'] ?? '').toString(),
@@ -532,7 +506,7 @@ class ParentAccessRepository {
       createdAt:
           DateTime.tryParse((data['createdAt'] ?? '').toString()) ?? DateTime.now(),
       avatarObjectKey: objectKey,
-      avatarImageUrl: avatarImageUrl,
+      avatarImageUrl: null,
     );
   }
 

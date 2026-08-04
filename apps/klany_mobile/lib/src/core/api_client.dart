@@ -98,9 +98,18 @@ class ApiClient {
   final String baseUrl;
 
   /// Веб: preflight CORS + DevTools часто «едят» десятки секунд при холодном сервере.
-  /// Мобильное: чуть дольше 4 с на нестабильных сетях.
+  /// Мобильное: 30 с на нестабильных сетях (режим экономии, слабый LTE).
   static Duration get _timeout =>
-      kIsWeb ? const Duration(seconds: 30) : const Duration(seconds: 20);
+      kIsWeb ? const Duration(seconds: 30) : const Duration(seconds: 30);
+
+  static Future<T> _withTimeoutRetry<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on TimeoutException {
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+      return await action();
+    }
+  }
 
   /// Реакция на 401: разлогин и переход на лендинг. Ставится из корня приложения.
   static ApiUnauthorizedCallback? onUnauthorized;
@@ -143,18 +152,20 @@ class ApiClient {
     String? accessToken,
     Map<String, String>? query,
   }) async {
-    final res = await http
-        .get(
-          _uri(path, query),
-          headers: <String, String>{
-            if (accessToken != null && accessToken.isNotEmpty)
-              'Authorization': 'Bearer $accessToken',
-          },
-        )
-        .timeout(
-          _timeout,
-          onTimeout: () => throw TimeoutException('network_timeout'),
-        );
+    final res = await _withTimeoutRetry(
+      () => http
+          .get(
+            _uri(path, query),
+            headers: <String, String>{
+              if (accessToken != null && accessToken.isNotEmpty)
+                'Authorization': 'Bearer $accessToken',
+            },
+          )
+          .timeout(
+            _timeout,
+            onTimeout: () => throw TimeoutException('network_timeout'),
+          ),
+    );
     return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
@@ -164,20 +175,22 @@ class ApiClient {
     Map<String, String>? query,
     Object? body,
   }) async {
-    final res = await http
-        .post(
-          _uri(path, query),
-          headers: <String, String>{
-            'Content-Type': 'application/json',
-            if (accessToken != null && accessToken.isNotEmpty)
-              'Authorization': 'Bearer $accessToken',
-          },
-          body: jsonEncode(body ?? <String, dynamic>{}),
-        )
-        .timeout(
-          _timeout,
-          onTimeout: () => throw TimeoutException('network_timeout'),
-        );
+    final res = await _withTimeoutRetry(
+      () => http
+          .post(
+            _uri(path, query),
+            headers: <String, String>{
+              'Content-Type': 'application/json',
+              if (accessToken != null && accessToken.isNotEmpty)
+                'Authorization': 'Bearer $accessToken',
+            },
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          )
+          .timeout(
+            _timeout,
+            onTimeout: () => throw TimeoutException('network_timeout'),
+          ),
+    );
     return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
@@ -187,20 +200,22 @@ class ApiClient {
     Map<String, String>? query,
     Object? body,
   }) async {
-    final res = await http
-        .patch(
-          _uri(path, query),
-          headers: <String, String>{
-            'Content-Type': 'application/json',
-            if (accessToken != null && accessToken.isNotEmpty)
-              'Authorization': 'Bearer $accessToken',
-          },
-          body: jsonEncode(body ?? <String, dynamic>{}),
-        )
-        .timeout(
-          _timeout,
-          onTimeout: () => throw TimeoutException('network_timeout'),
-        );
+    final res = await _withTimeoutRetry(
+      () => http
+          .patch(
+            _uri(path, query),
+            headers: <String, String>{
+              'Content-Type': 'application/json',
+              if (accessToken != null && accessToken.isNotEmpty)
+                'Authorization': 'Bearer $accessToken',
+            },
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          )
+          .timeout(
+            _timeout,
+            onTimeout: () => throw TimeoutException('network_timeout'),
+          ),
+    );
     return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 
@@ -210,20 +225,22 @@ class ApiClient {
     Map<String, String>? query,
     Object? body,
   }) async {
-    final res = await http
-        .delete(
-          _uri(path, query),
-          headers: <String, String>{
-            'Content-Type': 'application/json',
-            if (accessToken != null && accessToken.isNotEmpty)
-              'Authorization': 'Bearer $accessToken',
-          },
-          body: jsonEncode(body ?? <String, dynamic>{}),
-        )
-        .timeout(
-          _timeout,
-          onTimeout: () => throw TimeoutException('network_timeout'),
-        );
+    final res = await _withTimeoutRetry(
+      () => http
+          .delete(
+            _uri(path, query),
+            headers: <String, String>{
+              'Content-Type': 'application/json',
+              if (accessToken != null && accessToken.isNotEmpty)
+                'Authorization': 'Bearer $accessToken',
+            },
+            body: jsonEncode(body ?? <String, dynamic>{}),
+          )
+          .timeout(
+            _timeout,
+            onTimeout: () => throw TimeoutException('network_timeout'),
+          ),
+    );
     return _decode(res, hadBearer: (accessToken ?? '').isNotEmpty);
   }
 

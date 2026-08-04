@@ -77,7 +77,7 @@ class _ForgotPasswordNewPasswordPageState
       context.go('/auth/parent/sign-in');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

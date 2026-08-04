@@ -177,9 +177,7 @@ Future<bool> showAvatarPicker({
                       }
                     } catch (e) {
                       if (ctx.mounted) {
-                        ctx.showKlanySnackBar(
-                          SnackBar(content: Text('Ошибка загрузки: $e')),
-                        );
+                        ctx.showKlanyErrorSnackBar(e);
                       }
                     }
                   },

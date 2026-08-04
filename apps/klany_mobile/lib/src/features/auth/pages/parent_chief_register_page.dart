@@ -135,9 +135,7 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
       });
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось выбрать фото: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     }
   }
 
@@ -272,7 +270,7 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
       context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

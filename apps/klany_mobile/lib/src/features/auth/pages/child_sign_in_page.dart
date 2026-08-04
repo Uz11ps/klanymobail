@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/app_snackbar.dart';
+import '../../../core/family_access_code.dart';
 import '../../home/child_soft_ui.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
@@ -13,7 +14,7 @@ import '../device_identity.dart';
 InputDecoration _authInput(String hint, {Widget? suffixIcon}) =>
     figmaAuthFieldDecoration(hint, suffixIcon: suffixIcon);
 
-/// Регистрация участника по 6-значному ключу (Figma node 0-1215).
+/// Регистрация участника по 8-значному ключу (Figma node 0-1215).
 class ChildSignInPage extends ConsumerStatefulWidget {
   const ChildSignInPage({super.key});
 
@@ -34,9 +35,13 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
 
   Future<void> _codeSignIn() async {
     final authCode = _authCode.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(authCode)) {
+    if (!kFamilyAccessCodePattern.hasMatch(authCode)) {
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Введите 6-значный код участника')),
+        SnackBar(
+          content: Text(
+            'Введите $kFamilyAccessCodeLength-значный код участника',
+          ),
+        ),
       );
       return;
     }
@@ -59,7 +64,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
       if (mounted) context.go('/child');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -117,7 +122,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8),
                           child: Text(
-                            '6 цифр — персональный код от Главы Клана',
+                            '8 цифр — персональный код от Главы Клана',
                             style: TextStyle(
                               fontFamily: 'Nunito',
                               fontSize: 13,
@@ -131,14 +136,16 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                           child: TextField(
                             controller: _authCode,
                             keyboardType: TextInputType.number,
-                            maxLength: 6,
+                            maxLength: kFamilyAccessCodeLength,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(6),
+                              LengthLimitingTextInputFormatter(
+                                kFamilyAccessCodeLength,
+                              ),
                             ],
                             obscureText: _obscure,
                             decoration: _authInput(
-                              '000000',
+                              kFamilyAccessCodeDigitsHint,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscure

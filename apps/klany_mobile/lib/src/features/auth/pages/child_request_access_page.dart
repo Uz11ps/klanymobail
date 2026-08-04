@@ -112,9 +112,7 @@ class _ChildRequestAccessPageState
       context.go('/auth/child/wait?requestId=$requestId');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось отправить заявку: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

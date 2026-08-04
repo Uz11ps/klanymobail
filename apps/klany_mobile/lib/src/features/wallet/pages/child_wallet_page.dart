@@ -11,6 +11,7 @@ import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../wallet_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
 /// Зелёный / красный сумм в ленте — как в Figma (node 0:522).
@@ -270,8 +271,8 @@ class _ChildWalletPageState extends ConsumerState<ChildWalletPage>
                       if (walletSnap.hasError)
                         Padding(
                           padding: const EdgeInsets.only(top: 16),
-                          child: Text(
-                            'Ошибка: ${walletSnap.error}',
+                          child: KlanyFriendlyErrorText(
+                            walletSnap.error,
                             style: GoogleFonts.nunito(
                               color: const Color(0xFFE35254),
                               fontWeight: FontWeight.w600,

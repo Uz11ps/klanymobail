@@ -53,7 +53,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('Ошибка: $e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

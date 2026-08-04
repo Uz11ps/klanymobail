@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../home/child_soft_ui.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
@@ -90,6 +92,10 @@ class _ChildWaitApprovalPageState extends ConsumerState<ChildWaitApprovalPage> {
         if (!mounted) return;
         context.go('/child');
       }
+    } catch (e) {
+      if (!mounted) return;
+      _timer?.cancel();
+      klanyFailAndGoBack(context, error: e);
     } finally {
       _busy = false;
     }

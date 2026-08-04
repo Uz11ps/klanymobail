@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../quests_repository.dart';
 import 'exchange_quest_card.dart';
@@ -51,7 +52,7 @@ class _ParentTaskExchangeReviewListState
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Text('Ошибка: ${snapshot.error}');
+          return KlanyFriendlyErrorText(snapshot.error);
         }
         final list = snapshot.data ?? const <ParentReviewItem>[];
         if (list.isEmpty) {
@@ -125,7 +126,7 @@ class _ExchangeReviewCardState extends ConsumerState<_ExchangeReviewCard> {
       );
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(SnackBar(content: Text('$e')));
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

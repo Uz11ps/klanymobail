@@ -270,7 +270,6 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
     with KlanyLivePollConsumerMixin {
   bool _initialLoading = true;
   bool _refreshing = false;
-  Object? _loadError;
   ParentFamilyContext? _family;
   List<ParentChildWalletItem> _wallets = const [];
   List<ParentReviewItem> _reviews = const [];
@@ -324,8 +323,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           !_sameWallets(_wallets, data.wallets) ||
           !_sameReviews(_reviews, data.reviews) ||
           !_sameQuests(_quests, data.quests) ||
-          !_sameNotifications(_notifications, data.notifications) ||
-          _loadError != null;
+          !_sameNotifications(_notifications, data.notifications);
       setState(() {
         if (changed) {
           _family = data.family;
@@ -334,11 +332,10 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           _quests = data.quests;
           _notifications = data.notifications;
         }
-        _loadError = null;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loadError = e);
+      context.showKlanyNetworkErrorSnackBar(e);
     } finally {
       if (mounted) {
         setState(() {
@@ -712,12 +709,6 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
         if (isAdminNoFamily)
           _AdminNoFamilyCard(
             onSignOut: () => ref.read(authActionsProvider).signOut(),
-          )
-        else
-          _LoadErrorCard(
-            title: 'Не удалось загрузить данные',
-            error: _loadError ?? 'Семья не найдена',
-            onRetry: () => _reload(),
           ),
       ];
     } else {
@@ -2161,59 +2152,6 @@ class _AdminNoFamilyCard extends StatelessWidget {
             label: 'Выйти',
             icon: Icons.logout,
             onPressed: onSignOut,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadErrorCard extends StatelessWidget {
-  const _LoadErrorCard({
-    required this.title,
-    required this.error,
-    required this.onRetry,
-  });
-
-  final String title;
-  final Object error;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return ChildSoftCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: kChildInk,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            userFriendlyErrorMessage(error),
-            style: const TextStyle(fontSize: 13, color: kChildInkMuted),
-          ),
-          if (kDebugMode) ...[
-            const SizedBox(height: 12),
-            Text(
-              error.toString(),
-              style: TextStyle(
-                fontSize: 11,
-                color: kChildInkMuted.withValues(alpha: 0.75),
-              ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          ClanPrimaryButton(
-            label: 'Повторить',
-            icon: Icons.refresh,
-            onPressed: onRetry,
           ),
         ],
       ),

@@ -189,9 +189,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось проверить почту: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     }
   }
 
@@ -272,9 +270,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       // Не подставляем sign-up после неудачного входа: при неверном пароле сервер даёт 401,
       // а повтор как регистрация для уже существующего email даёт 409 → ложное «email занят».
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Не удалось войти: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -302,9 +298,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
       if (mounted) context.go('/parent');
     } catch (e) {
       if (!mounted) return;
-      context.showKlanySnackBar(
-        SnackBar(content: Text('Ошибка биометрии: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

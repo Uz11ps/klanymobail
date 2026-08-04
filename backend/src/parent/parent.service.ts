@@ -10,7 +10,7 @@ type ParentUser = {
   familyId?: string | null;
 };
 
-type FamilyMemberType = "mom" | "child" | "grandma" | "grandpa";
+type FamilyMemberType = "mom" | "dad" | "child" | "grandma" | "grandpa";
 
 function ensureFamilyId(user: ParentUser): string {
   const familyId = user.familyId ?? null;
@@ -19,7 +19,7 @@ function ensureFamilyId(user: ParentUser): string {
 }
 
 function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
+  return Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
 }
 
 @Injectable()
@@ -30,11 +30,12 @@ export class ParentService {
     const memberType = (input.memberType ?? input.role ?? "").trim().toLowerCase();
     if (
       memberType !== "mom" &&
+      memberType !== "dad" &&
       memberType !== "child" &&
       memberType !== "grandma" &&
       memberType !== "grandpa"
     ) {
-      throw new BadRequestException("memberType должен быть mom/child/grandma/grandpa");
+      throw new BadRequestException("memberType должен быть mom/dad/child/grandma/grandpa");
     }
     return memberType;
   }
