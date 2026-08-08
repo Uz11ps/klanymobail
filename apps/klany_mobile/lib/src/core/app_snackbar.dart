@@ -118,6 +118,10 @@ String userFriendlyErrorMessage(Object? error) {
     return 'Сессия истекла. Войдите ещё раз.';
   }
 
+  if (lower.contains('неверный код')) {
+    return 'Неверный код. Проверьте цифры или запросите новый код у главы семьи.';
+  }
+
   if (lower.contains('forbidden') ||
       lower.contains('доступ запрещ') ||
       lower.contains('403')) {

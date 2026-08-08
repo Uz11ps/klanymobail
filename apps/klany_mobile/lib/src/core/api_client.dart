@@ -58,6 +58,12 @@ class ApiException implements Exception {
     if (lower.contains('unauthorized') || statusCode == 401) {
       return 'Нужно войти заново.';
     }
+    if (statusCode == 403 &&
+        raw.isNotEmpty &&
+        lower != 'forbidden' &&
+        !lower.contains('forbidden')) {
+      return raw;
+    }
     if (lower.contains('forbidden') || statusCode == 403) {
       return 'Доступ запрещён.';
     }

@@ -5,16 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api_client.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/family_access_code.dart';
 import '../../home/child_soft_ui.dart';
+import '../auth_actions.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
 
 InputDecoration _authInput(String hint, {Widget? suffixIcon}) =>
     figmaAuthFieldDecoration(hint, suffixIcon: suffixIcon);
 
-/// Регистрация участника по 8-значному ключу (Figma node 0-1215).
+/// Вход участника семьи по 8-значному ключу (ребёнок или взрослый).
 class ChildSignInPage extends ConsumerStatefulWidget {
   const ChildSignInPage({super.key});
 
@@ -47,6 +49,19 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
     }
     setState(() => _busy = true);
     try {
+      // Сначала взрослый участник (мама/папа/…), затем ребёнок — один экран для всех.
+      try {
+        await ref.read(authActionsProvider).parentSignInByCode(code: authCode);
+        if (!mounted) return;
+        context.go('/parent');
+        return;
+      } on ApiException catch (e) {
+        final tryChild = e.statusCode == 401 ||
+            (e.statusCode == 403 &&
+                e.message.toLowerCase().contains('ребён'));
+        if (!tryChild) rethrow;
+      }
+
       final device = await DeviceIdentityStore.getOrCreate();
       final result = await ref
           .read(passwordlessChildRepositoryProvider)
@@ -122,7 +137,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8),
                           child: Text(
-                            '8 цифр — персональный код от Главы Клана',
+                            '8 цифр — код участника семьи от Главы Клана',
                             style: TextStyle(
                               fontFamily: 'Nunito',
                               fontSize: 13,

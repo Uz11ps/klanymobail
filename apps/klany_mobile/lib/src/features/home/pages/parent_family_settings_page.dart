@@ -314,8 +314,9 @@ class _ParentFamilySettingsPageState
   Future<bool> _createMemberCode({
     required String displayName,
     required String memberRole,
+    bool reflectBusyOnPage = true,
   }) async {
-    if (_memberCodeBusy) return false;
+    if (reflectBusyOnPage && _memberCodeBusy) return false;
     final name = displayName.trim();
     if (name.isEmpty) {
       context.showKlanySnackBar(
@@ -323,7 +324,7 @@ class _ParentFamilySettingsPageState
       );
       return false;
     }
-    setState(() => _memberCodeBusy = true);
+    if (reflectBusyOnPage) setState(() => _memberCodeBusy = true);
     try {
       final code = await ref
           .read(parentAccessRepositoryProvider)
@@ -339,171 +340,34 @@ class _ParentFamilySettingsPageState
       context.showKlanyErrorSnackBar(e);
       return false;
     } finally {
-      if (mounted) setState(() => _memberCodeBusy = false);
+      if (reflectBusyOnPage && mounted) {
+        setState(() => _memberCodeBusy = false);
+      }
     }
   }
 
   Future<void> _showAddMemberModal() async {
     if (_memberCodeBusy) return;
-    final nameCtl = TextEditingController();
-    var role = 'child';
-    var saving = false;
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetCtx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            8,
-            20,
-            20 + MediaQuery.viewInsetsOf(sheetCtx).bottom,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom,
+        ),
+        child: _AddMemberSheet(
+          onCreate: ({required displayName, required memberRole}) =>
+              _createMemberCode(
+            displayName: displayName,
+            memberRole: memberRole,
+            reflectBusyOnPage: false,
           ),
-          child: StatefulBuilder(
-            builder: (ctx, setModalState) {
-              return SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Добавить участника',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Nunito',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: kChildInk,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Padding(
-                      padding: EdgeInsets.only(left: 6, bottom: 6),
-                      child: Text(
-                        'Имя участника',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
-                        ),
-                      ),
-                    ),
-                    TextField(
-                      controller: nameCtl,
-                      autofocus: true,
-                      textCapitalization: TextCapitalization.words,
-                      style: const TextStyle(
-                        fontFamily: 'Nunito',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                        color: kChildInk,
-                      ),
-                      decoration: _settingsField('Никита'),
-                    ),
-                    const SizedBox(height: 14),
-                    const Padding(
-                      padding: EdgeInsets.only(left: 6, bottom: 6),
-                      child: Text(
-                        'Роль участника',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: kChildInk,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 4,
-                      ),
-                      child: DropdownButton<String>(
-                        value: role,
-                        underline: const SizedBox(),
-                        isExpanded: true,
-                        style: const TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 20,
-                          fontWeight: FontWeight.w500,
-                          color: kChildInk,
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'child',
-                            child: Text('Ребёнок'),
-                          ),
-                          DropdownMenuItem(value: 'mom', child: Text('Мама')),
-                          DropdownMenuItem(value: 'dad', child: Text('Папа')),
-                          DropdownMenuItem(
-                            value: 'grandma',
-                            child: Text('Бабушка'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'grandpa',
-                            child: Text('Дедушка'),
-                          ),
-                        ],
-                        onChanged: saving
-                            ? null
-                            : (v) {
-                                if (v != null) {
-                                  setModalState(() => role = v);
-                                }
-                              },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: saving
-                          ? null
-                          : () async {
-                              final name = nameCtl.text.trim();
-                              if (name.isEmpty) {
-                                context.showKlanySnackBar(
-                                  const SnackBar(
-                                    content: Text('Введите имя участника'),
-                                  ),
-                                );
-                                return;
-                              }
-                              setModalState(() => saving = true);
-                              final ok = await _createMemberCode(
-                                displayName: name,
-                                memberRole: role,
-                              );
-                              if (ctx.mounted) {
-                                setModalState(() => saving = false);
-                                if (ok) Navigator.of(ctx).pop();
-                              }
-                            },
-                      style: _figmaSettingsButtonStyle(
-                        backgroundColor: _figmaSettingsMint,
-                      ),
-                      child: saving
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
-                            )
-                          : const Text('Добавить участника'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
+        ),
+      ),
     );
-
-    nameCtl.dispose();
   }
 
   Future<void> _inviteByEmail(ParentFamilyContext family) async {
@@ -974,6 +838,7 @@ class _ParentFamilySettingsPageState
 
         return Scaffold(
           backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
           body: SafeArea(
             bottom: false,
             child: LayoutBuilder(
@@ -2370,6 +2235,181 @@ class _TaxSegmentSlider extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+typedef _AddMemberCreateFn = Future<bool> Function({
+  required String displayName,
+  required String memberRole,
+});
+
+class _AddMemberSheet extends StatefulWidget {
+  const _AddMemberSheet({required this.onCreate});
+
+  final _AddMemberCreateFn onCreate;
+
+  @override
+  State<_AddMemberSheet> createState() => _AddMemberSheetState();
+}
+
+class _AddMemberSheetState extends State<_AddMemberSheet> {
+  late final TextEditingController _nameCtl;
+  String _role = 'child';
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameCtl.text.trim();
+    if (name.isEmpty) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите имя участника')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await widget.onCreate(
+      displayName: name,
+      memberRole: _role,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Добавить участника',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Padding(
+                padding: EdgeInsets.only(left: 6, bottom: 6),
+                child: Text(
+                  'Имя участника',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: kChildInk,
+                  ),
+                ),
+              ),
+              TextField(
+                controller: _nameCtl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.done,
+                onSubmitted: _saving ? null : (_) => _submit(),
+                style: const TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                  color: kChildInk,
+                ),
+                decoration: _settingsField('Никита'),
+              ),
+              const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.only(left: 6, bottom: 6),
+                child: Text(
+                  'Роль участника',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: kChildInk,
+                  ),
+                ),
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
+                child: DropdownButton<String>(
+                  value: _role,
+                  underline: const SizedBox(),
+                  isExpanded: true,
+                  style: const TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: kChildInk,
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'child',
+                      child: Text('Ребёнок'),
+                    ),
+                    DropdownMenuItem(value: 'mom', child: Text('Мама')),
+                    DropdownMenuItem(value: 'dad', child: Text('Папа')),
+                    DropdownMenuItem(
+                      value: 'grandma',
+                      child: Text('Бабушка'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'grandpa',
+                      child: Text('Дедушка'),
+                    ),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (v) {
+                          if (v != null) setState(() => _role = v);
+                        },
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _saving ? null : _submit,
+                style: _figmaSettingsButtonStyle(
+                  backgroundColor: _figmaSettingsMint,
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : const Text('Добавить участника'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
