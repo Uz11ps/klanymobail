@@ -15,12 +15,14 @@ class EconomyTaxSegmentSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const segments = 8;
-    final active = ((value / 0.5) * segments).clamp(0, segments).round();
+    final segment = ((value / 0.5) * segments).round().clamp(0, segments);
+    final active = segment;
     return LayoutBuilder(
       builder: (context, constraints) {
         void apply(double dx) {
           final ratio = (dx / constraints.maxWidth).clamp(0.0, 1.0);
-          onChanged((ratio * 0.5).clamp(0.0, 0.5));
+          final segment = (ratio * segments).round().clamp(0, segments);
+          onChanged((segment / segments * 0.5).clamp(0.0, 0.5));
         }
 
         return GestureDetector(

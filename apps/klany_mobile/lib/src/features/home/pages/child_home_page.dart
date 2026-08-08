@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_live_poll.dart';
+import '../../../core/klany_page_gate.dart';
 import '../../auth/child_session.dart';
 import '../../auth/device_identity.dart';
 import '../../notifications/fcm.dart';
@@ -23,6 +24,7 @@ import '../../wallet/wallet_repository.dart';
 import '../child_avatar_picker_flow.dart';
 import '../child_dashboard_profile_card.dart';
 import '../child_soft_ui.dart';
+import '../shell_bootstrap.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Экран ребёнка — полностью пересобран. Каркас Scaffold совпадает с [ParentHomePage]:
@@ -121,6 +123,7 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
   int _index = 0;
   Timer? _sessionTimer;
   int _registerAttempts = 0;
+  final Set<int> _visitedTabs = {0};
 
   @override
   void initState() {
@@ -174,20 +177,33 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
       }
       return;
     }
-    await ref
-        .read(notificationsRepositoryProvider)
-        .registerDevice(
-          platform: platform,
-          pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
-              ? pushToken
-              : 'child-${identity.deviceId}',
-        );
+    try {
+      await ref.read(notificationsRepositoryProvider).registerDevice(
+            platform: platform,
+            pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
+                ? pushToken
+                : 'child-${identity.deviceId}',
+          );
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
+    final shellAsync = ref.watch(childShellDataProvider);
+    return shellAsync.when(
+      loading: () => const KlanyPageLoading(message: 'Загружаем профиль…'),
+      error: (error, _) => const KlanyPageLoading(
+        message: 'Не удалось загрузить данные',
+      ),
+      data: (shellData) => KlanyPageReveal(
+        child: _buildShell(context, shellData),
+      ),
+    );
+  }
+
+  Widget _buildShell(BuildContext context, ChildShellData shellData) {
     final tabs = <Widget>[
-      const _ChildHomeDashboard(),
+      _ChildHomeDashboard(initialData: shellData),
       const ChildQuestsPage(),
       const ChildShopPage(),
     ];
@@ -215,9 +231,9 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
                 return SizedBox(
                   width: w,
                   height: h,
-                  child: IndexedStack(
+                  child: KlanyLazyIndexedStack(
                     index: _index,
-                    sizing: StackFit.expand,
+                    visited: _visitedTabs,
                     children: tabs,
                   ),
                 );
@@ -226,7 +242,10 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
           ),
           bottomNavigationBar: ChildBottomClanBar(
             currentIndex: _index,
-            onSelected: (i) => setState(() => _index = i),
+            onSelected: (i) => setState(() {
+              _index = i;
+              _visitedTabs.add(i);
+            }),
           ),
         ),
       ),
@@ -239,7 +258,9 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ChildHomeDashboard extends ConsumerStatefulWidget {
-  const _ChildHomeDashboard();
+  const _ChildHomeDashboard({this.initialData});
+
+  final ChildShellData? initialData;
 
   @override
   ConsumerState<_ChildHomeDashboard> createState() =>
@@ -260,7 +281,21 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
   @override
   void initState() {
     super.initState();
-    _load(showSpinner: true);
+    final seed = widget.initialData;
+    if (seed != null) {
+      _model = _OverviewModel(
+        walletBalance: seed.walletBalance,
+        activeAssignments: seed.activeAssignments,
+        exchangeCount: seed.exchangeCount,
+        completedCount: seed.completedCount,
+        goalCurrent: seed.goalCurrent,
+        goalTarget: seed.goalTarget,
+        goalProgress: seed.goalProgress,
+      );
+      _initialLoading = false;
+    } else {
+      _load(showSpinner: true);
+    }
   }
 
   Future<_OverviewModel> _fetch(String childId) async {

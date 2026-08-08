@@ -232,15 +232,22 @@ class ParentAccessRepository {
     );
   }
 
-  Future<void> setFamilyGlobalTaxRate(double taxRate) async {
+  /// `false`, если backend ещё без `POST /family/global-tax` (404).
+  Future<bool> setFamilyGlobalTaxRate(double taxRate) async {
     final api = Sdk.apiOrNull;
     final token = _token;
-    if (api == null || token == null) return;
-    await api.postJson(
-      '/family/global-tax',
-      accessToken: token,
-      body: <String, dynamic>{'taxRate': taxRate},
-    );
+    if (api == null || token == null) return false;
+    try {
+      await api.postJson(
+        '/family/global-tax',
+        accessToken: token,
+        body: <String, dynamic>{'taxRate': taxRate},
+      );
+      return true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return false;
+      rethrow;
+    }
   }
 
   Future<List<ChildAccessRequestItem>> getPendingRequests(String familyId) async {

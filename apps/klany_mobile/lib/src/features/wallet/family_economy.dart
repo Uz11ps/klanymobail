@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_client.dart';
 import '../auth/parent_access_repository.dart';
 
 const int kDefaultRublesPer10Coins = 100;
@@ -52,34 +53,69 @@ final familyCoinRateProvider =
 
 class FamilyGlobalTaxNotifier extends Notifier<double> {
   Timer? _saveTimer;
+  bool _serverPersistSupported = true;
+  /// Пока пользователь двигает ползунок или ждёт debounce — не затирать state с сервера.
+  bool _localEdit = false;
+  double? _lastPersistedRate;
 
   @override
   double build() {
-    ref.onDispose(() => _saveTimer?.cancel());
+    ref.onDispose(() {
+      _saveTimer?.cancel();
+      _localEdit = false;
+    });
     ref.listen<AsyncValue<ParentFamilyContext?>>(
       parentFamilyContextProvider,
       (_, next) {
+        if (_localEdit || _saveTimer?.isActive == true) return;
         final rate = next.asData?.value?.globalTaxRate;
-        if (rate != null && rate != state) {
-          state = rate.clamp(0.0, 0.5);
+        if (rate == null) return;
+        final clamped = rate.clamp(0.0, 0.5);
+        if (_lastPersistedRate != null &&
+            (clamped - _lastPersistedRate!).abs() < 0.0001) {
+          return;
+        }
+        if ((clamped - state).abs() > 0.0001) {
+          state = clamped;
         }
       },
     );
+    // Только начальное значение — ref.watch здесь пересобирает notifier и сбрасывает drag.
     final fromContext =
-        ref.watch(parentFamilyContextProvider).asData?.value?.globalTaxRate;
+        ref.read(parentFamilyContextProvider).asData?.value?.globalTaxRate;
     return (fromContext ?? kDefaultGlobalTaxRate).clamp(0.0, 0.5);
   }
 
   void setTaxRate(double taxRate, {bool persist = true}) {
     final clamped = taxRate.clamp(0.0, 0.5);
+    _localEdit = true;
     state = clamped;
-    if (!persist) return;
+    if (!persist || !_serverPersistSupported) {
+      _localEdit = false;
+      return;
+    }
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 450), () async {
-      await ref
-          .read(parentAccessRepositoryProvider)
-          .setFamilyGlobalTaxRate(clamped);
-      ref.invalidate(parentFamilyContextProvider);
+      if (!ref.mounted) return;
+      try {
+        final saved = await ref
+            .read(parentAccessRepositoryProvider)
+            .setFamilyGlobalTaxRate(clamped);
+        if (!saved) {
+          _serverPersistSupported = false;
+          return;
+        }
+        _lastPersistedRate = clamped;
+        if (!ref.mounted) return;
+        ref.invalidate(parentFamilyContextProvider);
+      } on ApiException catch (e) {
+        if (e.statusCode == 404) {
+          _serverPersistSupported = false;
+        }
+      } catch (_) {
+      } finally {
+        if (ref.mounted) _localEdit = false;
+      }
     });
   }
 }

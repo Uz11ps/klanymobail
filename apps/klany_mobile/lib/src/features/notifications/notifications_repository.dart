@@ -41,14 +41,18 @@ class NotificationsRepository {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) return;
-    await api.postJson(
-      '/notifications/devices/register',
-      accessToken: token,
-      body: <String, dynamic>{
-        'platform': platform,
-        'pushToken': pseudoPushToken,
-      },
-    );
+    try {
+      await api.postJson(
+        '/notifications/devices/register',
+        accessToken: token,
+        body: <String, dynamic>{
+          'platform': platform,
+          'pushToken': pseudoPushToken,
+        },
+      );
+    } catch (_) {
+      // Регистрация push/web-устройства не должна ломать старт приложения.
+    }
   }
 
   Future<List<InAppNotificationItem>> listFamilyNotifications(

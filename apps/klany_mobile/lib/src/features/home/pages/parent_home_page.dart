@@ -24,8 +24,10 @@ import '../../wallet/family_economy.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_live_poll.dart';
+import '../../../core/klany_page_gate.dart';
 import '../../../core/storage_presign.dart';
 import '../../../core/value_bump.dart';
+import '../shell_bootstrap.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import '../parent_main_bottom_bar.dart';
@@ -60,6 +62,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
   int _index = 0;
   int _registerAttempts = 0;
   int _pendingRequestsCount = 0;
+  final Set<int> _visitedTabs = {0};
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
@@ -140,9 +143,11 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
     final tokenToSave = (pushToken != null && pushToken.isNotEmpty)
         ? pushToken
         : 'parent-${identity.deviceId}';
-    await ref
-        .read(notificationsRepositoryProvider)
-        .registerDevice(platform: platform, pseudoPushToken: tokenToSave);
+    try {
+      await ref
+          .read(notificationsRepositoryProvider)
+          .registerDevice(platform: platform, pseudoPushToken: tokenToSave);
+    } catch (_) {}
   }
 
   ParentMainTab get _mainTab => switch (_index) {
@@ -160,6 +165,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
         ParentMainTab.shop => 2,
         ParentMainTab.settings => 3,
       };
+      _visitedTabs.add(_index);
     });
   }
 
@@ -173,9 +179,26 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
 
   @override
   Widget build(BuildContext context) {
+    final shellAsync = ref.watch(parentShellDataProvider);
+    return shellAsync.when(
+      loading: () => const KlanyPageLoading(message: 'Загружаем клан…'),
+      error: (error, _) => KlanyPageLoading(
+        message: 'Не удалось загрузить данные',
+      ),
+      data: (shellData) => KlanyPageReveal(
+        child: _buildShell(context, shellData),
+      ),
+    );
+  }
+
+  Widget _buildShell(BuildContext context, ParentShellData shellData) {
     final pages = <Widget>[
       _ParentDashboardView(
-        onOpenQuests: () => setState(() => _index = 1),
+        initialData: shellData,
+        onOpenQuests: () => setState(() {
+          _index = 1;
+          _visitedTabs.add(1);
+        }),
         onOpenEconomy: _openEconomy,
         onOpenWallet: () {
           Navigator.of(context).push(
@@ -213,9 +236,9 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
                 return SizedBox(
                   width: maxW,
                   height: maxH,
-                  child: IndexedStack(
+                  child: KlanyLazyIndexedStack(
                     index: _index,
-                    sizing: StackFit.expand,
+                    visited: _visitedTabs,
                     children: pages,
                   ),
                 );
@@ -256,11 +279,13 @@ class _ParentDashboardView extends ConsumerStatefulWidget {
     required this.onOpenQuests,
     required this.onOpenEconomy,
     required this.onOpenWallet,
+    this.initialData,
   });
 
   final VoidCallback onOpenQuests;
   final VoidCallback onOpenEconomy;
   final VoidCallback onOpenWallet;
+  final ParentShellData? initialData;
 
   @override
   ConsumerState<_ParentDashboardView> createState() =>
@@ -285,7 +310,17 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
   @override
   void initState() {
     super.initState();
-    _reload(showLoading: true);
+    final seed = widget.initialData;
+    if (seed != null) {
+      _family = seed.family;
+      _wallets = seed.wallets;
+      _reviews = seed.reviews;
+      _quests = seed.quests;
+      _notifications = seed.notifications;
+      _initialLoading = false;
+    } else {
+      _reload(showLoading: true);
+    }
   }
 
   String _dashboardFeedDigest() {
