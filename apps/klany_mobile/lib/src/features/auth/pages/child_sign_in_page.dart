@@ -35,7 +35,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
 
   Future<void> _codeSignIn() async {
     final authCode = _authCode.text.trim();
-    if (!kFamilyAccessCodePattern.hasMatch(authCode)) {
+    if (!isValidFamilyAccessCode(authCode)) {
       context.showKlanySnackBar(
         SnackBar(
           content: Text(
@@ -136,11 +136,11 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                           child: TextField(
                             controller: _authCode,
                             keyboardType: TextInputType.number,
-                            maxLength: kFamilyAccessCodeLength,
+                            maxLength: kFamilyAccessCodeInputMaxLength,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
                               LengthLimitingTextInputFormatter(
-                                kFamilyAccessCodeLength,
+                                kFamilyAccessCodeInputMaxLength,
                               ),
                             ],
                             obscureText: _obscure,

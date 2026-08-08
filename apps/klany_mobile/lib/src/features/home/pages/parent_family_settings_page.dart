@@ -249,12 +249,10 @@ class ParentFamilySettingsPage extends ConsumerStatefulWidget {
 class _ParentFamilySettingsPageState
     extends ConsumerState<ParentFamilySettingsPage>
     with KlanyLivePollConsumerMixin {
-  final _memberName = TextEditingController();
   final _inviteEmail = TextEditingController();
   final _promoCode = TextEditingController();
   final _goalName = TextEditingController();
   final _goalAmount = TextEditingController();
-  String _memberRole = 'child';
   bool _busy = false;
   bool _memberCodeBusy = false;
   double _taxRate = 0.20;
@@ -304,7 +302,6 @@ class _ParentFamilySettingsPageState
 
   @override
   void dispose() {
-    _memberName.dispose();
     _inviteEmail.dispose();
     _promoCode.dispose();
     _goalName.dispose();
@@ -314,32 +311,199 @@ class _ParentFamilySettingsPageState
 
   // ─── Async actions ────────────────────────────────────────────────────────
 
-  Future<void> _createMemberCode() async {
-    if (_memberCodeBusy) return;
-    final name = _memberName.text.trim();
+  Future<bool> _createMemberCode({
+    required String displayName,
+    required String memberRole,
+  }) async {
+    if (_memberCodeBusy) return false;
+    final name = displayName.trim();
     if (name.isEmpty) {
       context.showKlanySnackBar(
         const SnackBar(content: Text('Введите имя участника')),
       );
-      return;
+      return false;
     }
     setState(() => _memberCodeBusy = true);
     try {
       final code = await ref
           .read(parentAccessRepositoryProvider)
-          .createFamilyMemberCode(memberType: _memberRole, displayName: name);
-      if (!mounted) return;
+          .createFamilyMemberCode(memberType: memberRole, displayName: name);
+      if (!mounted) return false;
       context.showKlanySnackBar(
         SnackBar(content: Text('Код для ${code.displayName}: ${code.code}')),
       );
-      _memberName.clear();
       setState(() => _familyRosterNonce++);
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       context.showKlanyErrorSnackBar(e);
+      return false;
     } finally {
       if (mounted) setState(() => _memberCodeBusy = false);
     }
+  }
+
+  Future<void> _showAddMemberModal() async {
+    if (_memberCodeBusy) return;
+    final nameCtl = TextEditingController();
+    var role = 'child';
+    var saving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetCtx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            20 + MediaQuery.viewInsetsOf(sheetCtx).bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (ctx, setModalState) {
+              return SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Добавить участника',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: kChildInk,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6, bottom: 6),
+                      child: Text(
+                        'Имя участника',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: kChildInk,
+                        ),
+                      ),
+                    ),
+                    TextField(
+                      controller: nameCtl,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        color: kChildInk,
+                      ),
+                      decoration: _settingsField('Никита'),
+                    ),
+                    const SizedBox(height: 14),
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6, bottom: 6),
+                      child: Text(
+                        'Роль участника',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: kChildInk,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      child: DropdownButton<String>(
+                        value: role,
+                        underline: const SizedBox(),
+                        isExpanded: true,
+                        style: const TextStyle(
+                          fontFamily: 'Nunito',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: kChildInk,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'child',
+                            child: Text('Ребёнок'),
+                          ),
+                          DropdownMenuItem(value: 'mom', child: Text('Мама')),
+                          DropdownMenuItem(value: 'dad', child: Text('Папа')),
+                          DropdownMenuItem(
+                            value: 'grandma',
+                            child: Text('Бабушка'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'grandpa',
+                            child: Text('Дедушка'),
+                          ),
+                        ],
+                        onChanged: saving
+                            ? null
+                            : (v) {
+                                if (v != null) {
+                                  setModalState(() => role = v);
+                                }
+                              },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final name = nameCtl.text.trim();
+                              if (name.isEmpty) {
+                                context.showKlanySnackBar(
+                                  const SnackBar(
+                                    content: Text('Введите имя участника'),
+                                  ),
+                                );
+                                return;
+                              }
+                              setModalState(() => saving = true);
+                              final ok = await _createMemberCode(
+                                displayName: name,
+                                memberRole: role,
+                              );
+                              if (ctx.mounted) {
+                                setModalState(() => saving = false);
+                                if (ok) Navigator.of(ctx).pop();
+                              }
+                            },
+                      style: _figmaSettingsButtonStyle(
+                        backgroundColor: _figmaSettingsMint,
+                      ),
+                      child: saving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            )
+                          : const Text('Добавить участника'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    nameCtl.dispose();
   }
 
   Future<void> _inviteByEmail(ParentFamilyContext family) async {
@@ -821,7 +985,8 @@ class _ParentFamilySettingsPageState
                     final settingsHorizontal = maxW < 430 ? 8.0 : 11.0;
                     final listBottomPad =
                         ParentMainBottomBarLayout.scrollBottomClearance(context) +
-                        28;
+                        28 +
+                        klanyKeyboardScrollPadding(context);
                     return Center(
                       child: SizedBox(
                         width: pageWidth,
@@ -835,6 +1000,8 @@ class _ParentFamilySettingsPageState
                           ),
                           child: ListView(
                             physics: const ClampingScrollPhysics(),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
                             padding: EdgeInsets.fromLTRB(0, 0, 0, listBottomPad),
                             children: [
                               ParentScreenHeader(
@@ -991,153 +1158,10 @@ class _ParentFamilySettingsPageState
                                             description:
                                                 'Здесь вы можете добавить участников клана и дать им код доступа, чтобы они присоединились к вашей семье.',
                                           ),
-                                          // Member tiles (square cards with avatar)
-                                          SizedBox(
-                                            height: 96,
-                                            child: ListView(
-                                              scrollDirection: Axis.horizontal,
-                                              padding: EdgeInsets.zero,
-                                              children: [
-                                                ...codes.take(8).map((c) {
-                                                  final initial =
-                                                      c.displayName.isNotEmpty
-                                                      ? c.displayName[0]
-                                                            .toUpperCase()
-                                                      : '?';
-                                                  return Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          right: 10,
-                                                        ),
-                                                    child: _MemberTile(
-                                                      userKey: 'member:${c.id}',
-                                                      avatarFallback: initial,
-                                                      label: c.displayName,
-                                                      avatarObjectKey:
-                                                          c.avatarObjectKey,
-                                                      remoteImageUrl:
-                                                          c.avatarImageUrl,
-                                                      onAvatarTap: _busy
-                                                          ? null
-                                                          : () => unawaited(
-                                                              _editMemberAvatar(
-                                                                family.familyId,
-                                                                c,
-                                                              ),
-                                                            ),
-                                                    ),
-                                                  );
-                                                }),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 6,
-                                              bottom: 6,
-                                            ),
-                                            child: Text(
-                                              'Имя участника',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                                color: kChildInk,
-                                              ),
-                                            ),
-                                          ),
-                                          TextField(
-                                            controller: _memberName,
-                                            style: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w500,
-                                              color: kChildInk,
-                                            ),
-                                            decoration: _settingsField(
-                                              'Никита',
-                                            ),
-                                          ),
-                                          const SizedBox(height: 14),
-                                          const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 6,
-                                              bottom: 6,
-                                            ),
-                                            child: Text(
-                                              'Роль',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                                color: kChildInk,
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(26),
-                                            ),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 4,
-                                            ),
-                                            child: DropdownButton<String>(
-                                              value: _memberRole,
-                                              underline: const SizedBox(),
-                                              isExpanded: true,
-                                              hint: const Text(
-                                                'Ребёнок',
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: kChildInkMuted,
-                                                ),
-                                              ),
-                                              style: const TextStyle(
-                                                fontFamily: 'Nunito',
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w500,
-                                                color: kChildInk,
-                                              ),
-                                              items: const [
-                                                DropdownMenuItem(
-                                                  value: 'child',
-                                                  child: Text('Ребёнок'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'mom',
-                                                  child: Text('Мама'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'dad',
-                                                  child: Text('Папа'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'grandma',
-                                                  child: Text('Бабушка'),
-                                                ),
-                                                DropdownMenuItem(
-                                                  value: 'grandpa',
-                                                  child: Text('Дедушка'),
-                                                ),
-                                              ],
-                                              onChanged: _memberCodeBusy
-                                                  ? null
-                                                  : (v) {
-                                                      if (v != null) {
-                                                        setState(
-                                                          () => _memberRole = v,
-                                                        );
-                                                      }
-                                                    },
-                                            ),
-                                          ),
-                                          const SizedBox(height: 14),
                                           FilledButton(
                                             onPressed: _memberCodeBusy
                                                 ? null
-                                                : _createMemberCode,
+                                                : _showAddMemberModal,
                                             style: _figmaSettingsButtonStyle(
                                               backgroundColor:
                                                   _figmaSettingsMint,
@@ -1167,45 +1191,56 @@ class _ParentFamilySettingsPageState
                                                         ),
                                                     child: Row(
                                                       children: [
-                                                        Container(
-                                                          width: 40,
-                                                          height: 40,
-                                                          decoration:
-                                                              const BoxDecoration(
-                                                                color: Color(
-                                                                  0xFFE3ECF8,
-                                                                ),
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          clipBehavior:
-                                                              Clip.antiAlias,
-                                                          alignment:
-                                                              Alignment.center,
-                                                          child: UserAvatar(
-                                                            userKey:
-                                                                'member:${item.id}',
-                                                            size: 40,
-                                                            fallbackText:
-                                                                item
-                                                                    .displayName
-                                                                    .isNotEmpty
-                                                                ? item.displayName[0]
-                                                                      .toUpperCase()
-                                                                : '?',
-                                                            remoteImageUrl: item
-                                                                .avatarImageUrl,
-                                                            remoteDiskCacheKey:
-                                                                (item.avatarObjectKey ??
-                                                                        '')
-                                                                    .trim()
-                                                                    .isEmpty
-                                                                ? null
-                                                                : storageObjectDiskCacheKey(
-                                                                    'member-avatars',
-                                                                    item.avatarObjectKey!
-                                                                        .trim(),
+                                                        GestureDetector(
+                                                          onTap: _busy
+                                                              ? null
+                                                              : () => unawaited(
+                                                                  _editMemberAvatar(
+                                                                    family
+                                                                        .familyId,
+                                                                    item,
                                                                   ),
+                                                                ),
+                                                          child: Container(
+                                                            width: 40,
+                                                            height: 40,
+                                                            decoration:
+                                                                const BoxDecoration(
+                                                                  color: Color(
+                                                                    0xFFE3ECF8,
+                                                                  ),
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                            clipBehavior:
+                                                                Clip.antiAlias,
+                                                            alignment:
+                                                                Alignment.center,
+                                                            child: UserAvatar(
+                                                              userKey:
+                                                                  'member:${item.id}',
+                                                              size: 40,
+                                                              fallbackText:
+                                                                  item
+                                                                      .displayName
+                                                                      .isNotEmpty
+                                                                  ? item.displayName[0]
+                                                                        .toUpperCase()
+                                                                  : '?',
+                                                              remoteImageUrl: item
+                                                                  .avatarImageUrl,
+                                                              remoteDiskCacheKey:
+                                                                  (item.avatarObjectKey ??
+                                                                          '')
+                                                                      .trim()
+                                                                      .isEmpty
+                                                                  ? null
+                                                                  : storageObjectDiskCacheKey(
+                                                                      'member-avatars',
+                                                                      item.avatarObjectKey!
+                                                                          .trim(),
+                                                                    ),
+                                                            ),
                                                           ),
                                                         ),
                                                         const SizedBox(
@@ -2336,91 +2371,6 @@ class _TaxSegmentSlider extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-class _MemberTile extends StatelessWidget {
-  const _MemberTile({
-    required this.userKey,
-    required this.avatarFallback,
-    required this.label,
-    this.avatarObjectKey,
-    this.remoteImageUrl,
-    this.onAvatarTap,
-  });
-  final String userKey;
-  final String avatarFallback;
-  final String label;
-  final String? avatarObjectKey;
-  final String? remoteImageUrl;
-  final VoidCallback? onAvatarTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final card = Container(
-      width: 76,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF2F8),
-              shape: BoxShape.circle,
-            ),
-            clipBehavior: Clip.antiAlias,
-            alignment: Alignment.center,
-            child: UserAvatar(
-              userKey: userKey,
-              size: 56,
-              fallbackText: avatarFallback,
-              remoteImageUrl: remoteImageUrl,
-              remoteDiskCacheKey: (avatarObjectKey ?? '').trim().isEmpty
-                  ? null
-                  : storageObjectDiskCacheKey(
-                      'member-avatars',
-                      avatarObjectKey!.trim(),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11,
-              color: kChildInk,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-    if (onAvatarTap != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onAvatarTap,
-          borderRadius: BorderRadius.circular(20),
-          child: card,
-        ),
-      );
-    }
-    return card;
   }
 }
 

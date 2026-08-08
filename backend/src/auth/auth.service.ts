@@ -15,6 +15,10 @@ import {
 } from "../mail/auth-email-token.util";
 import { ResendMailService } from "../mail/resend-mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  isValidChildAuthCodeFormat,
+  resolveChildAuthCodeForLookup,
+} from "./child-auth-code.util";
 import { grantDefaultPremiumSubscription } from "../subscriptions/default-premium";
 
 import { assertKlanyPasswordPlain } from "./password-policy";
@@ -283,8 +287,8 @@ export class AuthService {
   }
 
   async signInWithFamilyCode(input: { code: string }) {
-    const code = (input.code ?? "").trim();
-    if (!/^\d{8}$/.test(code)) throw new UnauthorizedException("Неверный код");
+    const code = resolveChildAuthCodeForLookup(input.code);
+    if (!isValidChildAuthCodeFormat(input.code)) throw new UnauthorizedException("Неверный код");
 
     const memberCode = await this.prisma.familyMemberCode.findUnique({
       where: { code },

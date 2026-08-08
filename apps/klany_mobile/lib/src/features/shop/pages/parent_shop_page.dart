@@ -27,7 +27,8 @@ double _shopBodyBottomPadding(BuildContext context) {
   return pillH +
       barBottomPad +
       MediaQuery.viewPaddingOf(context).bottom +
-      gapAboveBar;
+      gapAboveBar +
+      klanyKeyboardScrollPadding(context);
 }
 
 class ParentShopPage extends ConsumerStatefulWidget {
@@ -96,6 +97,7 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage>
         return Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
+          resizeToAvoidBottomInset: false,
           body: pages[_tab],
           bottomNavigationBar: ParentShopBottomBar(
             current: ParentShopBottomBar.tabFromIndex(_tab),
@@ -329,6 +331,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 context.klanySize(19),
                 0,
@@ -656,6 +659,7 @@ class _ParentCreateProductFormState
       bottom: false,
       child: ListView(
         physics: const ClampingScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(
           19,
           0,
@@ -974,6 +978,7 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue>
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
                 19,
                 0,

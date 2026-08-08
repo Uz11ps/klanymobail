@@ -3,6 +3,9 @@ import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  generateChildAuthCode,
+} from "../auth/child-auth-code.util";
 
 type ParentUser = {
   userId: string;
@@ -16,10 +19,6 @@ function ensureFamilyId(user: ParentUser): string {
   const familyId = user.familyId ?? null;
   if (!familyId) throw new ForbiddenException("Нет семьи");
   return familyId;
-}
-
-function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
 }
 
 @Injectable()

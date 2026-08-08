@@ -34,7 +34,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
   Future<void> _submit() async {
     if (_busy) return;
     final code = _code.text.trim();
-    if (!kFamilyAccessCodePattern.hasMatch(code)) {
+    if (!isValidFamilyAccessCode(code)) {
       context.showKlanySnackBar(
         SnackBar(
           content: Text('Введите $kFamilyAccessCodeLength-значный код'),
@@ -100,7 +100,7 @@ class _JoinFamilyCodePageState extends ConsumerState<JoinFamilyCodePage> {
               TextField(
                 controller: _code,
                 keyboardType: TextInputType.number,
-                maxLength: kFamilyAccessCodeLength,
+                maxLength: kFamilyAccessCodeInputMaxLength,
                 decoration: clanInputDecoration(
                   label: 'Код доступа (8 цифр)',
                   icon: Icons.vpn_key,

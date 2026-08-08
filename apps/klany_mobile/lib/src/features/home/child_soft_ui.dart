@@ -1328,6 +1328,11 @@ class ChildBottomClanBar extends StatelessWidget {
   }
 }
 
+/// При [Scaffold.resizeToAvoidBottomInset: false] навбар не поднимается с клавиатурой;
+/// добавьте к нижнему padding прокручиваемого контента.
+double klanyKeyboardScrollPadding(BuildContext context) =>
+    MediaQuery.viewInsetsOf(context).bottom;
+
 class _ChildHomeNavColumn extends StatelessWidget {
   const _ChildHomeNavColumn({
     required this.label,

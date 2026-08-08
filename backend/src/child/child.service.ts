@@ -4,6 +4,12 @@ import { randomUUID } from "crypto";
 
 import { AuthService } from "../auth/auth.service";
 import { assertKlanyPasswordPlain } from "../auth/password-policy";
+import {
+  childAuthCodeFormatError,
+  generateChildAuthCode,
+  isValidChildAuthCodeFormat,
+  resolveChildAuthCodeForLookup,
+} from "../auth/child-auth-code.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -12,10 +18,6 @@ type ChildUser = {
   familyId: string;
   childId: string;
 };
-
-function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 100000000).toString().padStart(8, "0");
-}
 
 @Injectable()
 export class ChildService {
@@ -306,10 +308,12 @@ export class ChildService {
   }
 
   async signInWithAuthCode(input: { authCode: string; deviceId: string; deviceKey: string }) {
-    const authCode = (input.authCode ?? "").trim();
+    const authCode = resolveChildAuthCodeForLookup(input.authCode);
     const deviceId = (input.deviceId ?? "").trim();
     const deviceKey = (input.deviceKey ?? "").trim();
-    if (!/^\d{8}$/.test(authCode)) throw new BadRequestException("authCode должен состоять из 8 цифр");
+    if (!isValidChildAuthCodeFormat(input.authCode)) {
+      throw new BadRequestException(childAuthCodeFormatError());
+    }
     if (!deviceId || !deviceKey) throw new BadRequestException("deviceId/deviceKey обязательны");
 
     const child = await this.prisma.child.findFirst({ where: { authCode } });

@@ -198,7 +198,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
         child: Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
-          resizeToAvoidBottomInset: true,
+          resizeToAvoidBottomInset: false,
           body: SafeArea(
             bottom: false,
             child: LayoutBuilder(
