@@ -11,6 +11,7 @@ import '../../home/parent_main_bottom_bar.dart';
 import '../../home/parent_screen_header.dart';
 import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
+import '../../wallet/family_economy.dart';
 import '../quests_repository.dart';
 import 'parent_task_exchange_sections.dart';
 import 'quest_create_figma_sheet.dart';
@@ -340,6 +341,7 @@ class _ExchangeNewQuestList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final taxRate = ref.watch(familyGlobalTaxProvider);
     return FutureBuilder<List<ParentQuestItem>>(
       future: ref.read(questsRepositoryProvider).getParentQuests(familyId),
       builder: (context, snapshot) {
@@ -365,7 +367,7 @@ class _ExchangeNewQuestList extends ConsumerWidget {
                 child: ExchangeQuestCard(
                   background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
-                  coins: q.rewardAmount,
+                  coins: netQuestReward(q.rewardAmount, taxRate),
                   trailing: Text(
                     _formatCreated(q.createdAt),
                     style: context.klanyTextStyle(
@@ -387,6 +389,7 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final taxRate = ref.watch(familyGlobalTaxProvider);
     final repo = ref.read(questsRepositoryProvider);
     return FutureBuilder<(List<ParentQuestItem>, List<FamilyChildLite>)>(
       future: Future.wait([
@@ -419,7 +422,7 @@ class _ExchangeInWorkQuestList extends ConsumerWidget {
                 child: ExchangeQuestCard(
                   background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
                   title: q.title,
-                  coins: q.rewardAmount,
+                  coins: netQuestReward(q.rewardAmount, taxRate),
                   assigneeChildId:
                       q.childIds.isEmpty ? null : q.childIds.first,
                   assigneeName: q.childIds.isEmpty

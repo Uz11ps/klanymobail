@@ -22,6 +22,7 @@ class ParentQuestItem {
     required this.status,
     required this.questType,
     required this.rewardAmount,
+    this.netReward,
     required this.createdAt,
     required this.distributionType,
     required this.autoApprove,
@@ -39,7 +40,9 @@ class ParentQuestItem {
   final String description;
   final String status;
   final String questType;
+  /// Gross-награда квеста (до налога).
   final int rewardAmount;
+  final int? netReward;
   final DateTime createdAt;
   final String distributionType;
   final bool autoApprove;
@@ -121,6 +124,7 @@ class ParentReviewItem {
     required this.title,
     required this.submittedAt,
     this.rewardAmount,
+    this.rewardGross,
     this.evidencePath,
     this.evidenceUrl,
   });
@@ -130,7 +134,10 @@ class ParentReviewItem {
   final String childName;
   final String title;
   final DateTime? submittedAt;
+  /// Net с сервера (на момент запроса).
   final int? rewardAmount;
+  /// Gross до налога — для live-пересчёта в UI родителя.
+  final int? rewardGross;
   final String? evidencePath;
   final String? evidenceUrl;
 }
@@ -245,6 +252,7 @@ class QuestsRepository {
         status: (row['status'] ?? '').toString(),
         questType: (row['questType'] ?? '').toString(),
         rewardAmount: (row['reward'] as num?)?.toInt() ?? 0,
+        netReward: (row['netReward'] as num?)?.toInt(),
         createdAt:
             DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
             DateTime.now(),
@@ -467,6 +475,8 @@ class QuestsRepository {
           rewardAmount:
               (row['rewardAmount'] as num?)?.toInt() ??
                   (row['reward'] as num?)?.toInt(),
+          rewardGross: (row['rewardGross'] as num?)?.toInt() ??
+              (row['reward'] as num?)?.toInt(),
           evidencePath: evidencePath,
           evidenceUrl: evidenceUrl,
         );

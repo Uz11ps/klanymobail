@@ -5,6 +5,7 @@ import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
+import '../../wallet/family_economy.dart';
 import '../quests_repository.dart';
 import 'exchange_quest_card.dart';
 import 'task_exchange_figma_layout.dart';
@@ -214,6 +215,8 @@ class _ExchangeReviewCardState extends ConsumerState<_ExchangeReviewCard> {
 
   @override
   Widget build(BuildContext context) {
+    final taxRate = ref.watch(familyGlobalTaxProvider);
+    final gross = widget.item.rewardGross ?? widget.item.rewardAmount ?? 0;
     final hasPhoto = (widget.item.evidenceUrl ?? '').isNotEmpty;
     final cardRadius = context.klanySize(TaskExchangeFigmaLayout.cardRadius);
     return Material(
@@ -224,7 +227,7 @@ class _ExchangeReviewCardState extends ConsumerState<_ExchangeReviewCard> {
         child: ExchangeQuestCard(
           background: widget.background,
           title: widget.item.title,
-          coins: widget.item.rewardAmount ?? 0,
+          coins: netQuestReward(gross, taxRate),
           assigneeChildId: widget.item.childId,
           assigneeName: widget.item.childName,
           trailing: ExchangeReviewPhotoBadge(photoCount: hasPhoto ? 1 : 0),

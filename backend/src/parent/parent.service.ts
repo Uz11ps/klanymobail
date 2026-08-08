@@ -6,6 +6,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import {
   generateChildAuthCode,
 } from "../auth/child-auth-code.util";
+import {
+  clampGlobalTaxRate,
+  getFamilyGlobalTaxRate,
+} from "../family/family-global-tax.util";
 
 type ParentUser = {
   userId: string;
@@ -75,9 +79,10 @@ export class ParentService {
     const familyId = ensureFamilyId(user);
     const family = await this.prisma.family.findUnique({ where: { id: familyId } });
     if (!family) throw new NotFoundException("Семья не найдена");
-    const [goalAmount, rublesPer10Coins] = await Promise.all([
+    const [goalAmount, rublesPer10Coins, globalTaxRate] = await Promise.all([
       this.getFamilyGoalAmount(family.id),
       this.getFamilyRublesPer10Coins(family.id),
+      getFamilyGlobalTaxRate(this.prisma, family.id),
     ]);
     return {
       familyId: family.id,
@@ -85,6 +90,7 @@ export class ParentService {
       clanName: family.clanName,
       goalAmount,
       rublesPer10Coins,
+      globalTaxRate,
     };
   }
 
@@ -120,6 +126,24 @@ export class ParentService {
       },
     });
     return { ok: true, rublesPer10Coins };
+  }
+
+  async setFamilyGlobalTaxRate(user: ParentUser, taxRateRaw: number) {
+    const familyId = ensureFamilyId(user);
+    const raw = Number(taxRateRaw ?? 0);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 0.5) {
+      throw new BadRequestException("taxRate должен быть от 0 до 0.5");
+    }
+    const taxRate = clampGlobalTaxRate(raw);
+    await this.prisma.auditLog.create({
+      data: {
+        familyId,
+        actorUserId: user.userId,
+        action: "family_global_tax_set",
+        payload: { taxRate },
+      },
+    });
+    return { ok: true, globalTaxRate: taxRate };
   }
 
   /** Имя в UI семьи (поле профиля `displayName`). */

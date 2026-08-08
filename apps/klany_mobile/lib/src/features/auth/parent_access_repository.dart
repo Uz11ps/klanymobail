@@ -17,6 +17,7 @@ class ParentFamilyContext {
     this.clanName,
     required this.goalAmount,
     required this.rublesPer10Coins,
+    required this.globalTaxRate,
   });
 
   final String familyId;
@@ -24,6 +25,8 @@ class ParentFamilyContext {
   final String? clanName;
   final int goalAmount;
   final int rublesPer10Coins;
+  /// Доля глобального налога: 0.0–0.5 (0–50%).
+  final double globalTaxRate;
 }
 
 class ChildAccessRequestItem {
@@ -144,6 +147,7 @@ class ParentAccessRepository {
       clanName: data['clanName']?.toString(),
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
       rublesPer10Coins: (data['rublesPer10Coins'] as num?)?.toInt() ?? 100,
+      globalTaxRate: (data['globalTaxRate'] as num?)?.toDouble() ?? 0.2,
     );
   }
 
@@ -225,6 +229,17 @@ class ParentAccessRepository {
       '/family/coin-rate',
       accessToken: token,
       body: <String, dynamic>{'rublesPer10Coins': rublesPer10Coins},
+    );
+  }
+
+  Future<void> setFamilyGlobalTaxRate(double taxRate) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.postJson(
+      '/family/global-tax',
+      accessToken: token,
+      body: <String, dynamic>{'taxRate': taxRate},
     );
   }
 
@@ -382,6 +397,17 @@ class ParentAccessRepository {
     final token = _token;
     if (api == null || token == null) return;
     await api.postJson('/parent/children/$childId/deactivate', accessToken: token);
+  }
+
+  Future<void> activateChild(String childId) async {
+    final api = Sdk.apiOrNull;
+    final token = _token;
+    if (api == null || token == null) return;
+    await api.patchJson(
+      '/parent/children/$childId',
+      accessToken: token,
+      body: <String, dynamic>{'isActive': true},
+    );
   }
 
   Future<void> deleteChild(String childId) async {

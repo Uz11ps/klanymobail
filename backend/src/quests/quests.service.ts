@@ -1,5 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import {
+  applyGlobalTaxToQuestReward,
+  getFamilyGlobalTaxRate,
+} from "../family/family-global-tax.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -45,6 +49,20 @@ export class QuestsService {
     const existing = await this.prisma.wallet.findUnique({ where: { childId } });
     if (existing) return existing;
     return this.prisma.wallet.create({ data: { childId, familyId, balance: 0 } });
+  }
+
+  /** Награда квеста в БД — gross; на кошелёк идёт net по текущему налогу семьи. */
+  private async netQuestPayout(familyId: string, grossReward: number): Promise<number> {
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
+    return applyGlobalTaxToQuestReward(grossReward, taxRate);
+  }
+
+  private netQuestPayoutWithRate(grossReward: number, taxRate: number): number {
+    return applyGlobalTaxToQuestReward(grossReward, taxRate);
+  }
+
+  private questGrossReward(quest: { reward: number }): number {
+    return Math.max(0, Math.trunc(quest.reward));
   }
 
   private parseMeta(description: string | null | undefined): ParsedQuestMeta {
@@ -537,6 +555,7 @@ export class QuestsService {
 
   async listParentQuests(user: ParentUser) {
     const familyId = ensureFamilyId(user);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
     const rows = await this.prisma.quest.findMany({
       where: { familyId, status: "active" },
       include: {
@@ -568,12 +587,14 @@ export class QuestsService {
           childIds,
           assigneeSince,
           assigneeStatus,
+          netReward: this.netQuestPayoutWithRate(q.reward, taxRate),
         };
       }),
     };
   }
 
   async listChildAssignments(user: ChildUser) {
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, user.familyId);
     const assignees = await this.prisma.questAssignee.findMany({
       where: {
         childId: user.childId,
@@ -593,8 +614,7 @@ export class QuestsService {
       orderBy: { createdAt: "desc" },
       take: 200,
     });
-    return {
-      items: [
+    return { globalTaxRate: taxRate, items: [
         ...assignees.map((a) => {
           const meta = this.parseMeta(a.quest.description);
           const activateAt = meta.activateAtIso ? new Date(meta.activateAtIso) : null;
@@ -615,12 +635,15 @@ export class QuestsService {
           const dueAtFromTimeLimit =
             deadlineMs != null ? new Date(deadlineMs) : null;
           const displayDueAt = a.quest.dueAt ?? dueAtFromTimeLimit;
+          const grossReward = this.questGrossReward(a.quest);
+          const netReward = this.netQuestPayoutWithRate(grossReward, taxRate);
           return {
             questId: a.questId,
             assignmentId: a.id,
             title: a.quest.title,
             status: isOverdue ? "overdue" : a.status,
-            rewardAmount: a.rewardAmount,
+            rewardAmount: netReward,
+            rewardGross: grossReward,
             comment: a.comment,
             dueAt: displayDueAt,
             createdAt: a.createdAt,
@@ -649,12 +672,15 @@ export class QuestsService {
               : null;
           const marketDisplayDueAt =
             q.dueAt ?? (marketDeadlineMs != null ? new Date(marketDeadlineMs) : null);
+          const grossReward = this.questGrossReward(q);
+          const netReward = this.netQuestPayoutWithRate(grossReward, taxRate);
           return {
             questId: q.id,
             assignmentId: "",
             title: q.title,
             status: "market",
-            rewardAmount: q.reward,
+            rewardAmount: netReward,
+            rewardGross: grossReward,
             comment: meta.plainDescription,
             dueAt: marketDisplayDueAt,
             createdAt: q.createdAt,
@@ -824,6 +850,9 @@ export class QuestsService {
     if (!assignment) throw new NotFoundException("Назначение не найдено");
     if (assignment.quest.familyId !== user.familyId) throw new ForbiddenException("Чужая семья");
     const meta = this.parseMeta(assignment.quest.description);
+    const grossReward = this.questGrossReward(assignment.quest);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, user.familyId);
+    const payout = this.netQuestPayoutWithRate(grossReward, taxRate);
 
     await this.prisma.$transaction(async (tx) => {
       if (evidenceKey) {
@@ -843,16 +872,16 @@ export class QuestsService {
         const wallet = await this.ensureWallet(user.childId, user.familyId);
         await tx.wallet.update({
           where: { id: wallet.id },
-          data: { balance: wallet.balance + assignment.rewardAmount },
+          data: { balance: wallet.balance + payout },
         });
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: assignment.rewardAmount,
+            amount: payout,
             txType: "quest_reward",
             note: "Автоподтверждение квеста",
             reason: "quest_reward",
-            meta: { questId },
+            meta: { questId, grossReward, taxRate, netReward: payout },
           },
         });
         if (
@@ -936,6 +965,7 @@ export class QuestsService {
 
   async listSubmittedForReview(user: ParentUser) {
     const familyId = ensureFamilyId(user);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
     const rows = await this.prisma.questAssignee.findMany({
       where: { status: "submitted", quest: { familyId } },
       include: {
@@ -958,7 +988,8 @@ export class QuestsService {
         childName: [row.child.firstName, row.child.lastName].filter(Boolean).join(" ").trim(),
         title: row.quest.title,
         submittedAt: row.submittedAt,
-        rewardAmount: row.rewardAmount > 0 ? row.rewardAmount : row.quest.reward,
+        rewardGross: row.quest.reward,
+        rewardAmount: this.netQuestPayoutWithRate(row.quest.reward, taxRate),
         evidenceKey: evidence?.objectKey ?? null,
       });
     }
@@ -982,6 +1013,9 @@ export class QuestsService {
     const approve = input.approve === true;
     const comment = (input.comment ?? "").trim() || null;
     const meta = this.parseMeta(assignment.quest.description);
+    const grossReward = this.questGrossReward(assignment.quest);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
+    const payout = this.netQuestPayoutWithRate(grossReward, taxRate);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.questAssignee.update({
@@ -1003,16 +1037,16 @@ export class QuestsService {
         const wallet = await this.ensureWallet(childId, familyId);
         await tx.wallet.update({
           where: { id: wallet.id },
-          data: { balance: wallet.balance + assignment.rewardAmount },
+          data: { balance: wallet.balance + payout },
         });
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: assignment.rewardAmount,
+            amount: payout,
             txType: "quest_reward",
             note: `Награда за квест`,
             reason: "quest_reward",
-            meta: { questId },
+            meta: { questId, grossReward, taxRate, netReward: payout },
           },
         });
         if (

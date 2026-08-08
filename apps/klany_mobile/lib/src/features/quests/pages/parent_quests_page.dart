@@ -8,6 +8,7 @@ import '../../auth/parent_access_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../wallet/family_economy.dart';
+import '../../wallet/economy_tax_slider.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
@@ -255,6 +256,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
 
   Widget _buildPage(ParentFamilyContext family) {
     final rublesPer10Coins = ref.watch(familyCoinRateProvider);
+    final globalTaxRate = ref.watch(familyGlobalTaxProvider);
     final sel = _selectedWallet >= 0 && _selectedWallet < _wallets.length
         ? _wallets[_selectedWallet]
         : null;
@@ -505,6 +507,45 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
                                   ),
                                 ],
                               ),
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16),
+                              child: Container(
+                                height: 1,
+                                color: Colors.black.withValues(alpha: 0.08),
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Глобальный налог:',
+                                    style: TextStyle(
+                                      fontFamily: 'Nunito',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0x99000000),
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${(globalTaxRate * 100).round()}%',
+                                  style: const TextStyle(
+                                    fontFamily: 'Nunito',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            EconomyTaxSegmentSlider(
+                              value: globalTaxRate,
+                              onChanged: (v) => ref
+                                  .read(familyGlobalTaxProvider.notifier)
+                                  .setTaxRate(v),
                             ),
                           ],
                         ),

@@ -30,6 +30,12 @@ export class ParentController {
     return this.parent.setFamilyCoinRate(req.user, body.rublesPer10Coins);
   }
 
+  @Post("family/global-tax")
+  @Roles("parent", "admin")
+  async setFamilyGlobalTaxRate(@Req() req: any, @Body() body: { taxRate: number }) {
+    return this.parent.setFamilyGlobalTaxRate(req.user, body.taxRate);
+  }
+
   @Get("parent/access-requests")
   @Roles("parent", "admin")
   async accessRequests(@Req() req: any) {

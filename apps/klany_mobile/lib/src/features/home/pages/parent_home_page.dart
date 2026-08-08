@@ -20,6 +20,7 @@ import '../../quests/quests_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
 import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
+import '../../wallet/family_economy.dart';
 import '../../notifications/pages/notifications_page.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_live_poll.dart';
@@ -384,7 +385,8 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
         a.familyCode == b.familyCode &&
         (a.clanName ?? '') == (b.clanName ?? '') &&
         a.goalAmount == b.goalAmount &&
-        a.rublesPer10Coins == b.rublesPer10Coins;
+        a.rublesPer10Coins == b.rublesPer10Coins &&
+        a.globalTaxRate == b.globalTaxRate;
   }
 
   bool _sameWallets(
@@ -755,6 +757,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
                 notifications: _notifications,
                 reviews: _reviews,
                 wallets: _wallets,
+                globalTaxRate: ref.watch(familyGlobalTaxProvider),
               ),
             ),
           ),
@@ -1222,6 +1225,7 @@ class _MergedActivityFeed extends StatelessWidget {
     required this.notifications,
     required this.reviews,
     required this.wallets,
+    required this.globalTaxRate,
   });
 
   /// После объединения уведомлений и «на проверке» показываем не больше стольких строк.
@@ -1230,6 +1234,7 @@ class _MergedActivityFeed extends StatelessWidget {
   final List<InAppNotificationItem> notifications;
   final List<ParentReviewItem> reviews;
   final List<ParentChildWalletItem> wallets;
+  final double globalTaxRate;
 
   static const _feedName = TextStyle(
     fontFamily: 'Nunito',
@@ -1733,10 +1738,12 @@ class _MergedActivityFeed extends StatelessWidget {
     );
   }
 
-  static Widget _reviewTextColumn(ParentReviewItem r) {
+  Widget _reviewTextColumn(ParentReviewItem r) {
     final raw = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     final name =
         raw == 'Ребёнок' ? raw : _displayActorName(raw);
+    final gross = r.rewardGross ?? r.rewardAmount ?? 0;
+    final net = netQuestReward(gross, globalTaxRate);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1754,9 +1761,9 @@ class _MergedActivityFeed extends StatelessWidget {
             ],
           ),
         ),
-        if (r.rewardAmount != null && r.rewardAmount! > 0) ...[
+        if (net > 0) ...[
           const SizedBox(height: 4),
-          Text('(+${r.rewardAmount} монет)', style: _feedMeta),
+          Text('(+$net монет)', style: _feedMeta),
         ],
       ],
     );

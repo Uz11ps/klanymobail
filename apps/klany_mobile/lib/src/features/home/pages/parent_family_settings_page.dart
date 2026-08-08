@@ -13,7 +13,6 @@ import '../../auth/profile_display_name.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
-import '../../notifications/pages/notifications_page.dart';
 import '../../subscriptions/subscription_repository.dart';
 import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
@@ -210,7 +209,7 @@ class _ParentPremiumAnalyticsSectionState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionTitle('Premium-аналитика'),
+                  const _SectionTitle('Аналитика'),
                   Text(
                     'Дети: ${data['childrenCount'] ?? 0}',
                     style: const TextStyle(fontSize: 14, color: kChildInk),
@@ -249,15 +248,11 @@ class ParentFamilySettingsPage extends ConsumerStatefulWidget {
 class _ParentFamilySettingsPageState
     extends ConsumerState<ParentFamilySettingsPage>
     with KlanyLivePollConsumerMixin {
-  final _inviteEmail = TextEditingController();
   final _promoCode = TextEditingController();
   final _goalName = TextEditingController();
   final _goalAmount = TextEditingController();
   bool _busy = false;
   bool _memberCodeBusy = false;
-  double _taxRate = 0.20;
-  bool _pinEnabled = true;
-  bool _parentalControl = true;
   Future<List<FamilySubscriptionItem>>? _familySubscriptionsFuture;
   String? _subscriptionsFamilyId;
   /// Обновляет FutureBuilder родителей/детей после PATCH профиля.
@@ -302,7 +297,6 @@ class _ParentFamilySettingsPageState
 
   @override
   void dispose() {
-    _inviteEmail.dispose();
     _promoCode.dispose();
     _goalName.dispose();
     _goalAmount.dispose();
@@ -368,37 +362,6 @@ class _ParentFamilySettingsPageState
         ),
       ),
     );
-  }
-
-  Future<void> _inviteByEmail(ParentFamilyContext family) async {
-    if (_busy) return;
-    final email = _inviteEmail.text.trim().toLowerCase();
-    if (email.isEmpty || !email.contains('@')) {
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('Введите валидный email')),
-      );
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final token = await ref
-          .read(parentAccessRepositoryProvider)
-          .createParentInvite(email);
-      final text =
-          'Приглашение в клан. Family ID: ${family.familyCode}. '
-          'Токен: $token';
-      await SharePlus.instance.share(ShareParams(text: text));
-      if (!mounted) return;
-      context.showKlanySnackBar(
-        const SnackBar(content: Text('Инвайт создан и отправлен')),
-      );
-      _inviteEmail.clear();
-    } catch (e) {
-      if (!mounted) return;
-      context.showKlanyErrorSnackBar(e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _saveGoal() async {
@@ -625,7 +588,7 @@ class _ParentFamilySettingsPageState
         context.showKlanySnackBar(
           const SnackBar(content: Text('Устройства ребёнка отключены')),
         );
-        setState(() {});
+        setState(() => _familyRosterNonce++);
       }
     } catch (e) {
       if (!mounted) return;
@@ -644,7 +607,26 @@ class _ParentFamilySettingsPageState
         context.showKlanySnackBar(
           const SnackBar(content: Text('Ребёнок деактивирован')),
         );
-        setState(() {});
+        setState(() => _familyRosterNonce++);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanyErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _activateChild(String childId) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(parentAccessRepositoryProvider).activateChild(childId);
+      if (mounted) {
+        context.showKlanySnackBar(
+          const SnackBar(content: Text('Ребёнок снова активен')),
+        );
+        setState(() => _familyRosterNonce++);
       }
     } catch (e) {
       if (!mounted) return;
@@ -685,7 +667,7 @@ class _ParentFamilySettingsPageState
         context.showKlanySnackBar(
           const SnackBar(content: Text('Ребёнок удалён')),
         );
-        setState(() {});
+        setState(() => _familyRosterNonce++);
       }
     } catch (e) {
       if (!mounted) return;
@@ -1433,352 +1415,7 @@ class _ParentFamilySettingsPageState
                                         );
                                       },
                                     ),
-                                    // ── Economics ────────────────────────────────────────
-                                    _SCard(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _SectionTitle(
-                                            'Экономика Клана',
-                                            trailing: GestureDetector(
-                                              onTap: () {},
-                                              child: const Icon(
-                                                Icons.edit_outlined,
-                                                color: kChildInk,
-                                                size: 20,
-                                              ),
-                                            ),
-                                          ),
-                                          const Text(
-                                            'Курс монет: 10 монет = 100₽',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: kChildInk,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'Глобальный налог:',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: kChildInkMuted,
-                                                  ),
-                                                ),
-                                              ),
-                                              Text(
-                                                '${(_taxRate * 100).round()}%',
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: kChildInk,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 10),
-                                          _TaxSegmentSlider(
-                                            value: _taxRate,
-                                            onChanged: (v) =>
-                                                setState(() => _taxRate = v),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          const Divider(
-                                            height: 1,
-                                            color: kChildOutline,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'PIN-код для Экономики',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: kChildInk,
-                                                  ),
-                                                ),
-                                              ),
-                                              Switch(
-                                                value: _pinEnabled,
-                                                activeTrackColor:
-                                                    _figmaSettingsMint,
-                                                activeThumbColor: Colors.white,
-                                                inactiveTrackColor:
-                                                    kChildOutline,
-                                                inactiveThumbColor:
-                                                    Colors.white,
-                                                onChanged: (v) => setState(
-                                                  () => _pinEnabled = v,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const Divider(
-                                            height: 1,
-                                            color: kChildOutline,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'Родительский контроль обратных задач',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: kChildInk,
-                                                  ),
-                                                ),
-                                              ),
-                                              Switch(
-                                                value: _parentalControl,
-                                                activeTrackColor:
-                                                    _figmaSettingsMint,
-                                                activeThumbColor: Colors.white,
-                                                inactiveTrackColor:
-                                                    kChildOutline,
-                                                inactiveThumbColor:
-                                                    Colors.white,
-                                                onChanged: (v) => setState(
-                                                  () => _parentalControl = v,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                     const SizedBox(height: 24),
-
-                                    // ── Second parent ────────────────────────────────────────────
-                                    _SCard(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          const _SectionTitle(
-                                            'Второй родитель',
-                                          ),
-                                          const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 6,
-                                              bottom: 6,
-                                            ),
-                                            child: Text(
-                                              'Email',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: kChildInk,
-                                              ),
-                                            ),
-                                          ),
-                                          TextField(
-                                            controller: _inviteEmail,
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            style: const TextStyle(
-                                              fontFamily: 'Nunito',
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w500,
-                                              color: kChildInk,
-                                            ),
-                                            decoration: _settingsField(
-                                              'Email',
-                                              prefixIcon: const Icon(
-                                                Icons.alternate_email,
-                                                color: kChildBrandBlue,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          FilledButton(
-                                            onPressed: _busy
-                                                ? null
-                                                : () => _inviteByEmail(family),
-                                            style: _figmaSettingsButtonStyle(
-                                              backgroundColor:
-                                                  _figmaSettingsMint,
-                                            ),
-                                            child: const Text('Пригласить'),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 24),
-
-                                    // ── Support ──────────────────────────────────────────────────
-                                    _SCard(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          const _SectionTitle(
-                                            'Поддержка клана',
-                                          ),
-                                          _SkyButton(
-                                            label: 'Уведомления и лента семьи',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const NotificationsPage(),
-                                                  ),
-                                                ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _SkyButton(
-                                            label: 'Написать в поддержку',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const TechSupportPage(),
-                                                  ),
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-
-                                    // ── Legal ────────────────────────────────────────────────────
-                                    _SCard(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          const _SectionTitle(
-                                            'Юр. информация и Согласия',
-                                          ),
-                                          _SkyButton(
-                                            label:
-                                                'Пользовательское\nсоглашение',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const DocumentPage(
-                                                          title: 'Соглашение',
-                                                          body:
-                                                              userAgreementBody,
-                                                        ),
-                                                  ),
-                                                ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _SkyButton(
-                                            label:
-                                                'Политика\nконфиденциальности',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const DocumentPage(
-                                                          title: 'Политика',
-                                                          body:
-                                                              privacyPolicyBody,
-                                                        ),
-                                                  ),
-                                                ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          _SkyButton(
-                                            label:
-                                                'Оферта о подписке\n(Premium)',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const DocumentPage(
-                                                          title: 'Оферта',
-                                                          body:
-                                                              premiumOfferBody,
-                                                        ),
-                                                  ),
-                                                ),
-                                          ),
-                                          const SizedBox(height: 18),
-                                          const _SectionTitle(
-                                            'Управление данными',
-                                          ),
-                                          _SkyButton(
-                                            label: 'Согласие на обработку\nПД',
-                                            onTap: () =>
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute<void>(
-                                                    builder: (_) =>
-                                                        const DocumentPage(
-                                                          title:
-                                                              'Согласие на ПД',
-                                                          body: dataConsentBody,
-                                                        ),
-                                                  ),
-                                                ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'Согласие на обработку\nПД: принято',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: kChildInk,
-                                                    height: 1.3,
-                                                  ),
-                                                ),
-                                              ),
-                                              Switch(
-                                                value: true,
-                                                activeTrackColor:
-                                                    _figmaSettingsMint,
-                                                activeThumbColor: Colors.white,
-                                                inactiveTrackColor:
-                                                    kChildOutline,
-                                                inactiveThumbColor:
-                                                    Colors.white,
-                                                onChanged: (_) {},
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              const Expanded(
-                                                child: Text(
-                                                  'Разрешить сбор\nстатистики',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: kChildInk,
-                                                    height: 1.3,
-                                                  ),
-                                                ),
-                                              ),
-                                              Switch(
-                                                value: true,
-                                                activeTrackColor:
-                                                    _figmaSettingsMint,
-                                                activeThumbColor: Colors.white,
-                                                inactiveTrackColor:
-                                                    kChildOutline,
-                                                inactiveThumbColor:
-                                                    Colors.white,
-                                                onChanged: (_) {},
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
 
                                     // ── Analytics ────────────────────────────────────────────────
                                     const _ParentPremiumAnalyticsSection(),
@@ -1945,6 +1582,11 @@ class _ParentFamilySettingsPageState
                                                             c.childId,
                                                           );
                                                         } else if (value ==
+                                                            'activate') {
+                                                          _activateChild(
+                                                            c.childId,
+                                                          );
+                                                        } else if (value ==
                                                             'delete') {
                                                           _deleteChild(
                                                             c.childId,
@@ -1952,27 +1594,46 @@ class _ParentFamilySettingsPageState
                                                         }
                                                       },
                                                       itemBuilder: (context) =>
-                                                          const [
-                                                            PopupMenuItem(
-                                                              value: 'revoke',
-                                                              child: Text(
-                                                                'Сбросить устройства',
-                                                              ),
-                                                            ),
-                                                            PopupMenuItem(
-                                                              value:
-                                                                  'deactivate',
-                                                              child: Text(
-                                                                'Деактивировать',
-                                                              ),
-                                                            ),
-                                                            PopupMenuItem(
-                                                              value: 'delete',
-                                                              child: Text(
-                                                                'Удалить',
-                                                              ),
-                                                            ),
-                                                          ],
+                                                          c.isActive
+                                                              ? const [
+                                                                  PopupMenuItem(
+                                                                    value:
+                                                                        'revoke',
+                                                                    child: Text(
+                                                                      'Сбросить устройства',
+                                                                    ),
+                                                                  ),
+                                                                  PopupMenuItem(
+                                                                    value:
+                                                                        'deactivate',
+                                                                    child: Text(
+                                                                      'Деактивировать',
+                                                                    ),
+                                                                  ),
+                                                                  PopupMenuItem(
+                                                                    value:
+                                                                        'delete',
+                                                                    child: Text(
+                                                                      'Удалить',
+                                                                    ),
+                                                                  ),
+                                                                ]
+                                                              : const [
+                                                                  PopupMenuItem(
+                                                                    value:
+                                                                        'activate',
+                                                                    child: Text(
+                                                                      'Активировать',
+                                                                    ),
+                                                                  ),
+                                                                  PopupMenuItem(
+                                                                    value:
+                                                                        'delete',
+                                                                    child: Text(
+                                                                      'Удалить',
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                     ),
                                                   ],
                                                 ),
@@ -1983,6 +1644,106 @@ class _ParentFamilySettingsPageState
                                       ),
                                       const SizedBox(height: 12),
                                     ],
+
+                                    // ── Support ──────────────────────────────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const _SectionTitle(
+                                            'Поддержка клана',
+                                          ),
+                                          _SkyButton(
+                                            label: 'Написать в поддержку',
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        const TechSupportPage(),
+                                                  ),
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // ── Legal ────────────────────────────────────────────────────
+                                    _SCard(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const _SectionTitle(
+                                            'Юр. информация и Согласия',
+                                          ),
+                                          _SkyButton(
+                                            label:
+                                                'Пользовательское\nсоглашение',
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        const DocumentPage(
+                                                          title: 'Соглашение',
+                                                          body:
+                                                              userAgreementBody,
+                                                        ),
+                                                  ),
+                                                ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _SkyButton(
+                                            label:
+                                                'Политика\nконфиденциальности',
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        const DocumentPage(
+                                                          title: 'Политика',
+                                                          body:
+                                                              privacyPolicyBody,
+                                                        ),
+                                                  ),
+                                                ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _SkyButton(
+                                            label:
+                                                'Оферта о подписке\n(Premium)',
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        const DocumentPage(
+                                                          title: 'Оферта',
+                                                          body:
+                                                              premiumOfferBody,
+                                                        ),
+                                                  ),
+                                                ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          _SkyButton(
+                                            label: 'Согласие на обработку\nПД',
+                                            onTap: () =>
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute<void>(
+                                                    builder: (_) =>
+                                                        const DocumentPage(
+                                                          title:
+                                                              'Согласие на ПД',
+                                                          body: dataConsentBody,
+                                                        ),
+                                                  ),
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
                                   ],
                                 ),
                               ),
@@ -2171,70 +1932,6 @@ class _IconRow extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _TaxSegmentSlider extends StatelessWidget {
-  const _TaxSegmentSlider({required this.value, required this.onChanged});
-  final double value; // 0.0 - 0.5
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const segments = 8;
-    // map value 0..0.5 to active count 0..8
-    final active = ((value / 0.5) * segments).clamp(0, segments).round();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GestureDetector(
-          onTapDown: (d) {
-            final ratio = (d.localPosition.dx / constraints.maxWidth).clamp(
-              0.0,
-              1.0,
-            );
-            onChanged((ratio * 0.5).clamp(0.0, 0.5));
-          },
-          onHorizontalDragUpdate: (d) {
-            final ratio = (d.localPosition.dx / constraints.maxWidth).clamp(
-              0.0,
-              1.0,
-            );
-            onChanged((ratio * 0.5).clamp(0.0, 0.5));
-          },
-          child: Container(
-            color: Colors.transparent,
-            child: Row(
-              children: List.generate(segments, (i) {
-                final isActive = i < active;
-                final isEdge = i == 0 || i == segments - 1;
-                final color = isActive
-                    ? const Color(0xFF7BC976) // mint
-                    : const Color(0xFFE89B9B); // pinkish-red
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: isEdge ? 1 : 2),
-                    child: Container(
-                      height: 22,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.horizontal(
-                          left: i == 0
-                              ? const Radius.circular(11)
-                              : Radius.zero,
-                          right: i == segments - 1
-                              ? const Radius.circular(11)
-                              : Radius.zero,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-        );
-      },
     );
   }
 }
