@@ -41,14 +41,18 @@ class NotificationsRepository {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) return;
-    await api.postJson(
-      '/notifications/devices/register',
-      accessToken: token,
-      body: <String, dynamic>{
-        'platform': platform,
-        'pushToken': pseudoPushToken,
-      },
-    );
+    try {
+      await api.postJson(
+        '/notifications/devices/register',
+        accessToken: token,
+        body: <String, dynamic>{
+          'platform': platform,
+          'pushToken': pseudoPushToken,
+        },
+      );
+    } catch (_) {
+      // Регистрация push/web-устройства не должна ломать старт приложения.
+    }
   }
 
   Future<List<InAppNotificationItem>> listFamilyNotifications(
@@ -61,10 +65,11 @@ class NotificationsRepository {
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
     return rows.map((row) {
+      final isRead = _decodeRowIsRead(row);
       return InAppNotificationItem(
         id: row['id'].toString(),
         type: (row['nType'] ?? '').toString(),
-        status: (row['isRead'] == true) ? 'read' : 'new',
+        status: isRead ? 'read' : 'new',
         createdAt:
             DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
             DateTime.now(),
@@ -72,6 +77,13 @@ class NotificationsRepository {
             (row['payload'] as Map<String, dynamic>? ?? <String, dynamic>{}),
       );
     }).toList();
+  }
+
+  static bool _decodeRowIsRead(Map<String, dynamic> row) {
+    final v = row['isRead'] ?? row['is_read'];
+    if (v == true || v == 1) return true;
+    if (v is String && v.toLowerCase() == 'true') return true;
+    return false;
   }
 
   Future<void> markRead(String id) async {

@@ -1,22 +1,117 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/app_snackbar.dart';
+import '../../../core/klany_live_poll.dart';
+import '../../../core/klany_page_gate.dart';
+import '../../../core/klany_bottom_sheet.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../auth/child_session.dart';
-import '../../auth/child_pin_store.dart';
 import '../../auth/device_identity.dart';
-import '../../quests/pages/child_quests_page.dart';
-import '../../quests/quests_repository.dart';
-import '../../wallet/wallet_repository.dart';
-import '../../wallet/pages/child_wallet_page.dart';
-import '../../shop/pages/child_shop_page.dart';
 import '../../notifications/fcm.dart';
 import '../../notifications/notifications_repository.dart';
 import '../../onboarding/onboarding_store.dart';
 import '../../onboarding/onboarding_steps.dart';
 import '../../onboarding/onboarding_tour_dialog.dart';
+import '../../quests/pages/child_quests_page.dart';
+import '../../quests/quests_repository.dart';
+import '../../shop/pages/child_shop_page.dart';
+import '../child_avatar_picker_flow.dart';
+import '../child_dashboard_profile_card.dart';
+import '../child_shell_cache.dart';
+import '../child_soft_ui.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Экран ребёнка — полностью пересобран. Каркас Scaffold совпадает с [ParentHomePage]:
+// extendBody, LayoutBuilder → SizedBox(width,height) → IndexedStack.expand.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+TextStyle _nunito({
+  required double fontSize,
+  FontWeight fontWeight = FontWeight.w400,
+  Color? color,
+  double height = 1.0,
+  double letterSpacing = 0,
+}) => GoogleFonts.nunito(
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color ?? kChildInk,
+  height: height,
+  letterSpacing: letterSpacing,
+);
+
+/// Цветные «облака» под плитками — без избыточной грязи (Flutter blur ≠ CSS).
+List<BoxShadow> _scaledMintStatShadows(double scale) => [
+  BoxShadow(
+    color: const Color.fromRGBO(222, 247, 203, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(173, 211, 165, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
+
+List<BoxShadow> _scaledLavenderStatShadows(double scale) => [
+  BoxShadow(
+    color: const Color.fromRGBO(216, 203, 247, 0.26),
+    blurRadius: 40 * scale,
+    offset: Offset(0, 16 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(179, 165, 211, 0.22),
+    blurRadius: 16 * scale,
+    offset: Offset(0, 10 * scale),
+  ),
+];
+
+/// Figma CTA «Создать»: `0px_20px_50px rgba(230,247,217,0.35)`, `0px_13px_20px rgba(212,255,179,0.35)`.
+List<BoxShadow> _scaledMintCtaGlow(double scale) => [
+  BoxShadow(
+    color: const Color.fromRGBO(230, 247, 217, 0.35),
+    blurRadius: 50 * scale,
+    offset: Offset(0, 20 * scale),
+  ),
+  BoxShadow(
+    color: const Color.fromRGBO(212, 255, 179, 0.35),
+    blurRadius: 20 * scale,
+    offset: Offset(0, 13 * scale),
+  ),
+];
+
+Widget _dividerLine() {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final w = math.min(
+        constraints.maxWidth,
+        constraints.maxWidth * (311 / 353),
+      );
+      return Center(
+        child: SizedBox(
+          width: w,
+          height: 1,
+          child: Image.asset(
+            'assets/figma/child_dashboard_divider.png',
+            fit: BoxFit.fill,
+            errorBuilder: (_, _, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class ChildHomePage extends ConsumerStatefulWidget {
   const ChildHomePage({super.key});
@@ -25,19 +120,35 @@ class ChildHomePage extends ConsumerStatefulWidget {
   ConsumerState<ChildHomePage> createState() => _ChildHomePageState();
 }
 
-class _ChildHomePageState extends ConsumerState<ChildHomePage> {
+class _ChildHomePageState extends ConsumerState<ChildHomePage>
+    with KlanyLivePollConsumerMixin {
   int _index = 0;
   Timer? _sessionTimer;
   int _registerAttempts = 0;
+  final Set<int> _visitedTabs = {0};
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    refreshChildShellCache(ref);
+  }
 
   @override
   void initState() {
     super.initState();
     _registerDevice();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTour());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      prefetchChildShellCache(ref);
+      _maybeShowTour();
+    });
     _sessionTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
       await ref.read(childSessionProvider.notifier).validateStillActive();
     });
+  }
+
+  @override
+  void dispose() {
+    _sessionTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _maybeShowTour() async {
@@ -76,48 +187,635 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
       }
       return;
     }
-    await ref.read(notificationsRepositoryProvider).registerDevice(
-      platform: platform,
-      pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
-          ? pushToken
-          : 'child-${identity.deviceId}',
-    );
-  }
-
-  @override
-  void dispose() {
-    _sessionTimer?.cancel();
-    super.dispose();
+    try {
+      await ref.read(notificationsRepositoryProvider).registerDevice(
+            platform: platform,
+            pseudoPushToken: (pushToken != null && pushToken.isNotEmpty)
+                ? pushToken
+                : 'child-${identity.deviceId}',
+          );
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = <Widget>[
-      const _ChildDashboardPage(),
+    final tabs = <Widget>[
+      const _ChildHomeDashboard(),
       const ChildQuestsPage(),
-      const ChildWalletPage(),
       const ChildShopPage(),
-      _ChildSettingsPage(onSignOut: () => ref.read(childSessionProvider.notifier).clear()),
     ];
 
     return PopScope(
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _index != 0) {
-          setState(() => _index = 0);
-        }
+        if (!didPop && _index != 0) setState(() => _index = 0);
       },
-      child: Scaffold(
-        body: SafeArea(child: pages[_index]),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home), label: 'Главная'),
-            NavigationDestination(icon: Icon(Icons.task_alt), label: 'Квесты'),
-            NavigationDestination(icon: Icon(Icons.account_balance_wallet), label: 'Кошелёк'),
-            NavigationDestination(icon: Icon(Icons.storefront), label: 'Магазин'),
-            NavigationDestination(icon: Icon(Icons.settings), label: 'Настройки'),
+      child: SizedBox.expand(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          resizeToAvoidBottomInset: false,
+          body: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final w = constraints.maxWidth.isFinite
+                    ? constraints.maxWidth
+                    : MediaQuery.sizeOf(context).width;
+                final h = constraints.maxHeight.isFinite
+                    ? constraints.maxHeight
+                    : MediaQuery.sizeOf(context).height;
+                return SizedBox(
+                  width: w,
+                  height: h,
+                  child: KlanyLazyIndexedStack(
+                    index: _index,
+                    visited: _visitedTabs,
+                    children: tabs,
+                  ),
+                );
+              },
+            ),
+          ),
+          bottomNavigationBar: ChildBottomClanBar(
+            currentIndex: _index,
+            onSelected: (i) => setState(() {
+              _index = i;
+              _visitedTabs.add(i);
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Дашборд (вкладка «Дом»)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ChildHomeDashboard extends ConsumerStatefulWidget {
+  const _ChildHomeDashboard();
+
+  @override
+  ConsumerState<_ChildHomeDashboard> createState() =>
+      _ChildHomeDashboardState();
+}
+
+class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
+  bool _manualRefreshing = false;
+
+  Future<void> _refresh({bool force = false}) async {
+    if (!mounted) return;
+    setState(() => _manualRefreshing = true);
+    try {
+      await ref.read(childShellCacheProvider.notifier).refresh(force: force);
+    } finally {
+      if (mounted) setState(() => _manualRefreshing = false);
+    }
+  }
+
+  void _openAccountSheet() {
+    showKlanyModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: kChildSurfaceWhite,
+      builder: (_) => _ChildAccountSheet(
+        onSignOut: () => ref.read(childSessionProvider.notifier).clear(),
+      ),
+    );
+  }
+
+  String _formatBalance(int n) {
+    final s = n.toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write(' ');
+      b.write(s[i]);
+    }
+    return b.toString();
+  }
+
+  String _goalCardTitle(String? goalName) {
+    final name = (goalName ?? '').trim();
+    if (name.isEmpty) return 'Текущая цель';
+    return 'Текущая цель: $name';
+  }
+
+  Future<void> _reverseTaskFlow() async {
+    final titleCtl = TextEditingController();
+    final amountCtl = TextEditingController();
+    final ok = await showKlanyFigmaDialog<bool>(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Обратная задача',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: kChildInk,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Попроси родителя о задаче. Указанная сумма монет сразу '
+            'спишется с твоего счёта — родитель выполнит просьбу в жизни.',
+            style: TextStyle(fontSize: 13, color: kChildInkMuted),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: titleCtl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Название цели',
+              hintText: 'Например: Подарок маме',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: amountCtl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Сколько монет нужно',
+              hintText: '500',
+            ),
+          ),
+          const SizedBox(height: 16),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final title = titleCtl.text.trim();
+    final amount = int.tryParse(amountCtl.text.trim()) ?? 0;
+    if (title.isEmpty || amount <= 0) {
+      context.showKlanySnackBar(
+        const SnackBar(content: Text('Введите название и сумму')),
+      );
+      return;
+    }
+    try {
+      await ref
+          .read(questsRepositoryProvider)
+          .createReverseQuest(title: title, rewardAmount: amount);
+      if (!mounted) return;
+      context.showKlanySnackBar(
+        SnackBar(
+          content: Text(
+            'Задача «$title» отправлена родителю. Со счёта списано $amount монет.',
+          ),
+        ),
+      );
+      await _refresh(force: true);
+    } catch (e) {
+      if (!mounted) return;
+      context.showKlanyErrorSnackBar(e);
+    }
+  }
+
+  Future<void> _avatarFlow(BuildContext origin) =>
+      runChildAvatarPickerFlow(origin, ref);
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(childSessionProvider).asData?.value;
+    if (session == null) {
+      return const Center(child: Text('Сессия ребёнка не найдена'));
+    }
+
+    final shellAsync = ref.watch(childShellCacheProvider);
+    final cache = shellAsync.asData?.value;
+
+    final screenW = MediaQuery.sizeOf(context).width;
+    final cw = kFigmaChildDashboardContentWidth(screenW);
+    final s = kFigmaChildDashboardLayoutScale(cw);
+    final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+
+    final bottomPad =
+        ChildBottomClanBar.scrollBottomClearance(context) +
+        28 +
+        klanyScrollBottomPadding(context);
+
+    late final List<Widget> body;
+
+    if (shellAsync.isLoading && cache == null) {
+      body = [
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _refresh(force: true),
+            onMenu: _openAccountSheet,
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: math.max(320, MediaQuery.sizeOf(context).height * 0.35),
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 3 * s,
+              color: kFigmaChildScreenBlue,
+            ),
+          ),
+        ),
+      ];
+    } else if (cache == null) {
+      body = [
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _refresh(force: true),
+            onMenu: _openAccountSheet,
+          ),
+        ),
+      ];
+    } else {
+      final done = cache.completedCount;
+      body = [
+        SizedBox(
+          width: cw,
+          child: _DashboardHeader(
+            scale: s,
+            onReload: () => _refresh(force: true),
+            onMenu: _openAccountSheet,
+          ),
+        ),
+        if (_manualRefreshing) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: cw,
+            child: const LinearProgressIndicator(
+              color: kFigmaChildScreenBlue,
+              backgroundColor: kChildOutline,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 20),
+        ChildDashboardProfileCard(
+          layoutScale: s,
+          completedCount: done,
+          displayNameWhenEmpty: 'Привет!',
+          onAvatarTap: () => _avatarFlow(context),
+          openWalletOnTap: false,
+        ),
+        const SizedBox(height: 20),
+        _dividerLine(),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: _StatTile(
+                scale: s,
+                label: 'Мои задачи',
+                value: '${cache.activeAssignments}',
+                background: kFigmaChildStatMint,
+                verticalPaddingPx: 34,
+                outerShadows: _scaledMintStatShadows(s),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatTile(
+                scale: s,
+                label: 'Биржа',
+                value: '${cache.exchangeCount}',
+                background: kFigmaChildStatLavender,
+                verticalPaddingPx: 30,
+                outerShadows: _scaledLavenderStatShadows(s),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _dividerLine(),
+        const SizedBox(height: 20),
+        _DashboardGoalCard(
+          scale: s,
+          progress: cache.goalProgress.clamp(0.0, 1.0),
+          title: _goalCardTitle(cache.goalName),
+          caption:
+              '${_formatBalance(cache.goalCurrent)} / ${_formatBalance(cache.goalTarget)} монет',
+        ),
+        const SizedBox(height: 20),
+        _dividerLine(),
+        const SizedBox(height: 20),
+        _DashboardReverseTaskCard(scale: s, onCreate: _reverseTaskFlow),
+      ];
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            'assets/figma/child_dashboard_bg.png',
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, _, _) =>
+                ColoredBox(color: kBgCloud.withValues(alpha: 0.35)),
+          ),
+        ),
+        Positioned.fill(
+          child: ColoredBox(
+            color: const Color(0xFFF5F7FB).withValues(alpha: 0.66),
+          ),
+        ),
+        Positioned.fill(
+          child: SafeArea(
+            bottom: false,
+            child: RefreshIndicator(
+              onRefresh: () => _refresh(force: true),
+              child: klanyDismissKeyboardOnTap(
+                child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                padding: EdgeInsets.fromLTRB(hPad, 26, hPad, bottomPad),
+                keyboardDismissBehavior: klanyKeyboardDismissManual,
+                children: body,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader({
+    required this.scale,
+    required this.onReload,
+    required this.onMenu,
+  });
+
+  final double scale;
+  final VoidCallback onReload;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    // Figma layer 118:1258–1259: колонка `items-start`, заголовок с `shrink-0`
+    // без `w-full` — текст «CLAN CAPITAL» слева; круги аппаратных действий —
+    // отдельный блок справа (node 146:183).
+    return SizedBox(
+      height: 42 * scale,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              'CLAN CAPITAL',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.left,
+              style: _nunito(
+                fontSize: 27 * scale,
+                fontWeight: FontWeight.w800,
+                color: kFigmaChildScreenBlue,
+                height: 1.0,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RoundWhiteButton(
+                scale: scale,
+                onTap: onReload,
+                child: SvgPicture.asset(
+                  'assets/figma/nav_refresh.svg',
+                  width: 22 * scale,
+                  height: 22 * scale,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+              SizedBox(width: 10 * scale),
+              _RoundWhiteButton(
+                scale: scale,
+                onTap: onMenu,
+                child: SvgPicture.asset(
+                  'assets/figma/child_nav_menu_dots.svg',
+                  width: 22 * scale,
+                  height: 22 * scale,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundWhiteButton extends StatelessWidget {
+  const _RoundWhiteButton({
+    required this.onTap,
+    required this.child,
+    this.scale = 1,
+  });
+
+  final VoidCallback onTap;
+  final Widget child;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = 36 * scale;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 2,
+            offset: Offset(0, 4 * scale),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(r),
+          onTap: onTap,
+          child: Padding(padding: EdgeInsets.all(8 * scale), child: child),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.scale,
+    required this.label,
+    required this.value,
+    required this.background,
+    required this.outerShadows,
+    required this.verticalPaddingPx,
+  });
+
+  final double scale;
+  final String label;
+  final String value;
+  final Color background;
+  final List<BoxShadow> outerShadows;
+
+  /// Вертикальный padding колонки внутри плитки (мы используем компактные значения).
+  final double verticalPaddingPx;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = 22.0 * scale;
+    final borderRadius = BorderRadius.circular(r);
+    return SizedBox(
+      height: 142 * scale,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+          boxShadow: outerShadows,
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: ColoredBox(
+            color: background,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 8 * scale,
+                vertical: verticalPaddingPx * scale,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 17 * scale,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 11 * scale),
+                  Text(
+                    value,
+                    textAlign: TextAlign.center,
+                    style: _nunito(
+                      fontSize: 34 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                      height: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardGoalCard extends StatelessWidget {
+  const _DashboardGoalCard({
+    required this.scale,
+    required this.progress,
+    required this.title,
+    required this.caption,
+  });
+
+  final double scale;
+  final double progress;
+  final String title;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(22 * scale);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color.fromRGBO(249, 232, 165, 0.26),
+            blurRadius: 22 * scale,
+            offset: Offset(0, 16 * scale),
+          ),
+          BoxShadow(
+            color: const Color.fromRGBO(249, 232, 165, 0.20),
+            blurRadius: 10 * scale,
+            offset: Offset(0, 8 * scale),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: kFigmaChildGoalCard)),
+            SizedBox(
+              height: 126 * scale,
+              width: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8 * scale),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: _nunito(
+                        fontSize: 17 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(height: 11 * scale),
+                    FractionallySizedBox(
+                      widthFactor: 294 / 333,
+                      child: _GoalProgressTrack(
+                        progress: progress,
+                        scale: scale,
+                      ),
+                    ),
+                    SizedBox(height: 11 * scale),
+                    Text(
+                      caption,
+                      textAlign: TextAlign.center,
+                      style: _nunito(
+                        fontSize: 12 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF515151),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -125,114 +823,179 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
   }
 }
 
-class _ChildDashboardPage extends StatelessWidget {
-  const _ChildDashboardPage();
+class _GoalProgressTrack extends StatelessWidget {
+  const _GoalProgressTrack({required this.progress, required this.scale});
+
+  final double progress;
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
-    return const _ChildDashboardBody();
-  }
-}
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final trackH = 23 * scale;
+        final thumbW = 26 * scale;
+        final thumbH = 24 * scale;
+        final borderW = math.max(0.5, 0.5 * scale);
+        final clamped = progress.clamp(0.0, 1.0);
+        final thumbX = ((w - thumbW) * clamped)
+            .clamp(0.0, math.max(0.0, w - thumbW))
+            .toDouble();
 
-class _ChildDashboardBody extends ConsumerWidget {
-  const _ChildDashboardBody();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(childSessionProvider).asData?.value;
-    if (session == null) {
-      return const _SectionScaffold(title: 'Привет!', child: Text('Сессия ребёнка не найдена'));
-    }
-
-    return _SectionScaffold(
-      title: (session.childDisplayName).trim().isEmpty ? 'Привет!' : session.childDisplayName,
-      child: FutureBuilder<_ChildOverviewData>(
-        future: _load(ref, session.childId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text('Ошибка: ${snapshot.error}'),
-              ),
-            );
-          }
-          final data = snapshot.data ?? const _ChildOverviewData(walletBalance: 0, activeAssignments: 0);
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        return SizedBox(
+          height: trackH,
+          width: w,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.account_balance_wallet),
-                  title: const Text('Баланс'),
-                  trailing: Text(
-                    data.walletBalance.toString(),
-                    style: Theme.of(context).textTheme.titleMedium,
+              Container(
+                width: w,
+                height: trackH,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(19 * scale),
+                  border: Border.all(
+                    width: borderW,
+                    color: Colors.black.withValues(alpha: 0.31),
                   ),
                 ),
               ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.task_alt),
-                  title: const Text('Задания'),
-                  trailing: Text(
-                    data.activeAssignments.toString(),
-                    style: Theme.of(context).textTheme.titleMedium,
+              Positioned(
+                left: thumbX,
+                top: (trackH - thumbH) / 2,
+                child: Container(
+                  width: thumbW,
+                  height: thumbH,
+                  decoration: BoxDecoration(
+                    color: kFigmaChildGoalThumb,
+                    borderRadius: BorderRadius.circular(12 * scale),
+                    border: Border.all(
+                      width: borderW,
+                      color: Colors.black.withValues(alpha: 0.31),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        blurRadius: 8 * scale,
+                        offset: Offset(0, 3 * scale),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DashboardReverseTaskCard extends StatelessWidget {
+  const _DashboardReverseTaskCard({
+    required this.scale,
+    required this.onCreate,
+  });
+
+  final double scale;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = BorderRadius.circular(22 * scale);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 7 * scale,
+            offset: Offset(0, 5 * scale),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: ColoredBox(
+          color: Colors.white,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              8 * scale,
+              14 * scale,
+              8 * scale,
+              14 * scale,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Обратная задача',
+                  style: _nunito(
+                    fontSize: 17 * scale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+                SizedBox(height: 12 * scale),
+                Text(
+                  'Поставь одну спец-цель с родителем. Собранное идет в цель.',
+                  style: _nunito(
+                    fontSize: 14 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    height: 1.32,
+                  ),
+                ),
+                SizedBox(height: 12 * scale),
+                SoftButton(
+                  onTap: onCreate,
+                  label: 'Создать',
+                  bg: kFigmaChildStatMint,
+                  fg: Colors.black,
+                  height: 48 * scale,
+                  fontSize: 17 * scale,
+                  fontWeight: FontWeight.w700,
+                  boxShadow: _scaledMintCtaGlow(scale),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
+                  labelStyle: _nunito(
+                    fontSize: 17 * scale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
-
-  Future<_ChildOverviewData> _load(WidgetRef ref, String childId) async {
-    final wallet = await ref.read(walletRepositoryProvider).getChildWallet(childId);
-    final assignments = await ref.read(questsRepositoryProvider).getChildAssignments(childId);
-    final active = assignments.where((a) => a.status != 'done' && a.status != 'completed').length;
-    return _ChildOverviewData(
-      walletBalance: wallet?.balance ?? 0,
-      activeAssignments: active,
-    );
-  }
 }
 
-class _ChildOverviewData {
-  const _ChildOverviewData({
-    required this.walletBalance,
-    required this.activeAssignments,
-  });
-
-  final int walletBalance;
-  final int activeAssignments;
-}
-
-class _ChildSettingsPage extends ConsumerStatefulWidget {
-  const _ChildSettingsPage({required this.onSignOut});
+class _ChildAccountSheet extends ConsumerStatefulWidget {
+  const _ChildAccountSheet({required this.onSignOut});
 
   final VoidCallback onSignOut;
 
   @override
-  ConsumerState<_ChildSettingsPage> createState() => _ChildSettingsPageState();
+  ConsumerState<_ChildAccountSheet> createState() => _ChildAccountSheetState();
 }
 
-class _ChildSettingsPageState extends ConsumerState<_ChildSettingsPage> {
+class _ChildAccountSheetState extends ConsumerState<_ChildAccountSheet> {
   Future<String?>? _authCodeFuture;
   String? _authCodeToken;
 
-  Future<String?> _loadAuthCode(String accessToken) {
+  Future<String?> _authCode(String accessToken) {
     return ref
         .read(passwordlessChildRepositoryProvider)
         .getMyAuthCode(accessToken: accessToken);
   }
 
-  Future<void> _showTourAgain() async {
+  Future<void> _tourAgain() async {
     await showOnboardingTourDialog(
       context: context,
       title: childTourTitle,
@@ -241,194 +1004,53 @@ class _ChildSettingsPageState extends ConsumerState<_ChildSettingsPage> {
     await OnboardingStore.setChildTourSeen();
   }
 
-  Future<void> _setOrChangePin() async {
-    final pinCtl = TextEditingController();
-    final confirmCtl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('PIN-код ребёнка'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: pinCtl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Новый PIN (6 цифр)',
-                counterText: '',
-              ),
-            ),
-            TextField(
-              controller: confirmCtl,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Повторите PIN',
-                counterText: '',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-
-    final pin = pinCtl.text.trim();
-    final confirm = confirmCtl.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN должен состоять из 6 цифр')),
-      );
-      return;
-    }
-    if (pin != confirm) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN-коды не совпадают')),
-      );
-      return;
-    }
-
-    await ChildPinStore.setPin(pin);
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN сохранён')),
-    );
-  }
-
-  Future<void> _clearPin() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Сброс PIN'),
-        content: const Text('Удалить PIN-код для быстрого входа ребёнка?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await ChildPinStore.clear();
-    if (!mounted) return;
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PIN удалён')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(childSessionProvider).asData?.value;
-    final accessToken = session?.accessToken ?? '';
-    if (accessToken.isNotEmpty && _authCodeToken != accessToken) {
-      _authCodeToken = accessToken;
-      _authCodeFuture = _loadAuthCode(accessToken);
+    final token = session?.accessToken ?? '';
+    if (token.isNotEmpty && _authCodeToken != token) {
+      _authCodeToken = token;
+      _authCodeFuture = _authCode(token);
     }
 
-    return _SectionScaffold(
-      title: 'Настройки',
-      child: FutureBuilder<bool>(
-        future: ChildPinStore.hasPin(),
-        builder: (context, snapshot) {
-          final hasPin = snapshot.data ?? false;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const ListTile(
-                leading: Icon(Icons.info),
-                title: Text('Аккаунт'),
-                subtitle: Text('Ребёнок / доступ по подтверждению'),
-              ),
-              FutureBuilder<String?>(
-                future: _authCodeFuture,
-                builder: (context, codeSnapshot) {
-                  final code = codeSnapshot.data ?? '------';
-                  return ListTile(
-                    leading: const Icon(Icons.vpn_key),
-                    title: const Text('Код входа ребёнка'),
-                    subtitle: Text(
-                      '$code\nИспользуйте этот код для входа с другого телефона.',
-                    ),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.pin),
-                title: Text(hasPin ? 'Сменить PIN-код' : 'Установить PIN-код'),
-                subtitle: const Text('6 цифр для быстрого входа ребёнка'),
-                onTap: _setOrChangePin,
-              ),
-              if (hasPin)
-                ListTile(
-                  leading: const Icon(Icons.lock_reset),
-                  title: const Text('Сбросить PIN-код'),
-                  onTap: _clearPin,
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ListTile(
+            leading: Icon(Icons.info),
+            title: Text('Аккаунт'),
+            subtitle: Text('Ребёнок / доступ по подтверждению'),
+          ),
+          FutureBuilder<String?>(
+            future: _authCodeFuture,
+            builder: (context, codeSnap) {
+              final code = codeSnap.data ?? '------';
+              return ListTile(
+                leading: const Icon(Icons.vpn_key),
+                title: const Text('Код входа ребёнка'),
+                subtitle: Text(
+                  '$code\nИспользуйте этот код для входа с другого телефона.',
                 ),
-              ListTile(
-                leading: const Icon(Icons.school),
-                title: const Text('Показать обучение снова'),
-                onTap: _showTourAgain,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Выйти'),
-                onTap: widget.onSignOut,
-              ),
-            ],
-          );
-        },
+              );
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.school),
+            title: const Text('Показать обучение снова'),
+            onTap: _tourAgain,
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Выйти'),
+            onTap: widget.onSignOut,
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
 }
-
-class _SectionScaffold extends StatelessWidget {
-  const _SectionScaffold({
-    required this.title,
-    required this.child,
-  });
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(pinned: true, title: Text(title)),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
-        ),
-      ],
-    );
-  }
-}
-

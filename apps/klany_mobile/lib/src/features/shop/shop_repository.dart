@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
 
@@ -38,15 +40,58 @@ class ShopPurchaseItem {
     required this.id,
     required this.productTitle,
     required this.childName,
+    required this.childId,
     required this.totalPrice,
     required this.status,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
+    this.productId,
   });
 
   final String id;
   final String productTitle;
   final String childName;
+  /// Для связки с локальным/серверным аватаром участника.
+  final String childId;
   final int totalPrice;
   final String status;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
+  final String? productId;
+}
+
+/// Заявка ребёнка на покупку в магазине.
+class ChildShopPurchaseItem {
+  ChildShopPurchaseItem({
+    required this.id,
+    required this.productId,
+    required this.productTitle,
+    required this.totalPrice,
+    required this.status,
+    required this.createdAt,
+    this.decidedAt,
+  });
+
+  final String id;
+  final String productId;
+  final String productTitle;
+  final int totalPrice;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? decidedAt;
+
+  bool get isPending => status == 'requested';
+}
+
+bool _parseBool(dynamic raw, {bool defaultIfMissing = false}) {
+  if (raw == null) return defaultIfMissing;
+  if (raw is bool) return raw;
+  if (raw is num) return raw != 0;
+  final s = raw.toString().toLowerCase().trim();
+  if (s.isEmpty) return defaultIfMissing;
+  if (s == 'true' || s == '1' || s == 'yes' || s == 'y') return true;
+  if (s == 'false' || s == '0' || s == 'no' || s == 'n') return false;
+  return defaultIfMissing;
 }
 
 class ShopRepository {
@@ -60,31 +105,6 @@ class ShopRepository {
   String? get _childToken =>
       ref.read(childSessionProvider).asData?.value?.accessToken;
 
-  Future<String?> _presignDownloadUrl({
-    required String token,
-    required String bucket,
-    required String objectKey,
-  }) async {
-    final api = Sdk.apiOrNull;
-    if (api == null || objectKey.trim().isEmpty) return null;
-    try {
-      final res = await api.postJson(
-        '/storage/presign-download',
-        accessToken: token,
-        body: <String, dynamic>{
-          'bucket': bucket,
-          'objectKey': objectKey,
-          'expiresSeconds': 3600,
-        },
-      );
-      final url = res['url']?.toString();
-      if (url == null || url.isEmpty) return null;
-      return url;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<List<ShopProductItem>> getProducts(String familyId) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken ?? _childToken;
@@ -96,8 +116,8 @@ class ShopRepository {
       rows.map((row) async {
         final imagePath = row['imageKey']?.toString();
         final imageUrl = (imagePath != null && imagePath.isNotEmpty)
-            ? await _presignDownloadUrl(
-                token: token,
+            ? await PresignStorageDownloadCache.resolve(
+                accessToken: token,
                 bucket: 'shop-products',
                 objectKey: imagePath,
               )
@@ -109,7 +129,9 @@ class ShopRepository {
           price: (row['price'] as num?)?.toInt() ?? 0,
           imagePath: imagePath,
           imageUrl: imageUrl,
-          isActive: row['isActive'] == true,
+          // Default to true so newly created items always show up on the kid
+          // side; the backend filters by family/availability anyway.
+          isActive: _parseBool(row['isActive'], defaultIfMissing: true),
         );
       }),
     );
@@ -137,11 +159,13 @@ class ShopRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(
-          Uri.parse(url),
-          headers: <String, String>{'Content-Type': 'image/jpeg'},
-          body: bytes,
-        );
+        // Presigned URL is signed with X-Amz-SignedHeaders=host only; omit
+        // Content-Type so the signature stays valid (and web CORS preflight is simpler).
+        final put = await http.put(Uri.parse(url), body: bytes);
+        ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
+        if (put.statusCode < 200 || put.statusCode >= 300) {
+          throw Exception('Загрузка файла: ${put.statusCode}');
+        }
         imageKey = key;
       }
     }
@@ -209,6 +233,27 @@ class ShopRepository {
     );
   }
 
+  Future<List<ChildShopPurchaseItem>> getChildPurchases() async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return const [];
+    final data = await api.getJson('/shop/purchases/my', accessToken: token);
+    final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>();
+    return rows.map((row) {
+      return ChildShopPurchaseItem(
+        id: row['id'].toString(),
+        productId: row['productId'].toString(),
+        productTitle: (row['productTitle'] ?? '').toString(),
+        totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
+        status: (row['status'] ?? '').toString(),
+        createdAt: DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+        decidedAt: DateTime.tryParse((row['decidedAt'] ?? '').toString()),
+      );
+    }).toList();
+  }
+
   Future<List<ShopPurchaseItem>> getPendingPurchases(String familyId) async {
     final api = Sdk.apiOrNull;
     final token = _parentToken;
@@ -219,17 +264,31 @@ class ShopRepository {
     );
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => ShopPurchaseItem(
-            id: row['id'].toString(),
-            productTitle: (row['productTitle'] ?? '').toString(),
-            childName: (row['childName'] ?? '').toString(),
-            totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
-            status: (row['status'] ?? '').toString(),
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final rawKey = row['avatarObjectKey']?.toString();
+        final objectKey = (rawKey != null && rawKey.trim().isNotEmpty)
+            ? rawKey.trim()
+            : null;
+        final avatarImageUrl = objectKey != null
+            ? await presignStorageDownload(
+                  accessToken: token,
+                  bucket: 'member-avatars',
+                  objectKey: objectKey,
+                )
+            : null;
+        return ShopPurchaseItem(
+          id: row['id'].toString(),
+          productTitle: (row['productTitle'] ?? '').toString(),
+          childName: (row['childName'] ?? '').toString(),
+          childId: (row['childId'] ?? '').toString(),
+          totalPrice: (row['totalPrice'] as num?)?.toInt() ?? 0,
+          status: (row['status'] ?? '').toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<void> decidePurchase(String purchaseId, bool approve) async {

@@ -6,6 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../auth/parent_access_repository.dart';
+import '../child_soft_ui.dart';
+import '../../../core/app_snackbar.dart';
+import '../../../core/klany_error_view.dart';
+import '../../../core/klany_live_poll.dart';
 
 class ParentAccessRequestsPage extends ConsumerStatefulWidget {
   const ParentAccessRequestsPage({super.key});
@@ -16,21 +20,6 @@ class ParentAccessRequestsPage extends ConsumerStatefulWidget {
 
 class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsPage> {
   bool _busy = false;
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
 
   Future<void> _shareInvite(ParentFamilyContext contextData) async {
     final clanName = (contextData.clanName ?? '').trim().isEmpty
@@ -48,13 +37,11 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
     setState(() => _busy = true);
     try {
       await ref.read(parentAccessRepositoryProvider).approveRequest(requestId);
-      ref.invalidate(parentFamilyContextProvider);
+      ref.read(parentFamilyContextProvider.notifier).refresh(force: true);
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка подтверждения: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -68,9 +55,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка отклонения: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -82,7 +67,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
 
     return familyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Ошибка: $error')),
+      error: (error, stack) => KlanyErrorGoBack(error: error),
       data: (family) {
         if (family == null) {
           return const Center(child: Text('Семья не найдена'));
@@ -100,7 +85,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
   }
 }
 
-class _PendingRequestsBody extends ConsumerWidget {
+class _PendingRequestsBody extends ConsumerStatefulWidget {
   const _PendingRequestsBody({
     required this.family,
     required this.busy,
@@ -116,9 +101,58 @@ class _PendingRequestsBody extends ConsumerWidget {
   final VoidCallback onInviteShare;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PendingRequestsBody> createState() =>
+      _PendingRequestsBodyState();
+}
+
+class _PendingRequestsBodyState extends ConsumerState<_PendingRequestsBody>
+    with KlanyLivePollConsumerMixin {
+  Future<List<ChildAccessRequestItem>>? _requestsFuture;
+
+  @override
+  void onKlanyLivePoll({bool silent = true}) {
+    _reloadRequests();
+  }
+
+  void _reloadRequests() {
+    final fut = ref
+        .read(parentAccessRepositoryProvider)
+        .getPendingRequests(widget.family.familyId);
+    setState(() {
+      _requestsFuture = fut;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final fut = ref
+        .read(parentAccessRepositoryProvider)
+        .getPendingRequests(widget.family.familyId);
+    _requestsFuture = fut;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PendingRequestsBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.family.familyId != widget.family.familyId) {
+      final fut = ref
+          .read(parentAccessRepositoryProvider)
+          .getPendingRequests(widget.family.familyId);
+      setState(() {
+        _requestsFuture = fut;
+      });
+      return;
+    }
+    if (oldWidget.busy && !widget.busy) {
+      _reloadRequests();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<List<ChildAccessRequestItem>>(
-      future: ref.read(parentAccessRepositoryProvider).getPendingRequests(family.familyId),
+      future: _requestsFuture,
       builder: (context, snapshot) {
         final list = snapshot.data ?? const <ChildAccessRequestItem>[];
 
@@ -126,12 +160,23 @@ class _PendingRequestsBody extends ConsumerWidget {
           slivers: [
             SliverAppBar(
               pinned: true,
-              title: const Text('Запросы на вход'),
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              foregroundColor: kChildInk,
+              title: const Text(
+                'Запросы на вход',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
               actions: [
                 IconButton(
                   tooltip: 'Пригласить участника',
-                  onPressed: onInviteShare,
-                  icon: const Icon(Icons.share),
+                  onPressed: widget.onInviteShare,
+                  icon: const Icon(Icons.share, color: kChildInk),
                 ),
               ],
             ),
@@ -145,9 +190,9 @@ class _PendingRequestsBody extends ConsumerWidget {
                       child: ListTile(
                         leading: const Icon(Icons.family_restroom),
                         title: const Text('Family ID'),
-                        subtitle: Text(family.familyCode),
+                        subtitle: Text(widget.family.familyCode),
                         trailing: TextButton(
-                          onPressed: onInviteShare,
+                          onPressed: widget.onInviteShare,
                           child: const Text('Поделиться'),
                         ),
                       ),
@@ -185,14 +230,20 @@ class _PendingRequestsBody extends ConsumerWidget {
                                   children: [
                                     Expanded(
                                       child: OutlinedButton(
-                                        onPressed: busy ? null : () => onReject(item.id),
+                                        onPressed: widget.busy
+                                            ? null
+                                            : () =>
+                                                widget.onReject(item.id),
                                         child: const Text('Отклонить'),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: FilledButton(
-                                        onPressed: busy ? null : () => onApprove(item.id),
+                                        onPressed: widget.busy
+                                            ? null
+                                            : () =>
+                                                widget.onApprove(item.id),
                                         child: const Text('Подтвердить'),
                                       ),
                                     ),

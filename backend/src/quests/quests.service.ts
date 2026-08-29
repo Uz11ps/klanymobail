@@ -1,5 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
+import {
+  applyGlobalTaxToQuestReward,
+  getFamilyGlobalTaxRate,
+} from "../family/family-global-tax.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -13,6 +17,17 @@ type ChildUser = {
   role: "child";
   familyId: string;
   childId: string;
+};
+
+type ParsedQuestMeta = {
+  plainDescription: string | null;
+  distributionType: "assigned" | "exchange" | "reverse";
+  autoApprove: boolean;
+  timeLimitMinutes: number | null;
+  scheduleType: "none" | "daily" | "weekly" | "custom_days";
+  scheduleDays: string[];
+  activateAtIso: string | null;
+  reverseChildId: string | null;
 };
 
 function ensureFamilyId(user: { familyId?: string | null }): string {
@@ -36,7 +51,21 @@ export class QuestsService {
     return this.prisma.wallet.create({ data: { childId, familyId, balance: 0 } });
   }
 
-  private parseMeta(description: string | null | undefined) {
+  /** Награда квеста в БД — gross; на кошелёк идёт net по текущему налогу семьи. */
+  private async netQuestPayout(familyId: string, grossReward: number): Promise<number> {
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
+    return applyGlobalTaxToQuestReward(grossReward, taxRate);
+  }
+
+  private netQuestPayoutWithRate(grossReward: number, taxRate: number): number {
+    return applyGlobalTaxToQuestReward(grossReward, taxRate);
+  }
+
+  private questGrossReward(quest: { reward: number }): number {
+    return Math.max(0, Math.trunc(quest.reward));
+  }
+
+  private parseMeta(description: string | null | undefined): ParsedQuestMeta {
     const raw = (description ?? "").trim();
     const idx = raw.lastIndexOf(QuestsService.META_PREFIX);
     if (idx < 0) {
@@ -44,10 +73,11 @@ export class QuestsService {
         plainDescription: raw || null,
         distributionType: "assigned",
         autoApprove: false,
-        timeLimitMinutes: null as number | null,
+        timeLimitMinutes: null,
         scheduleType: "none",
-        scheduleDays: [] as string[],
-        activateAtIso: null as string | null,
+        scheduleDays: [],
+        activateAtIso: null,
+        reverseChildId: null,
       };
     }
     const plain = raw.slice(0, idx).trim() || null;
@@ -55,14 +85,23 @@ export class QuestsService {
     try {
       const meta = JSON.parse(payload) as {
         distributionType?: string;
+        reverseChildId?: string;
         autoApprove?: boolean;
         timeLimitMinutes?: number | null;
         scheduleType?: string;
         scheduleDays?: string[];
       };
+      const distributionType: ParsedQuestMeta["distributionType"] =
+        meta.distributionType === "exchange"
+          ? "exchange"
+          : meta.distributionType === "reverse"
+            ? "reverse"
+            : "assigned";
+      const reverseChildIdRaw =
+        typeof meta.reverseChildId === "string" ? meta.reverseChildId.trim() : "";
       return {
         plainDescription: plain,
-        distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
+        distributionType,
         autoApprove: meta.autoApprove === true,
         timeLimitMinutes:
           meta.timeLimitMinutes != null
@@ -81,16 +120,18 @@ export class QuestsService {
           typeof (meta as { activateAtIso?: unknown }).activateAtIso === "string"
             ? ((meta as { activateAtIso?: string }).activateAtIso ?? null)
             : null,
+        reverseChildId: reverseChildIdRaw || null,
       };
     } catch {
       return {
         plainDescription: raw,
         distributionType: "assigned",
         autoApprove: false,
-        timeLimitMinutes: null as number | null,
+        timeLimitMinutes: null,
         scheduleType: "none",
-        scheduleDays: [] as string[],
-        activateAtIso: null as string | null,
+        scheduleDays: [],
+        activateAtIso: null,
+        reverseChildId: null,
       };
     }
   }
@@ -98,18 +139,56 @@ export class QuestsService {
   private buildDescription(
     description: string | null | undefined,
     meta: {
-      distributionType: "assigned" | "exchange";
+      distributionType: "assigned" | "exchange" | "reverse";
       autoApprove: boolean;
       timeLimitMinutes: number | null;
       scheduleType: "none" | "daily" | "weekly" | "custom_days";
       scheduleDays: string[];
       activateAtIso?: string | null;
+      reverseChildId?: string | null;
     },
   ) {
     const plain = (description ?? "").trim();
-    const payload = JSON.stringify(meta);
+    const payload: Record<string, unknown> = {
+      distributionType: meta.distributionType,
+      autoApprove: meta.autoApprove,
+      timeLimitMinutes: meta.timeLimitMinutes,
+      scheduleType: meta.scheduleType,
+      scheduleDays: meta.scheduleDays,
+    };
+    if (meta.activateAtIso) payload.activateAtIso = meta.activateAtIso;
+    if (meta.distributionType === "reverse" && meta.reverseChildId) {
+      payload.reverseChildId = meta.reverseChildId;
+    }
     const prefix = plain ? `${plain}\n` : "";
-    return `${prefix}${QuestsService.META_PREFIX}${payload}`;
+    return `${prefix}${QuestsService.META_PREFIX}${JSON.stringify(payload)}`;
+  }
+
+  /** Восстанавливает аргументы buildDescription из сохранённого квеста. */
+  private metaToDescriptionPayload(
+    meta: ParsedQuestMeta,
+    overrides?: Partial<{
+      activateAtIso: string | null;
+    }>,
+  ): {
+    distributionType: "assigned" | "exchange" | "reverse";
+    autoApprove: boolean;
+    timeLimitMinutes: number | null;
+    scheduleType: "none" | "daily" | "weekly" | "custom_days";
+    scheduleDays: string[];
+    activateAtIso?: string | null;
+    reverseChildId?: string | null;
+  } {
+    return {
+      distributionType: meta.distributionType,
+      autoApprove: meta.autoApprove,
+      timeLimitMinutes: meta.timeLimitMinutes,
+      scheduleType: meta.scheduleType,
+      scheduleDays: meta.scheduleDays,
+      activateAtIso:
+        overrides && "activateAtIso" in overrides ? overrides.activateAtIso : meta.activateAtIso,
+      reverseChildId: meta.reverseChildId ?? undefined,
+    };
   }
 
   private computeNextRecurringDate(
@@ -161,6 +240,7 @@ export class QuestsService {
       items: rows.map((c) => ({
         id: c.id,
         displayName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim(),
+        avatarObjectKey: c.avatarObjectKey ?? null,
       })),
     };
   }
@@ -201,21 +281,6 @@ export class QuestsService {
     const childIds = (input.childIds ?? []).map((x) => x.trim()).filter(Boolean);
     if (distributionType === "assigned" && childIds.length === 0) {
       throw new BadRequestException("childIds обязателен для адресного квеста");
-    }
-
-    const activeSub = await this.prisma.familySubscription.findFirst({
-      where: { familyId, status: "active" },
-      orderBy: { startedAt: "desc" },
-    });
-    const isBasic = (activeSub?.planCode ?? "basic").toLowerCase() === "basic";
-    if (isBasic) {
-      if (childIds.length > 1) {
-        throw new BadRequestException("На базовом тарифе квест назначается только одному ребенку");
-      }
-      const allowedTypes = new Set(["one_time", "recurring", "unique"]);
-      if (!allowedTypes.has(questType)) {
-        throw new BadRequestException("На базовом тарифе доступны только простые квесты");
-      }
     }
 
     // Ensure children belong to family.
@@ -274,7 +339,7 @@ export class QuestsService {
       questType?: string;
       dueAt?: string | null;
       childIds?: string[];
-      distributionType?: "assigned" | "exchange";
+      distributionType?: "assigned" | "exchange" | "reverse";
       autoApprove?: boolean;
       timeLimitMinutes?: number | null;
       scheduleType?: "none" | "daily" | "weekly" | "custom_days";
@@ -295,17 +360,6 @@ export class QuestsService {
       if (!title) throw new BadRequestException("title обязателен");
       next.title = title;
     }
-    if (input.description !== undefined) {
-      const plain = (input.description ?? "").trim() || null;
-      next.description = this.buildDescription(plain, {
-        distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-        autoApprove: meta.autoApprove,
-        timeLimitMinutes: meta.timeLimitMinutes,
-        scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-        scheduleDays: meta.scheduleDays,
-        activateAtIso: meta.activateAtIso,
-      });
-    }
     if (input.rewardAmount !== undefined) {
       const reward = Math.max(0, Math.trunc(Number(input.rewardAmount)));
       next.reward = reward;
@@ -323,10 +377,14 @@ export class QuestsService {
       next.dueAt = input.dueAt ? new Date(input.dueAt) : null;
     }
 
-    const distributionType =
-      input.distributionType !== undefined
-        ? (input.distributionType === "exchange" ? "exchange" : "assigned")
-        : (meta.distributionType === "exchange" ? "exchange" : "assigned");
+    const isReverseQuest = meta.distributionType === "reverse";
+    const distributionType: ParsedQuestMeta["distributionType"] = isReverseQuest
+      ? "reverse"
+      : input.distributionType !== undefined
+        ? input.distributionType === "exchange"
+          ? "exchange"
+          : "assigned"
+        : meta.distributionType;
     const autoApprove = input.autoApprove !== undefined ? input.autoApprove === true : meta.autoApprove;
     const timeLimitMinutes =
       input.timeLimitMinutes !== undefined
@@ -349,14 +407,17 @@ export class QuestsService {
 
     const nextDescriptionPlain =
       input.description !== undefined ? ((input.description ?? "").trim() || null) : meta.plainDescription;
-    next.description = this.buildDescription(nextDescriptionPlain, {
-      distributionType,
-      autoApprove,
-      timeLimitMinutes,
-      scheduleType,
-      scheduleDays,
-      activateAtIso: meta.activateAtIso,
-    });
+    next.description = this.buildDescription(
+      nextDescriptionPlain,
+      this.metaToDescriptionPayload({
+        ...meta,
+        distributionType,
+        autoApprove,
+        timeLimitMinutes,
+        scheduleType,
+        scheduleDays,
+      }),
+    );
 
     const childIds = (input.childIds ?? []).map((x) => x.trim()).filter(Boolean);
     if (distributionType === "assigned") {
@@ -375,6 +436,23 @@ export class QuestsService {
     const rewardForAssignees = (next.reward as number | undefined) ?? currentReward;
     const shouldReassign =
       input.childIds !== undefined || input.distributionType !== undefined;
+
+    const trimmedStatus =
+      typeof input.status === "string" ? input.status.trim() : "";
+    const payReverseCompletion =
+      trimmedStatus === "closed" &&
+      quest.status === "active" &&
+      meta.distributionType === "reverse" &&
+      !!meta.reverseChildId;
+    const reversePayoutAmount = payReverseCompletion
+      ? Math.max(
+          0,
+          Math.trunc(
+            typeof next.reward === "number" ? (next.reward as number) : currentReward,
+          ),
+        )
+      : 0;
+    const reverseChildId = meta.reverseChildId ?? "";
 
     if (Object.keys(next).length === 0 && !shouldReassign) return { ok: true };
     await this.prisma.$transaction(async (tx) => {
@@ -399,6 +477,29 @@ export class QuestsService {
         });
       }
 
+      // Обратная задача: монеты уже списаны с ребёнка при создании — при закрытии
+      // родителем повторно на кошелёк ребёнка не начисляем.
+      if (payReverseCompletion && reverseChildId) {
+        const childOwn = await tx.child.findFirst({
+          where: { id: reverseChildId, familyId },
+          select: { id: true },
+        });
+        if (!childOwn) {
+          throw new ForbiddenException("Ребёнок не из вашей семьи");
+        }
+        const wallet = await this.ensureWallet(reverseChildId, familyId);
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: 0,
+            txType: "reverse_quest_completed",
+            note: `Родитель выполнил обратную задачу: ${quest.title}`.slice(0, 500),
+            reason: "reverse_quest_settled",
+            meta: { questId, reverse: true, settled: true },
+          },
+        });
+      }
+
       await tx.quest.update({
         where: { id: questId },
         data: next,
@@ -414,7 +515,37 @@ export class QuestsService {
     const quest = await this.prisma.quest.findUnique({ where: { id: questId } });
     if (!quest || quest.familyId !== familyId) throw new NotFoundException("Квест не найден");
 
+    const meta = this.parseMeta(quest.description);
+    const isActiveReverse =
+      meta.distributionType === "reverse" &&
+      quest.status === "active" &&
+      !!meta.reverseChildId;
+    const refundAmount = Math.max(0, Math.trunc(quest.reward));
+
     await this.prisma.$transaction(async (tx) => {
+      if (isActiveReverse && refundAmount > 0 && meta.reverseChildId) {
+        const childId = meta.reverseChildId;
+        let wallet = await tx.wallet.findUnique({ where: { childId } });
+        if (!wallet) {
+          wallet = await tx.wallet.create({
+            data: { childId, familyId, balance: 0 },
+          });
+        }
+        await tx.wallet.update({
+          where: { id: wallet.id },
+          data: { balance: wallet.balance + refundAmount },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            walletId: wallet.id,
+            amount: refundAmount,
+            txType: "reverse_quest_refund",
+            note: `Возврат за отмену обратной задачи: ${quest.title}`.slice(0, 500),
+            reason: "reverse_quest_refund",
+            meta: { questId, reverse: true },
+          },
+        });
+      }
       await tx.questEvidence.deleteMany({ where: { questId } });
       await tx.questComment.deleteMany({ where: { questId } });
       await tx.questAssignee.deleteMany({ where: { questId } });
@@ -425,11 +556,13 @@ export class QuestsService {
 
   async listParentQuests(user: ParentUser) {
     const familyId = ensureFamilyId(user);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
     const rows = await this.prisma.quest.findMany({
       where: { familyId, status: "active" },
       include: {
         assignees: {
-          select: { childId: true },
+          select: { childId: true, createdAt: true, status: true },
+          orderBy: { createdAt: "asc" },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -438,6 +571,12 @@ export class QuestsService {
     return {
       items: rows.map((q) => {
         const meta = this.parseMeta(q.description);
+        const childIds =
+          meta.distributionType === "reverse" && meta.reverseChildId
+            ? [meta.reverseChildId]
+            : q.assignees.map((a) => a.childId);
+        const assigneeSince = q.assignees[0]?.createdAt ?? null;
+        const assigneeStatus = q.assignees[0]?.status ?? null;
         return {
           ...q,
           description: meta.plainDescription,
@@ -446,13 +585,17 @@ export class QuestsService {
           timeLimitMinutes: meta.timeLimitMinutes,
           scheduleType: meta.scheduleType,
           scheduleDays: meta.scheduleDays,
-          childIds: q.assignees.map((a) => a.childId),
+          childIds,
+          assigneeSince,
+          assigneeStatus,
+          netReward: this.netQuestPayoutWithRate(q.reward, taxRate),
         };
       }),
     };
   }
 
   async listChildAssignments(user: ChildUser) {
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, user.familyId);
     const assignees = await this.prisma.questAssignee.findMany({
       where: {
         childId: user.childId,
@@ -472,8 +615,7 @@ export class QuestsService {
       orderBy: { createdAt: "desc" },
       take: 200,
     });
-    return {
-      items: [
+    return { globalTaxRate: taxRate, items: [
         ...assignees.map((a) => {
           const meta = this.parseMeta(a.quest.description);
           const activateAt = meta.activateAtIso ? new Date(meta.activateAtIso) : null;
@@ -489,16 +631,27 @@ export class QuestsService {
             deadlineMs != null &&
             nowMs > deadlineMs &&
             (a.status === "assigned" || a.status === "in_progress");
+          // Дедлайн для UI: календарный dueAt квеста или конец окна по timeLimitMinutes
+          // (статус overdue считается по тому же deadlineMs — иначе «Просрочено» + «Без дедлайна»).
+          const dueAtFromTimeLimit =
+            deadlineMs != null ? new Date(deadlineMs) : null;
+          const displayDueAt = a.quest.dueAt ?? dueAtFromTimeLimit;
+          const grossReward = this.questGrossReward(a.quest);
+          const netReward = this.netQuestPayoutWithRate(grossReward, taxRate);
           return {
             questId: a.questId,
             assignmentId: a.id,
             title: a.quest.title,
             status: isOverdue ? "overdue" : a.status,
-            rewardAmount: a.rewardAmount,
+            rewardAmount: netReward,
+            rewardGross: grossReward,
             comment: a.comment,
-            dueAt: a.quest.dueAt,
+            dueAt: displayDueAt,
             createdAt: a.createdAt,
-            distributionType: meta.distributionType,
+            // У ребёнка строки из QuestAssignee — это уже «мои задачи»; иначе взятый с биржи
+            // квест остаётся с distributionType exchange и зависает во вкладке «Биржа».
+            distributionType:
+              meta.distributionType === "exchange" ? "assigned" : meta.distributionType,
             autoApprove: meta.autoApprove,
             timeLimitMinutes: meta.timeLimitMinutes,
             scheduleType: meta.scheduleType,
@@ -514,14 +667,23 @@ export class QuestsService {
           if (activateAt && activateAt.getTime() > Date.now()) {
             return null;
           }
+          const marketDeadlineMs =
+            meta.timeLimitMinutes != null
+              ? new Date(q.createdAt).getTime() + meta.timeLimitMinutes * 60_000
+              : null;
+          const marketDisplayDueAt =
+            q.dueAt ?? (marketDeadlineMs != null ? new Date(marketDeadlineMs) : null);
+          const grossReward = this.questGrossReward(q);
+          const netReward = this.netQuestPayoutWithRate(grossReward, taxRate);
           return {
             questId: q.id,
             assignmentId: "",
             title: q.title,
             status: "market",
-            rewardAmount: q.reward,
+            rewardAmount: netReward,
+            rewardGross: grossReward,
             comment: meta.plainDescription,
-            dueAt: q.dueAt,
+            dueAt: marketDisplayDueAt,
             createdAt: q.createdAt,
             distributionType: meta.distributionType,
             autoApprove: meta.autoApprove,
@@ -532,6 +694,125 @@ export class QuestsService {
         }).filter(Boolean),
       ],
     };
+  }
+
+  async getReverseQuestForChild(user: ChildUser) {
+    const rows = await this.prisma.quest.findMany({
+      where: { familyId: user.familyId, status: "active" },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+    for (const q of rows) {
+      const meta = this.parseMeta(q.description);
+      if (meta.distributionType === "reverse" && meta.reverseChildId === user.childId) {
+        return {
+          item: {
+            questId: q.id,
+            title: q.title,
+            rewardAmount: q.reward,
+            description: meta.plainDescription ?? "",
+            createdAt: q.createdAt,
+          },
+        };
+      }
+    }
+    return { item: null };
+  }
+
+  async createReverseQuest(
+    user: ChildUser,
+    input: { title: string; rewardAmount: number; description?: string },
+  ) {
+    const familyId = user.familyId;
+    const childId = user.childId;
+    const title = (input.title ?? "").trim();
+    if (!title) throw new BadRequestException("title обязателен");
+    const rewardRaw = Math.trunc(Number(input.rewardAmount));
+    if (!Number.isFinite(rewardRaw) || rewardRaw < 1) {
+      throw new BadRequestException("rewardAmount должна быть положительным числом");
+    }
+    const rewardAmount = rewardRaw;
+
+    const parentProfile = await this.prisma.profile.findFirst({
+      where: { familyId, role: { in: ["parent", "admin"] } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!parentProfile?.userId) {
+      throw new BadRequestException("В семье нет аккаунта родителя — создать задачу нельзя");
+    }
+
+    const activeQuests = await this.prisma.quest.findMany({
+      where: { familyId, status: "active" },
+      select: { description: true },
+      take: 200,
+    });
+    for (const q of activeQuests) {
+      const m = this.parseMeta(q.description);
+      if (m.distributionType === "reverse" && m.reverseChildId === childId) {
+        throw new BadRequestException(
+          "Уже есть активная обратная задача — дождитесь, когда родитель закроет её",
+        );
+      }
+    }
+
+    const plainNote = (input.description ?? "").trim() || null;
+    const description = this.buildDescription(plainNote, {
+      distributionType: "reverse",
+      autoApprove: false,
+      timeLimitMinutes: null,
+      scheduleType: "none",
+      scheduleDays: [],
+      reverseChildId: childId,
+    });
+
+    const wallet = await this.ensureWallet(childId, familyId);
+    if (wallet.balance < rewardAmount) {
+      throw new BadRequestException(
+        `Недостаточно монет: нужно ${rewardAmount}, на счёте ${wallet.balance}`,
+      );
+    }
+
+    const quest = await this.prisma.$transaction(async (tx) => {
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: wallet.balance - rewardAmount },
+      });
+      await tx.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          amount: -rewardAmount,
+          txType: "reverse_quest_escrow",
+          note: `Оплата обратной задачи для родителя: ${title}`.slice(0, 500),
+          reason: "reverse_quest_payment",
+          meta: { reverse: true, escrow: true },
+        },
+      });
+      return tx.quest.create({
+        data: {
+          familyId,
+          createdBy: parentProfile.userId,
+          title,
+          description,
+          reward: rewardAmount,
+          questType: "unique",
+          status: "active",
+          dueAt: null,
+        },
+      });
+    });
+
+    try {
+      await this.notifications.notifyFamilyPush(
+        familyId,
+        "Обратная задача от ребёнка",
+        `«${title}» — цель ${rewardAmount} монет`,
+        "child_reverse_quest",
+      );
+    } catch {
+      // push optional
+    }
+
+    return { questId: quest.id };
   }
 
   async takeFromMarket(user: ChildUser, questIdRaw: string) {
@@ -570,6 +851,9 @@ export class QuestsService {
     if (!assignment) throw new NotFoundException("Назначение не найдено");
     if (assignment.quest.familyId !== user.familyId) throw new ForbiddenException("Чужая семья");
     const meta = this.parseMeta(assignment.quest.description);
+    const grossReward = this.questGrossReward(assignment.quest);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, user.familyId);
+    const payout = this.netQuestPayoutWithRate(grossReward, taxRate);
 
     await this.prisma.$transaction(async (tx) => {
       if (evidenceKey) {
@@ -589,16 +873,16 @@ export class QuestsService {
         const wallet = await this.ensureWallet(user.childId, user.familyId);
         await tx.wallet.update({
           where: { id: wallet.id },
-          data: { balance: wallet.balance + assignment.rewardAmount },
+          data: { balance: wallet.balance + payout },
         });
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: assignment.rewardAmount,
+            amount: payout,
             txType: "quest_reward",
             note: "Автоподтверждение квеста",
             reason: "quest_reward",
-            meta: { questId },
+            meta: { questId, grossReward, taxRate, netReward: payout },
           },
         });
         if (
@@ -616,14 +900,10 @@ export class QuestsService {
             meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
             meta.scheduleDays,
           );
-          const nextDescription = this.buildDescription(meta.plainDescription, {
-            distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-            autoApprove: meta.autoApprove,
-            timeLimitMinutes: meta.timeLimitMinutes,
-            scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-            scheduleDays: meta.scheduleDays,
-            activateAtIso: nextAt.toISOString(),
-          });
+          const nextDescription = this.buildDescription(
+            meta.plainDescription,
+            this.metaToDescriptionPayload(meta, { activateAtIso: nextAt.toISOString() }),
+          );
           const recreated = await tx.quest.create({
             data: {
               familyId: assignment.quest.familyId,
@@ -686,6 +966,7 @@ export class QuestsService {
 
   async listSubmittedForReview(user: ParentUser) {
     const familyId = ensureFamilyId(user);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
     const rows = await this.prisma.questAssignee.findMany({
       where: { status: "submitted", quest: { familyId } },
       include: {
@@ -708,6 +989,8 @@ export class QuestsService {
         childName: [row.child.firstName, row.child.lastName].filter(Boolean).join(" ").trim(),
         title: row.quest.title,
         submittedAt: row.submittedAt,
+        rewardGross: row.quest.reward,
+        rewardAmount: this.netQuestPayoutWithRate(row.quest.reward, taxRate),
         evidenceKey: evidence?.objectKey ?? null,
       });
     }
@@ -731,6 +1014,9 @@ export class QuestsService {
     const approve = input.approve === true;
     const comment = (input.comment ?? "").trim() || null;
     const meta = this.parseMeta(assignment.quest.description);
+    const grossReward = this.questGrossReward(assignment.quest);
+    const taxRate = await getFamilyGlobalTaxRate(this.prisma, familyId);
+    const payout = this.netQuestPayoutWithRate(grossReward, taxRate);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.questAssignee.update({
@@ -752,16 +1038,16 @@ export class QuestsService {
         const wallet = await this.ensureWallet(childId, familyId);
         await tx.wallet.update({
           where: { id: wallet.id },
-          data: { balance: wallet.balance + assignment.rewardAmount },
+          data: { balance: wallet.balance + payout },
         });
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
-            amount: assignment.rewardAmount,
+            amount: payout,
             txType: "quest_reward",
             note: `Награда за квест`,
             reason: "quest_reward",
-            meta: { questId },
+            meta: { questId, grossReward, taxRate, netReward: payout },
           },
         });
         if (
@@ -779,14 +1065,10 @@ export class QuestsService {
             meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
             meta.scheduleDays,
           );
-          const nextDescription = this.buildDescription(meta.plainDescription, {
-            distributionType: meta.distributionType === "exchange" ? "exchange" : "assigned",
-            autoApprove: meta.autoApprove,
-            timeLimitMinutes: meta.timeLimitMinutes,
-            scheduleType: meta.scheduleType as "none" | "daily" | "weekly" | "custom_days",
-            scheduleDays: meta.scheduleDays,
-            activateAtIso: nextAt.toISOString(),
-          });
+          const nextDescription = this.buildDescription(
+            meta.plainDescription,
+            this.metaToDescriptionPayload(meta, { activateAtIso: nextAt.toISOString() }),
+          );
           const recreated = await tx.quest.create({
             data: {
               familyId: assignment.quest.familyId,

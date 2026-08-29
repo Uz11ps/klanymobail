@@ -47,7 +47,7 @@ export class QuestsController {
       questType?: string;
       dueAt?: string | null;
       childIds?: string[];
-      distributionType?: "assigned" | "exchange";
+      distributionType?: "assigned" | "exchange" | "reverse";
       autoApprove?: boolean;
       timeLimitMinutes?: number | null;
       scheduleType?: "none" | "daily" | "weekly" | "custom_days";
@@ -85,6 +85,21 @@ export class QuestsController {
   @Roles("child")
   async submit(@Req() req: any, @Body() body: { questId: string; evidenceKey?: string | null }) {
     return this.quests.submit(req.user, body.questId, body.evidenceKey ?? null);
+  }
+
+  @Get("quests/child/reverse")
+  @Roles("child")
+  async childReverseGet(@Req() req: any) {
+    return this.quests.getReverseQuestForChild(req.user);
+  }
+
+  @Post("quests/child/reverse")
+  @Roles("child")
+  async childReverseCreate(
+    @Req() req: any,
+    @Body() body: { title: string; rewardAmount: number; description?: string },
+  ) {
+    return this.quests.createReverseQuest(req.user, body);
   }
 
   @Get("quests/review")

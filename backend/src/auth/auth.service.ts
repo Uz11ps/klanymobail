@@ -1,8 +1,27 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { AuthEmailTokenPurpose, Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
+import {
+  emailVerificationHtml,
+  passwordResetEmailHtml,
+} from "../mail/auth-mail.templates";
+import {
+  generateAuthEmailPlainToken,
+  generatePasswordResetCode,
+  hashAuthEmailToken,
+  isDeliverableUserEmail,
+} from "../mail/auth-email-token.util";
+import { ResendMailService } from "../mail/resend-mail.service";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  isValidChildAuthCodeFormat,
+  resolveChildAuthCodeForLookup,
+} from "./child-auth-code.util";
+import { grantDefaultPremiumSubscription } from "../subscriptions/default-premium";
+
+import { assertKlanyPasswordPlain } from "./password-policy";
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -42,27 +61,151 @@ function normalizeInviteToken(token: string): string {
   return token.trim().toUpperCase();
 }
 
+/** Prisma P2002 → понятный 400 вместо 500 «сервер недоступен». */
+function mapPrismaUniqueToBadRequest(err: unknown): never {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    const target = err.meta?.target;
+    const fields = Array.isArray(target) ? target.map(String) : [];
+    if (fields.includes("phone")) {
+      throw new BadRequestException("Этот номер телефона уже зарегистрирован");
+    }
+    if (fields.includes("email")) {
+      throw new BadRequestException("Этот email уже зарегистрирован");
+    }
+    throw new BadRequestException("Пользователь с такими данными уже зарегистрирован");
+  }
+  throw err;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly mail: ResendMailService,
   ) {}
+
+  private userEmailVerified(user: { email: string; emailVerifiedAt: Date | null }): boolean {
+    if (!isDeliverableUserEmail(user.email)) return true;
+    return Boolean(user.emailVerifiedAt);
+  }
+
+  private async createEmailToken(userId: string, purpose: AuthEmailTokenPurpose, ttlMs: number) {
+    const plain = generateAuthEmailPlainToken();
+    const tokenHash = hashAuthEmailToken(plain);
+    const expiresAt = new Date(Date.now() + ttlMs);
+
+    await this.prisma.authEmailToken.updateMany({
+      where: { userId, purpose, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.authEmailToken.create({
+      data: { userId, purpose, tokenHash, expiresAt },
+    });
+
+    return plain;
+  }
+
+  private async sendVerificationEmailForUser(userId: string, email: string) {
+    if (!isDeliverableUserEmail(email)) return { sent: false };
+    const plain = await this.createEmailToken(
+      userId,
+      AuthEmailTokenPurpose.email_verification,
+      48 * 60 * 60 * 1000,
+    );
+    const tpl = emailVerificationHtml(plain);
+    const result = await this.mail.send({ to: email, subject: tpl.subject, html: tpl.html });
+    return { sent: result.ok };
+  }
+
+  /** Проверка: зарегистрирован ли пользователь с данным email (только для главы: шаг «Продолжить»). */
+  async isParentEmailRegistered(emailRaw: string) {
+    const email = normalizeEmail(emailRaw ?? "");
+    if (!email.includes("@")) {
+      throw new BadRequestException("Нужен корректный email");
+    }
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    return { registered: Boolean(existing) };
+  }
 
   async signUpParent(input: { email?: string; phone?: string; password: string; displayName?: string; recoveryEmail?: string }) {
     const providedPhone = normalizePhone(input.phone ?? "");
     const providedEmail = normalizeEmail(input.email ?? input.recoveryEmail ?? "");
     const email = providedEmail || (providedPhone ? phoneToPseudoEmail(providedPhone) : "");
-    if (!email.includes("@")) throw new BadRequestException("Укажите телефон или email");
-    if ((input.password ?? "").length < 6) throw new BadRequestException("Пароль: минимум 6 символов");
+    if (!email.includes("@")) {
+      throw new BadRequestException("Нужен email в формате user@example.com или номер телефона (10+ цифр)");
+    }
+    const validatedPassword = assertKlanyPasswordPlain(input.password);
 
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) throw new BadRequestException("Пользователь уже существует");
+    const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      throw new BadRequestException("Этот email уже зарегистрирован");
+    }
+    if (providedPhone) {
+      const existingPhone = await this.prisma.user.findUnique({
+        where: { phone: providedPhone },
+      });
+      if (existingPhone) {
+        throw new BadRequestException("Этот номер телефона уже зарегистрирован");
+      }
+    }
 
-    const passwordHash = await bcrypt.hash(input.password, 10);
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
 
     // Create family + profile in one transaction.
-    const result = await this.prisma.$transaction(async (tx) => {
+    let result: Awaited<ReturnType<typeof this.createParentFamilyInTx>>;
+    try {
+      result = await this.prisma.$transaction(async (tx) =>
+        this.createParentFamilyInTx(tx, {
+          email,
+          providedPhone,
+          passwordHash,
+          displayName: (input.displayName ?? "").trim() || null,
+        }),
+      );
+    } catch (err) {
+      throw mapPrismaUniqueToBadRequest(err);
+    }
+
+    const accessToken = this.jwt.sign({
+      sub: result.user.id,
+      role: result.profile.role,
+      familyId: result.profile.familyId,
+    } satisfies JwtPayload);
+
+    const verification = await this.sendVerificationEmailForUser(result.user.id, result.user.email);
+
+    return {
+      accessToken,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        phone: providedPhone || null,
+        emailVerified: this.userEmailVerified(result.user),
+      },
+      profile: {
+        userId: result.profile.userId,
+        role: result.profile.role,
+        familyId: result.profile.familyId,
+      },
+      family: { id: result.family.id, familyCode: result.family.familyCode },
+      emailVerificationSent: verification.sent,
+    };
+  }
+
+  private async createParentFamilyInTx(
+    tx: Prisma.TransactionClient,
+    input: {
+      email: string;
+      providedPhone: string;
+      passwordHash: string;
+      displayName: string | null;
+    },
+  ) {
       let familyCode = generateFamilyCode();
       // Ensure uniqueness (rare collision).
       for (let i = 0; i < 5; i += 1) {
@@ -73,9 +216,9 @@ export class AuthService {
 
       const user = await tx.user.create({
         data: {
-          email,
-          phone: providedPhone || null,
-          passwordHash,
+          email: input.email,
+          phone: input.providedPhone || null,
+          passwordHash: input.passwordHash,
         },
       });
 
@@ -91,29 +234,13 @@ export class AuthService {
           userId: user.id,
           familyId: family.id,
           role: "parent",
-          displayName: (input.displayName ?? "").trim() || null,
+          displayName: input.displayName,
         },
       });
 
+      await grantDefaultPremiumSubscription(tx, family.id);
+
       return { user, family, profile };
-    });
-
-    const accessToken = this.jwt.sign({
-      sub: result.user.id,
-      role: result.profile.role,
-      familyId: result.profile.familyId,
-    } satisfies JwtPayload);
-
-    return {
-      accessToken,
-      user: { id: result.user.id, email: result.user.email, phone: providedPhone || null },
-      profile: {
-        userId: result.profile.userId,
-        role: result.profile.role,
-        familyId: result.profile.familyId,
-      },
-      family: { id: result.family.id, familyCode: result.family.familyCode },
-    };
   }
 
   async signInWithPassword(input: { email?: string; login?: string; phone?: string; password: string }) {
@@ -153,14 +280,15 @@ export class AuthService {
         phone: user.email.endsWith("@phone.klany.local")
           ? user.email.replace("@phone.klany.local", "")
           : null,
+        emailVerified: this.userEmailVerified(user),
       },
       profile: { userId: profile.userId, role: profile.role, familyId: profile.familyId },
     };
   }
 
   async signInWithFamilyCode(input: { code: string }) {
-    const code = (input.code ?? "").trim();
-    if (!/^\d{6}$/.test(code)) throw new UnauthorizedException("Неверный код");
+    const code = resolveChildAuthCodeForLookup(input.code);
+    if (!isValidChildAuthCodeFormat(input.code)) throw new UnauthorizedException("Неверный код");
 
     const memberCode = await this.prisma.familyMemberCode.findUnique({
       where: { code },
@@ -203,6 +331,182 @@ export class AuthService {
         clanName: memberCode.family.clanName,
       },
     };
+  }
+
+  /** Письмо с 6-значным кодом для сброса пароля в приложении (Resend). */
+  async requestPasswordReset(input: { email?: string }) {
+    const email = normalizeEmail(input.email ?? "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите email, на который регистрировались");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { ok: true };
+
+    const code = await this.createPasswordResetCode(user.id);
+    const tpl = passwordResetEmailHtml(code);
+    await this.mail.send({ to: email, subject: tpl.subject, html: tpl.html });
+
+    return { ok: true };
+  }
+
+  private async createPasswordResetCode(userId: string) {
+    const code = generatePasswordResetCode();
+    const tokenHash = hashAuthEmailToken(code);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.prisma.authEmailToken.updateMany({
+      where: {
+        userId,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    await this.prisma.authEmailToken.create({
+      data: {
+        userId,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    return code;
+  }
+
+  /** Проверка кода перед экраном нового пароля (код не сгорает). */
+  async verifyPasswordResetCode(input: { email?: string; code?: string }) {
+    const row = await this.findActivePasswordResetRow(input);
+    if (!row) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+    return { ok: true };
+  }
+
+  async resetPassword(input: {
+    email?: string;
+    code?: string;
+    token?: string;
+    password?: string;
+  }) {
+    const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
+
+    const legacyToken = (input.token ?? "").trim();
+    if (legacyToken) {
+      const row = await this.prisma.authEmailToken.findUnique({
+        where: { tokenHash: hashAuthEmailToken(legacyToken) },
+      });
+      if (
+        !row ||
+        row.purpose !== AuthEmailTokenPurpose.password_reset ||
+        row.usedAt ||
+        row.expiresAt < new Date()
+      ) {
+        throw new BadRequestException("Код недействителен или устарел");
+      }
+      await this.applyPasswordReset(row.userId, row.id, validatedPassword);
+      return { ok: true };
+    }
+
+    const found = await this.findActivePasswordResetRow(input);
+    if (!found) {
+      throw new BadRequestException("Код неверный или устарел");
+    }
+
+    await this.applyPasswordReset(found.userId, found.row.id, validatedPassword);
+    return { ok: true };
+  }
+
+  private async findActivePasswordResetRow(input: { email?: string; code?: string }) {
+    const email = normalizeEmail(input.email ?? "");
+    const code = (input.code ?? "").trim().replace(/\s/g, "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите email");
+    }
+    if (!/^\d{6}$/.test(code)) {
+      throw new BadRequestException("Введите 6-значный код из письма");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return null;
+
+    const row = await this.prisma.authEmailToken.findFirst({
+      where: {
+        userId: user.id,
+        purpose: AuthEmailTokenPurpose.password_reset,
+        tokenHash: hashAuthEmailToken(code),
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!row) return null;
+
+    return { userId: user.id, row };
+  }
+
+  private async applyPasswordReset(
+    userId: string,
+    tokenId: string,
+    validatedPassword: string,
+  ) {
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      this.prisma.authEmailToken.update({
+        where: { id: tokenId },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+  }
+
+  async verifyEmail(input: { token?: string }) {
+    const plain = (input.token ?? "").trim();
+    if (!plain) throw new BadRequestException("token обязателен");
+
+    const row = await this.prisma.authEmailToken.findUnique({
+      where: { tokenHash: hashAuthEmailToken(plain) },
+    });
+    if (
+      !row ||
+      row.purpose !== AuthEmailTokenPurpose.email_verification ||
+      row.usedAt ||
+      row.expiresAt < new Date()
+    ) {
+      throw new BadRequestException("Ссылка подтверждения недействительна или устарела");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: row.userId },
+        data: { emailVerifiedAt: new Date() },
+      }),
+      this.prisma.authEmailToken.update({
+        where: { id: row.id },
+        data: { usedAt: new Date() },
+      }),
+    ]);
+
+    return { ok: true, emailVerified: true };
+  }
+
+  async resendVerificationEmail(input: { email?: string }) {
+    const email = normalizeEmail(input.email ?? "");
+    if (!isDeliverableUserEmail(email)) {
+      throw new BadRequestException("Укажите корректный email");
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { ok: true };
+    if (this.userEmailVerified(user)) return { ok: true, emailVerified: true };
+
+    const sent = await this.sendVerificationEmailForUser(user.id, email);
+    return { ok: true, emailVerificationSent: sent.sent };
   }
 
   async requestRecovery(input: { phone?: string }) {

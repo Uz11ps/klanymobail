@@ -14,7 +14,12 @@ export class StorageController {
   @Post("storage/presign-upload")
   @Roles("parent", "admin", "child")
   async presignUpload(
-    @Body() body: { bucket: "quest-evidence" | "shop-products"; objectKey: string; expiresSeconds?: number },
+    @Body()
+    body: {
+      bucket: "quest-evidence" | "shop-products" | "member-avatars";
+      objectKey: string;
+      expiresSeconds?: number;
+    },
   ) {
     return this.storage.presignUpload(body.bucket, body.objectKey, body.expiresSeconds ?? 300);
   }
@@ -22,7 +27,12 @@ export class StorageController {
   @Post("storage/presign-download")
   @Roles("parent", "admin", "child")
   async presignDownload(
-    @Body() body: { bucket: "quest-evidence" | "shop-products"; objectKey: string; expiresSeconds?: number },
+    @Body()
+    body: {
+      bucket: "quest-evidence" | "shop-products" | "member-avatars";
+      objectKey: string;
+      expiresSeconds?: number;
+    },
   ) {
     return this.storage.presignDownload(body.bucket, body.objectKey, body.expiresSeconds ?? 300);
   }
@@ -33,7 +43,7 @@ export class StorageController {
   @UseInterceptors(FileInterceptor("file"))
   async upload(
     @UploadedFile() file: Express.Multer.File,
-    @Query("bucket") bucket: "quest-evidence" | "shop-products",
+    @Query("bucket") bucket: "quest-evidence" | "shop-products" | "member-avatars",
     @Query("objectKey") objectKey: string,
   ) {
     const ct = file?.mimetype || "application/octet-stream";

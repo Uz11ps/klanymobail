@@ -218,7 +218,95 @@ export class NotificationsService {
       orderBy: { createdAt: "desc" },
       take: 200,
     });
-    return { items: rows };
+
+    const shopPurchaseTypes = new Set([
+      "shop_purchase_requested",
+      "shop_purchase_approved",
+      "shop_purchase_rejected",
+    ]);
+
+    const purchaseIdsToHydrate = new Set<string>();
+
+    const str = (x: unknown) => String(x ?? "").trim();
+
+    for (const row of rows) {
+      if (!shopPurchaseTypes.has(row.nType)) continue;
+      const raw = row.payload as Record<string, unknown> | null;
+      if (!raw || typeof raw !== "object") continue;
+
+      const purchaseId =
+        typeof raw.purchaseId === "string" ? raw.purchaseId : str(raw.purchaseId);
+      if (!purchaseId) continue;
+
+      const existingName = str(raw.displayName) || str(raw.childName);
+      const existingChildId = str(raw.childId);
+      const existingAvatar = str(raw.avatarObjectKey);
+
+      // Старые записи часто содержали только purchaseId без ребёнка — подтягиваем из shop_purchases.
+      if (!existingName || !existingChildId || !existingAvatar) {
+        purchaseIdsToHydrate.add(purchaseId);
+      }
+    }
+
+    let purchaseChildByPurchaseId = new Map<
+      string,
+      { childId: string; displayName: string; avatarObjectKey: string | null }
+    >();
+
+    if (purchaseIdsToHydrate.size > 0) {
+      const purchases = await this.prisma.shopPurchase.findMany({
+        where: {
+          familyId,
+          id: { in: [...purchaseIdsToHydrate] },
+        },
+        select: {
+          id: true,
+          childId: true,
+          child: {
+            select: { firstName: true, lastName: true, avatarObjectKey: true },
+          },
+        },
+      });
+      purchaseChildByPurchaseId = new Map(
+        purchases.map((p) => {
+          const dn = [p.child.firstName, p.child.lastName].filter(Boolean).join(" ").trim();
+          return [
+            p.id,
+            {
+              childId: p.childId,
+              displayName: dn,
+              avatarObjectKey: p.child.avatarObjectKey ?? null,
+            },
+          ];
+        }),
+      );
+    }
+
+    const items = rows.map((row) => {
+      if (!shopPurchaseTypes.has(row.nType)) return row;
+
+      const base = row.payload as Record<string, unknown> | null | undefined;
+      const p = typeof base === "object" && base !== null ? { ...base } : {};
+
+      const purchaseId =
+        typeof p.purchaseId === "string" ? p.purchaseId.trim() : str(p.purchaseId);
+      if (!purchaseId) return { ...row, payload: Object.keys(p).length ? p : base };
+
+      const meta = purchaseChildByPurchaseId.get(purchaseId);
+      if (!meta) return { ...row, payload: p };
+
+      const merged: Record<string, unknown> = { ...p };
+      const displayNameCombined = str(merged.displayName) || str(merged.childName);
+      if (!str(merged.childId)) merged.childId = meta.childId;
+      if (!displayNameCombined && meta.displayName) merged.displayName = meta.displayName;
+      if (!(str(merged.avatarObjectKey) || merged.avatarImageUrl) && meta.avatarObjectKey) {
+        merged.avatarObjectKey = meta.avatarObjectKey;
+      }
+
+      return { ...row, payload: merged };
+    });
+
+    return { items };
   }
 
   async markRead(user: AnyUser, id: string) {

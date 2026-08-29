@@ -36,9 +36,12 @@ export class ShopService {
 
   async listProducts(user: ParentUser | ChildUser) {
     const familyId = ensureFamilyId(user);
-    const where: any = { familyId };
-    if (user.role === "child") where.isActive = true;
-    const rows = await this.prisma.shopProduct.findMany({ where, orderBy: { createdAt: "desc" } });
+    // Same catalog for parents and children; purchase is still blocked for
+    // inactive items in requestPurchase().
+    const rows = await this.prisma.shopProduct.findMany({
+      where: { familyId },
+      orderBy: { createdAt: "desc" },
+    });
     return { items: rows };
   }
 
@@ -141,6 +144,28 @@ export class ShopService {
     const total = product.price * quantity;
     if (wallet.balance < total) throw new BadRequestException("Недостаточно средств");
 
+    const existingPending = await this.prisma.shopPurchase.findFirst({
+      where: {
+        childId: user.childId,
+        productId: product.id,
+        status: "requested",
+      },
+      select: { id: true },
+    });
+    if (existingPending) {
+      throw new BadRequestException("Заявка на этот товар уже отправлена и ждёт решения родителя");
+    }
+
+    const childProfile = await this.prisma.child.findUnique({
+      where: { id: user.childId },
+      select: { firstName: true, lastName: true, avatarObjectKey: true },
+    });
+    const childDisplayName =
+      [childProfile?.firstName?.trim(), childProfile?.lastName?.trim()]
+        .filter((s) => s && String(s).length > 0)
+        .join(" ")
+        .trim() || "";
+
     const purchase = await this.prisma.$transaction(async (tx) => {
       await tx.wallet.update({ where: { id: wallet.id }, data: { balance: wallet.balance - total } });
       await tx.walletTransaction.create({
@@ -186,6 +211,11 @@ export class ShopService {
             purchaseId: purchase.id,
             productTitle: product.title,
             totalPrice: purchase.totalPrice,
+            childId: user.childId,
+            ...(childDisplayName ? { displayName: childDisplayName } : {}),
+            ...(childProfile?.avatarObjectKey
+              ? { avatarObjectKey: childProfile.avatarObjectKey }
+              : {}),
           },
         })),
       });
@@ -198,6 +228,29 @@ export class ShopService {
     );
 
     return { purchaseId: purchase.id };
+  }
+
+  async listChildPurchases(user: ChildUser) {
+    const rows = await this.prisma.shopPurchase.findMany({
+      where: {
+        childId: user.childId,
+        status: { in: ["requested", "approved", "rejected"] },
+      },
+      orderBy: { createdAt: "desc" },
+      include: { product: true },
+      take: 50,
+    });
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        productId: r.productId,
+        productTitle: r.product.title,
+        totalPrice: r.totalPrice,
+        status: r.status,
+        createdAt: r.createdAt,
+        decidedAt: r.decidedAt,
+      })),
+    };
   }
 
   async listPending(user: ParentUser) {
@@ -215,7 +268,9 @@ export class ShopService {
         status: r.status,
         totalPrice: r.totalPrice,
         productTitle: r.product.title,
+        childId: r.childId,
         childName: [r.child.firstName, r.child.lastName].filter(Boolean).join(" ").trim(),
+        avatarObjectKey: r.child.avatarObjectKey ?? null,
       })),
     };
   }
@@ -231,6 +286,23 @@ export class ShopService {
     });
     if (!purchase || purchase.familyId !== familyId) throw new NotFoundException("Покупка не найдена");
     if (purchase.status !== "requested") throw new BadRequestException("Покупка уже обработана");
+
+    const childBrief = await this.prisma.child.findUnique({
+      where: { id: purchase.childId },
+      select: { firstName: true, lastName: true, avatarObjectKey: true },
+    });
+    const childDisplayName = [childBrief?.firstName?.trim(), childBrief?.lastName?.trim()]
+      .filter((s): s is string => !!s && s.length > 0)
+      .join(" ")
+      .trim();
+    const shopNotifyPayloadCommon = {
+      purchaseId: purchase.id,
+      productTitle: purchase.product.title,
+      totalPrice: purchase.totalPrice,
+      childId: purchase.childId,
+      ...(childDisplayName ? { displayName: childDisplayName } : {}),
+      ...(childBrief?.avatarObjectKey ? { avatarObjectKey: childBrief.avatarObjectKey } : {}),
+    };
 
     if (approve) {
       const parentProfiles = await this.prisma.profile.findMany({
@@ -252,11 +324,7 @@ export class ShopService {
             familyId,
             toUserId: userId,
             nType: "shop_purchase_approved",
-            payload: {
-              purchaseId: purchase.id,
-              productTitle: purchase.product.title,
-              totalPrice: purchase.totalPrice,
-            },
+            payload: { ...shopNotifyPayloadCommon },
           })),
         });
       }
@@ -304,11 +372,7 @@ export class ShopService {
           familyId,
           toUserId: userId,
           nType: "shop_purchase_rejected",
-          payload: {
-            purchaseId: purchase.id,
-            productTitle: purchase.product.title,
-            totalPrice: purchase.totalPrice,
-          },
+          payload: { ...shopNotifyPayloadCommon },
         })),
       });
     }

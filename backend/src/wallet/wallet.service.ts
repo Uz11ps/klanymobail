@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { getFamilyGoal, getFamilySavingsTotal } from "../family/family-goal.util";
 
 type ParentUser = {
   userId: string;
@@ -25,6 +26,11 @@ function ensureFamilyId(user: { familyId?: string | null }): string {
 export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Mirrors parent goal resolution so child dashboard progress matches семейная цель. */
+  private async getFamilyGoalForWallet(familyId: string) {
+    return getFamilyGoal(this.prisma, familyId);
+  }
+
   private async ensureWallet(childId: string, familyId: string) {
     const existing = await this.prisma.wallet.findUnique({ where: { childId } });
     if (existing) return existing;
@@ -33,7 +39,27 @@ export class WalletService {
 
   async getChildWallet(user: ChildUser) {
     const wallet = await this.ensureWallet(user.childId, user.familyId);
-    return { walletId: wallet.id, balance: wallet.balance };
+    const [goal, familySavingsTotal] = await Promise.all([
+      this.getFamilyGoalForWallet(user.familyId),
+      getFamilySavingsTotal(this.prisma, user.familyId),
+    ]);
+    const completedQuestsCount = await this.prisma.questAssignee.count({
+      where: { childId: user.childId, status: "approved" },
+    });
+    const shopPendingAgg = await this.prisma.shopPurchase.aggregate({
+      where: { childId: user.childId, status: "requested" },
+      _sum: { frozenAmount: true },
+    });
+    const shopFrozenAmount = Math.trunc(Number(shopPendingAgg._sum.frozenAmount ?? 0));
+    return {
+      walletId: wallet.id,
+      balance: wallet.balance,
+      goalAmount: goal.goalAmount,
+      goalName: goal.goalName,
+      familySavingsTotal,
+      completedQuestsCount,
+      shopFrozenAmount,
+    };
   }
 
   async getChildTransactions(user: ChildUser) {
@@ -57,7 +83,12 @@ export class WalletService {
     for (const child of children) {
       const wallet = await this.ensureWallet(child.id, familyId);
       const displayName = [child.firstName, child.lastName].filter(Boolean).join(" ").trim();
-      result.push({ childId: child.id, displayName, balance: wallet.balance });
+      result.push({
+        childId: child.id,
+        displayName,
+        balance: wallet.balance,
+        avatarObjectKey: child.avatarObjectKey ?? null,
+      });
     }
     return { items: result };
   }

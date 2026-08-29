@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/api_client.dart';
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
 
@@ -21,6 +23,7 @@ class ParentQuestItem {
     required this.status,
     required this.questType,
     required this.rewardAmount,
+    this.netReward,
     required this.createdAt,
     required this.distributionType,
     required this.autoApprove,
@@ -28,6 +31,9 @@ class ParentQuestItem {
     required this.scheduleType,
     required this.scheduleDays,
     required this.childIds,
+    this.dueAt,
+    this.assigneeSince,
+    this.assigneeStatus,
   });
 
   final String id;
@@ -35,7 +41,9 @@ class ParentQuestItem {
   final String description;
   final String status;
   final String questType;
+  /// Gross-награда квеста (до налога).
   final int rewardAmount;
+  final int? netReward;
   final DateTime createdAt;
   final String distributionType;
   final bool autoApprove;
@@ -43,6 +51,10 @@ class ParentQuestItem {
   final String scheduleType;
   final List<String> scheduleDays;
   final List<String> childIds;
+  final DateTime? dueAt;
+  final DateTime? assigneeSince;
+  /// Статус назначения первого исполнителя (`in_progress`, `submitted`, …).
+  final String? assigneeStatus;
 }
 
 class ChildQuestAssignmentItem {
@@ -77,6 +89,34 @@ class ChildQuestAssignmentItem {
   final DateTime? dueAt;
 }
 
+/// Завершённые назначения (одобренные родителем или автопруф).
+bool isChildAssignmentCompleted(ChildQuestAssignmentItem item) {
+  switch (item.status) {
+    case 'completed':
+    case 'done':
+    case 'approved':
+      return true;
+    default:
+      return false;
+  }
+}
+
+int countCompletedChildAssignments(List<ChildQuestAssignmentItem> items) =>
+    items.where(isChildAssignmentCompleted).length;
+
+bool isParentQuestOnReview(ParentQuestItem quest) =>
+    quest.assigneeStatus == 'submitted';
+
+bool isParentQuestFreeOnExchange(ParentQuestItem quest) =>
+    quest.status == 'active' &&
+    quest.distributionType == 'exchange' &&
+    quest.childIds.isEmpty;
+
+bool isParentQuestInWork(ParentQuestItem quest) =>
+    quest.status == 'active' &&
+    !isParentQuestOnReview(quest) &&
+    (quest.childIds.isNotEmpty || quest.distributionType != 'exchange');
+
 class ParentReviewItem {
   ParentReviewItem({
     required this.questId,
@@ -84,6 +124,8 @@ class ParentReviewItem {
     required this.childName,
     required this.title,
     required this.submittedAt,
+    this.rewardAmount,
+    this.rewardGross,
     this.evidencePath,
     this.evidenceUrl,
   });
@@ -93,15 +135,26 @@ class ParentReviewItem {
   final String childName;
   final String title;
   final DateTime? submittedAt;
+  /// Net с сервера (на момент запроса).
+  final int? rewardAmount;
+  /// Gross до налога — для live-пересчёта в UI родителя.
+  final int? rewardGross;
   final String? evidencePath;
   final String? evidenceUrl;
 }
 
 class FamilyChildLite {
-  FamilyChildLite({required this.id, required this.displayName});
+  FamilyChildLite({
+    required this.id,
+    required this.displayName,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
+  });
 
   final String id;
   final String displayName;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 class QuestsRepository {
@@ -147,14 +200,25 @@ class QuestsRepository {
     final data = await api.getJson('/family/children', accessToken: token);
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => FamilyChildLite(
-            id: row['id'].toString(),
-            displayName: (row['displayName'] ?? '').toString(),
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final trimmedKey = (objectKey ?? '').trim();
+        final avatarImageUrl = trimmedKey.isNotEmpty
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: trimmedKey,
+              )
+            : null;
+        return FamilyChildLite(
+          id: row['id'].toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<void> createQuest({
@@ -207,6 +271,7 @@ class QuestsRepository {
         status: (row['status'] ?? '').toString(),
         questType: (row['questType'] ?? '').toString(),
         rewardAmount: (row['reward'] as num?)?.toInt() ?? 0,
+        netReward: (row['netReward'] as num?)?.toInt(),
         createdAt:
             DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
             DateTime.now(),
@@ -221,6 +286,13 @@ class QuestsRepository {
         childIds: (row['childIds'] as List<dynamic>? ?? const <dynamic>[])
             .map((e) => e.toString())
             .toList(),
+        dueAt: DateTime.tryParse((row['dueAt'] ?? '').toString()),
+        assigneeSince: DateTime.tryParse(
+          (row['assigneeSince'] ?? '').toString(),
+        ),
+        assigneeStatus: (row['assigneeStatus'] ?? '').toString().trim().isEmpty
+            ? null
+            : (row['assigneeStatus'] ?? '').toString(),
       );
     }).toList();
   }
@@ -258,6 +330,17 @@ class QuestsRepository {
         'scheduleType': scheduleType,
         'scheduleDays': scheduleDays,
       },
+    );
+  }
+
+  Future<void> closeQuest({required String questId}) async {
+    final api = Sdk.apiOrNull;
+    final token = _parentToken;
+    if (api == null || token == null) return;
+    await api.patchJson(
+      '/quests/$questId',
+      accessToken: token,
+      body: <String, dynamic>{'status': 'closed'},
     );
   }
 
@@ -312,6 +395,43 @@ class QuestsRepository {
     );
   }
 
+  Future<String> createReverseQuest({
+    required String title,
+    required int rewardAmount,
+    String? description,
+  }) async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) {
+      throw Exception('Не авторизован');
+    }
+    final data = await api.postJson(
+      '/quests/child/reverse',
+      accessToken: token,
+      body: <String, dynamic>{
+        'title': title.trim(),
+        'rewardAmount': rewardAmount,
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+      },
+    );
+    return (data['questId'] ?? '').toString();
+  }
+
+  Future<Map<String, dynamic>?> getChildReverseQuest() async {
+    final api = Sdk.apiOrNull;
+    final token = _childToken;
+    if (api == null || token == null) return null;
+    try {
+      final data = await api.getJson('/quests/child/reverse', accessToken: token);
+      return data['item'] as Map<String, dynamic>?;
+    } on ApiException catch (e) {
+      // Старый backend без маршрута или прокси — как «квеста нет».
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   Future<void> submitQuestWithEvidence({
     required String questId,
     required XFile? evidenceFile,
@@ -332,11 +452,11 @@ class QuestsRepository {
       );
       final url = presign['url']?.toString() ?? '';
       if (url.isNotEmpty) {
-        await http.put(
-          Uri.parse(url),
-          headers: <String, String>{'Content-Type': 'image/jpeg'},
-          body: bytes,
-        );
+        final put = await http.put(Uri.parse(url), body: bytes);
+        ApiClient.notifyUnauthorizedFromStatusCode(put.statusCode);
+        if (put.statusCode < 200 || put.statusCode >= 300) {
+          throw Exception('Загрузка файла: ${put.statusCode}');
+        }
         evidenceKey = key;
       }
     }
@@ -371,6 +491,11 @@ class QuestsRepository {
           childName: (row['childName'] ?? '').toString(),
           title: (row['title'] ?? '').toString(),
           submittedAt: DateTime.tryParse((row['submittedAt'] ?? '').toString()),
+          rewardAmount:
+              (row['rewardAmount'] as num?)?.toInt() ??
+                  (row['reward'] as num?)?.toInt(),
+          rewardGross: (row['rewardGross'] as num?)?.toInt() ??
+              (row['reward'] as num?)?.toInt(),
           evidencePath: evidencePath,
           evidenceUrl: evidenceUrl,
         );

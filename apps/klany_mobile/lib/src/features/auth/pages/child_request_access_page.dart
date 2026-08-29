@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/env.dart';
+import '../../home/child_soft_ui.dart';
+import '../password_rules.dart';
 import '../child_session.dart';
 import '../device_identity.dart';
+import '../../../core/app_snackbar.dart';
 
 enum _AccessLookupType { familyId, parentEmail, parentPhone }
 
@@ -53,7 +56,7 @@ class _ChildRequestAccessPageState
     if (_lookupType == _AccessLookupType.familyId) {
       final value = _familyCode.text.trim().toUpperCase();
       if (value.length < 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректный Family ID')),
         );
         return;
@@ -62,7 +65,7 @@ class _ChildRequestAccessPageState
     } else if (_lookupType == _AccessLookupType.parentEmail) {
       final value = _parentContact.text.trim().toLowerCase();
       if (!value.contains('@')) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректную почту родителя')),
         );
         return;
@@ -72,7 +75,7 @@ class _ChildRequestAccessPageState
       final value = _parentContact.text.trim();
       final digits = value.replaceAll(RegExp(r'\D'), '');
       if (digits.length < 10) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.showKlanySnackBar(
           const SnackBar(content: Text('Введите корректный телефон родителя')),
         );
         return;
@@ -83,7 +86,7 @@ class _ChildRequestAccessPageState
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (!Env.hasApiConfig) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      context.showKlanySnackBar(
         const SnackBar(
           content: Text('Заполните .env (API_BASE_URL) чтобы отправить заявку'),
         ),
@@ -100,7 +103,7 @@ class _ChildRequestAccessPageState
             phone: _phone.text,
             email: _email.text,
             childFirstName: _firstName.text,
-            password: _password.text.trim(),
+            password: _password.text,
             familyCode: familyCode,
             parentContact: parentContact,
             device: device,
@@ -109,9 +112,7 @@ class _ChildRequestAccessPageState
       context.go('/auth/child/wait?requestId=$requestId');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не удалось отправить заявку: $e')),
-      );
+      context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -126,168 +127,168 @@ class _ChildRequestAccessPageState
       });
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_registered ? 'Ребёнок: запрос доступа' : 'Ребёнок: регистрация'),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _registered
-                          ? 'Шаг 2/2. Найдите семью по ID семьи, почте или телефону родителя.'
-                          : 'Шаг 1/2. Зарегистрируйте ребёнка по полям:\n'
-                              'телефон, мейл, имя, пароль, айди устройства.',
+    return ClanAuthScaffold(
+      leading: const ClanBackButton(),
+      title: _registered ? 'Ребёнок: запрос доступа' : 'Ребёнок: регистрация',
+      subtitle: _registered
+          ? 'Шаг 2/2. Найдите семью по ID семьи, почте или телефону родителя.'
+          : 'Шаг 1/2. Зарегистрируйте ребёнка: телефон, мейл, имя, пароль, айди устройства.',
+      children: [
+        Form(
+          key: _formKey,
+          child: ChildSoftCard(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!_registered) ...[
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: clanInputDecoration(
+                      label: 'Телефон',
+                      icon: Icons.phone,
                     ),
+                    validator: (v) {
+                      final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      return digits.length < 10
+                          ? 'Введите корректный телефон'
+                          : null;
+                    },
                   ),
                   const SizedBox(height: 12),
-                  if (!_registered) ...[
-                    TextFormField(
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Телефон',
-                        prefixIcon: Icon(Icons.phone),
-                      ),
-                      validator: (v) {
-                        final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                        return digits.length < 10 ? 'Введите корректный телефон' : null;
-                      },
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: clanInputDecoration(
+                      label: 'Мейл',
+                      icon: Icons.alternate_email,
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Мейл',
-                        prefixIcon: Icon(Icons.alternate_email),
-                      ),
-                      validator: (v) {
-                        final value = (v ?? '').trim();
-                        return value.contains('@') ? null : 'Введите корректный мейл';
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _firstName,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'Имя',
-                        prefixIcon: Icon(Icons.child_care),
-                      ),
-                      validator: (v) => (v ?? '').trim().isEmpty ? 'Введите имя' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Пароль',
-                        prefixIcon: Icon(Icons.lock),
-                      ),
-                      validator: (v) {
-                        final value = (v ?? '').trim();
-                        return value.length < 6 ? 'Минимум 6 символов' : null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _deviceId,
-                      readOnly: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Айди устройства',
-                        prefixIcon: Icon(Icons.smartphone),
-                      ),
-                    ),
-                  ] else ...[
-                    DropdownButtonFormField<_AccessLookupType>(
-                      value: _lookupType,
-                      decoration: const InputDecoration(
-                        labelText: 'Способ поиска семьи',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: _AccessLookupType.familyId,
-                          child: Text('ID семьи'),
-                        ),
-                        DropdownMenuItem(
-                          value: _AccessLookupType.parentEmail,
-                          child: Text('Почта родителя'),
-                        ),
-                        DropdownMenuItem(
-                          value: _AccessLookupType.parentPhone,
-                          child: Text('Телефон родителя'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _lookupType = value);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _lookupType == _AccessLookupType.familyId
-                          ? _familyCode
-                          : _parentContact,
-                      keyboardType: _lookupType == _AccessLookupType.parentPhone
-                          ? TextInputType.phone
-                          : TextInputType.text,
-                      textCapitalization: _lookupType == _AccessLookupType.familyId
-                          ? TextCapitalization.characters
-                          : TextCapitalization.none,
-                      decoration: InputDecoration(
-                        labelText: _lookupType == _AccessLookupType.familyId
-                            ? 'Family ID'
-                            : _lookupType == _AccessLookupType.parentEmail
-                                ? 'Почта родителя'
-                                : 'Телефон родителя',
-                        prefixIcon: Icon(
-                          _lookupType == _AccessLookupType.familyId
-                              ? Icons.groups_2
-                              : _lookupType == _AccessLookupType.parentEmail
-                                  ? Icons.alternate_email
-                                  : Icons.phone,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _busy
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      return value.contains('@')
                           ? null
-                          : (_registered ? _submitAccessRequest : _goToAccessStep),
-                      child: _busy
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(_registered ? 'Запросить доступ' : 'Зарегистрироваться'),
+                          : 'Введите корректный мейл';
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _firstName,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: clanInputDecoration(
+                      label: 'Имя',
+                      icon: Icons.child_care,
+                    ),
+                    validator: (v) =>
+                        (v ?? '').trim().isEmpty ? 'Введите имя' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: clanInputDecoration(
+                      label: 'Пароль',
+                      icon: Icons.lock,
+                    ),
+                    validator: (v) => KlanyPasswordRules.validatePlain(v ?? ''),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _deviceId,
+                    readOnly: true,
+                    decoration: clanInputDecoration(
+                      label: 'Айди устройства',
+                      icon: Icons.smartphone,
                     ),
                   ),
-                  if (_registered) ...[
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: _busy ? null : () => setState(() => _registered = false),
-                      child: const Text('Изменить данные регистрации'),
+                ] else ...[
+                  DropdownButtonFormField<_AccessLookupType>(
+                    initialValue: _lookupType,
+                    decoration: clanInputDecoration(
+                      label: 'Способ поиска семьи',
+                      icon: Icons.search,
                     ),
-                  ],
+                    items: const [
+                      DropdownMenuItem(
+                        value: _AccessLookupType.familyId,
+                        child: Text('ID семьи'),
+                      ),
+                      DropdownMenuItem(
+                        value: _AccessLookupType.parentEmail,
+                        child: Text('Почта родителя'),
+                      ),
+                      DropdownMenuItem(
+                        value: _AccessLookupType.parentPhone,
+                        child: Text('Телефон родителя'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _lookupType = value);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _lookupType == _AccessLookupType.familyId
+                        ? _familyCode
+                        : _parentContact,
+                    keyboardType:
+                        _lookupType == _AccessLookupType.parentPhone
+                            ? TextInputType.phone
+                            : TextInputType.text,
+                    textCapitalization:
+                        _lookupType == _AccessLookupType.familyId
+                            ? TextCapitalization.characters
+                            : TextCapitalization.none,
+                    decoration: clanInputDecoration(
+                      label: _lookupType == _AccessLookupType.familyId
+                          ? 'Family ID'
+                          : _lookupType == _AccessLookupType.parentEmail
+                              ? 'Почта родителя'
+                              : 'Телефон родителя',
+                      icon: _lookupType == _AccessLookupType.familyId
+                          ? Icons.groups_2
+                          : _lookupType == _AccessLookupType.parentEmail
+                              ? Icons.alternate_email
+                              : Icons.phone,
+                    ),
+                  ),
                 ],
-              ),
+                const SizedBox(height: 18),
+                ClanPrimaryButton(
+                  label: _registered
+                      ? 'Запросить доступ'
+                      : 'Зарегистрироваться',
+                  icon: _registered ? Icons.send : Icons.person_add,
+                  busy: _busy,
+                  onPressed: _busy
+                      ? null
+                      : (_registered
+                          ? _submitAccessRequest
+                          : _goToAccessStep),
+                ),
+                if (_registered) ...[
+                  const SizedBox(height: 6),
+                  Center(
+                    child: TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _registered = false),
+                      child: const Text(
+                        'Изменить данные регистрации',
+                        style: TextStyle(
+                          color: kChildBrandBlue,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

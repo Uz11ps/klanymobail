@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 
 import { Roles } from "../auth/roles/roles.decorator";
@@ -60,6 +60,13 @@ export class ChildController {
   @Roles("child")
   async myAuthCode(@Req() req: any) {
     return this.child.getMyAuthCode(req.user);
+  }
+
+  @Patch("child/me/avatar")
+  @UseGuards(AuthGuard("jwt"), RolesGuard)
+  @Roles("child")
+  async setMyAvatar(@Req() req: any, @Body() body: { objectKey?: string }) {
+    return this.child.setMyAvatar(req.user, body?.objectKey ?? "");
   }
 }
 

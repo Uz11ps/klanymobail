@@ -3,6 +3,13 @@ import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 import { AuthService } from "../auth/auth.service";
+import { assertKlanyPasswordPlain } from "../auth/password-policy";
+import {
+  childAuthCodeFormatError,
+  generateChildAuthCode,
+  isValidChildAuthCodeFormat,
+  resolveChildAuthCodeForLookup,
+} from "../auth/child-auth-code.util";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -11,10 +18,6 @@ type ChildUser = {
   familyId: string;
   childId: string;
 };
-
-function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
-}
 
 @Injectable()
 export class ChildService {
@@ -50,7 +53,6 @@ export class ChildService {
     const emailRaw = (input.email ?? "").trim();
     const parentContactRaw = (input.parentContact ?? "").trim();
     const firstName = (input.firstName ?? "").trim();
-    const password = (input.password ?? "").trim();
     const familyCode = (input.familyCode ?? "").trim().toUpperCase();
     const deviceId = (input.deviceId ?? "").trim();
     const deviceKey = (input.deviceKey ?? "").trim();
@@ -62,7 +64,7 @@ export class ChildService {
     if (!normalizedEmail || !normalizedEmail.includes("@")) {
       throw new BadRequestException("email обязателен");
     }
-    if (password.length < 6) throw new BadRequestException("password минимум 6 символов");
+    const validatedPassword = assertKlanyPasswordPlain(input.password ?? "");
     if (!deviceId || !deviceKey) throw new BadRequestException("deviceId/deviceKey обязательны");
     if (!familyCode && !parentContactRaw) {
       throw new BadRequestException("Укажите Family ID или контакт родителя");
@@ -105,7 +107,7 @@ export class ChildService {
     }
 
     if (!family) throw new NotFoundException("Семья не найдена");
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(validatedPassword, 10);
 
     const row = await this.prisma.childAccessRequest.create({
       data: {
@@ -175,6 +177,7 @@ export class ChildService {
       childId: req.childId,
       familyId: req.familyId,
       childDisplayName,
+      avatarObjectKey: child?.avatarObjectKey ?? null,
     };
   }
 
@@ -212,7 +215,13 @@ export class ChildService {
     const child = await this.prisma.child.findUnique({ where: { id: session.childId } });
     const childDisplayName = child ? [child.firstName, child.lastName].filter(Boolean).join(" ").trim() : "";
 
-    return { accessToken, childId: session.childId, familyId: session.familyId, childDisplayName };
+    return {
+      accessToken,
+      childId: session.childId,
+      familyId: session.familyId,
+      childDisplayName,
+      avatarObjectKey: child?.avatarObjectKey ?? null,
+    };
   }
 
   async signInWithPassword(input: {
@@ -294,14 +303,17 @@ export class ChildService {
       familyId: child.familyId,
       childId: child.id,
       childDisplayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
+      avatarObjectKey: child.avatarObjectKey ?? null,
     };
   }
 
   async signInWithAuthCode(input: { authCode: string; deviceId: string; deviceKey: string }) {
-    const authCode = (input.authCode ?? "").trim();
+    const authCode = resolveChildAuthCodeForLookup(input.authCode);
     const deviceId = (input.deviceId ?? "").trim();
     const deviceKey = (input.deviceKey ?? "").trim();
-    if (!/^\d{6}$/.test(authCode)) throw new BadRequestException("authCode должен состоять из 6 цифр");
+    if (!isValidChildAuthCodeFormat(input.authCode)) {
+      throw new BadRequestException(childAuthCodeFormatError());
+    }
     if (!deviceId || !deviceKey) throw new BadRequestException("deviceId/deviceKey обязательны");
 
     const child = await this.prisma.child.findFirst({ where: { authCode } });
@@ -354,6 +366,7 @@ export class ChildService {
       familyId: child.familyId,
       childId: child.id,
       childDisplayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
+      avatarObjectKey: child.avatarObjectKey ?? null,
     };
   }
 
@@ -377,6 +390,21 @@ export class ChildService {
       }
     }
     throw new BadRequestException("Не удалось сгенерировать код входа");
+  }
+
+  async setMyAvatar(user: ChildUser, objectKeyRaw: string) {
+    if (user.role !== "child") throw new ForbiddenException("Недостаточно прав");
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const prefix = `avatars/families/${user.familyId}/children/${user.childId}/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    await this.prisma.child.update({
+      where: { id: user.childId },
+      data: { avatarObjectKey: key },
+    });
+    return { ok: true, avatarObjectKey: key };
   }
 }
 

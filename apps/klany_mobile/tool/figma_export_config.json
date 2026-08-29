@@ -1,0 +1,53 @@
+{
+  "comment": "node-id из URL: …node-id=118-1252 → \"118:1252\". Свой \"fileKey\" у строк для другого файла Figma. export: cd apps/klany_mobile && dart run tool/figma_export.dart export",
+
+  "fileKey": "z72tmzXGfrKzFPQMqrL1ZB",
+
+  "exports": [
+
+    { "comment": "Экран ребёнка (iPhone 17 - 34) — файл kwVuEbSWPdrTEFsrIvZVB3" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1304", "path": "assets/figma/nav_refresh.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "146:189", "path": "assets/figma/child_nav_menu_dots.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1309", "path": "assets/figma/nav_home_filled.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "119:1349", "path": "assets/figma/nav_assignment.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "118:1307", "path": "assets/figma/nav_shop.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "166:409", "path": "assets/figma/profile_coin_stack.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "166:409", "path": "assets/figma/profile_coin_stack.png", "format": "png", "scale": 3 },
+
+    { "comment": "Разделитель секций (линия как в фрейме, PNG @2×)" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "162:306", "path": "assets/figma/child_dashboard_divider.png", "format": "png", "scale": 2 },
+
+    { "comment": "Bottom sheet «Создать задачу» node 256:447" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "251:337", "path": "assets/figma/quest_create_calendar.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "251:330", "path": "assets/figma/quest_create_alarm.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:610", "path": "assets/figma/quest_create_chevron.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:566", "path": "assets/figma/quest_create_radio_on.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:559", "path": "assets/figma/quest_create_radio_off.svg" },
+    { "fileKey": "kwVuEbSWPdrTEFsrIvZVB3", "nodeId": "245:647", "path": "assets/figma/quest_create_coin.png", "format": "png", "scale": 2 },
+
+    { "comment": "В файле kwVu на макете выбран «Дом» — отдельной outline-ноды нет в фрейме; outline из legacy z72 или найти: dart run … suggest 118:1305 --file=kwVuEbSWPdrTEFsrIvZVB3" },
+    { "nodeId": "0:134", "path": "assets/figma/nav_home_outline.svg" },
+
+    { "comment": "Parent main nav + биржа (YsSajeAgXSHK88ETbeV4N9)" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:144;405:619", "path": "assets/figma/parent_nav_home.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:148;405:252", "path": "assets/figma/parent_nav_exchange.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:152;405:1026", "path": "assets/figma/parent_nav_shop.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1434;405:96", "path": "assets/figma/exchange_back_arrow.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1494;405:891", "path": "assets/figma/exchange_fab_plus.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "I1:1618;403:56", "path": "assets/figma/exchange_chevron_right.svg" },
+
+    { "comment": "Parent shop nav (YsSaje node 1:904)" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:906", "path": "assets/figma/parent_shop_nav_catalog.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:908", "path": "assets/figma/parent_shop_nav_add.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:910", "path": "assets/figma/parent_shop_nav_requests.svg" },
+    { "fileKey": "YsSajeAgXSHK88ETbeV4N9", "nodeId": "1:912", "path": "assets/figma/parent_shop_nav_economy.svg" },
+
+    { "comment": "Файл z72tmzXGfrKzFPQMqrL1ZB (родитель / прочее)" },
+    { "nodeId": "0:136", "path": "assets/figma/nav_tune.svg" },
+    { "nodeId": "0:852", "path": "assets/figma/shop_nav_list.svg" },
+    { "nodeId": "0:854", "path": "assets/figma/shop_nav_plus.svg" },
+    { "nodeId": "0:856", "path": "assets/figma/shop_nav_bag.svg" },
+    { "nodeId": "0:1781", "path": "assets/figma/onboarding_sign_out.svg" },
+    { "nodeId": "0:1783", "path": "assets/figma/onboarding_chevron_right.svg" }
+  ]
+}

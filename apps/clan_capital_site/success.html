@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clan Capital — оплата прошла</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div class="logo">CLAN CAPITAL</div>
+    </header>
+
+    <div class="success-card" id="card">
+      <div class="check">✓</div>
+      <h1 id="title">Оплата принята</h1>
+      <p id="subtitle" class="copy-hint">Проверяем платёж…</p>
+
+      <div id="codeBlock" style="display:none">
+        <div class="promo-code" id="promoCode">— — — —</div>
+        <p class="copy-hint">Скопируйте код и введите его в приложении:<br>
+          «Настройки» → «Управлять подпиской» → «Активировать промо-код»</p>
+        <button class="btn btn-outline" id="copyBtn" style="max-width:240px;margin:0 auto 14px;">
+          Скопировать код
+        </button>
+        <br>
+        <a class="app-cta" id="openAppLink" href="clancapital://activate">
+          Открыть приложение
+        </a>
+      </div>
+
+      <div id="errorBlock" style="display:none;color:#D83A3A">
+        <p id="errorMsg">Ошибка</p>
+        <a href="/" class="btn btn-outline" style="max-width:240px;margin:14px auto 0;">На главную</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = window.API_BASE || 'http://31.31.201.32:8782/api';
+    const paymentId = new URLSearchParams(location.search).get('payment_id')
+      || localStorage.getItem('cc_payment_id');
+
+    const codeBlock = document.getElementById('codeBlock');
+    const errorBlock = document.getElementById('errorBlock');
+    const errorMsg = document.getElementById('errorMsg');
+    const promoCode = document.getElementById('promoCode');
+    const subtitle = document.getElementById('subtitle');
+    const copyBtn = document.getElementById('copyBtn');
+
+    function showError(msg) {
+      subtitle.style.display = 'none';
+      errorBlock.style.display = 'block';
+      errorMsg.textContent = msg;
+    }
+
+    async function poll(attempt) {
+      if (!paymentId) {
+        showError('Не передан идентификатор платежа.');
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/payments/${paymentId}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.status === 'succeeded' && data.promoCode) {
+          subtitle.textContent = 'Код активации Premium-подписки';
+          promoCode.textContent = data.promoCode;
+          codeBlock.style.display = 'block';
+          document.getElementById('openAppLink').href =
+            `clancapital://activate?code=${encodeURIComponent(data.promoCode)}`;
+          return;
+        }
+        if (data.status === 'canceled' || data.status === 'failed') {
+          showError('Платёж не прошёл. Попробуйте ещё раз.');
+          return;
+        }
+        if (attempt < 20) {
+          setTimeout(() => poll(attempt + 1), 1500);
+        } else {
+          showError('Ожидание ответа от ЮKassa слишком долгое. Проверьте e-mail или напишите в поддержку.');
+        }
+      } catch (err) {
+        if (attempt < 5) {
+          setTimeout(() => poll(attempt + 1), 2000);
+        } else {
+          showError('Не удалось получить данные платежа: ' + err.message);
+        }
+      }
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(promoCode.textContent.trim());
+        copyBtn.textContent = 'Скопировано!';
+        setTimeout(() => (copyBtn.textContent = 'Скопировать код'), 1500);
+      } catch (_) {
+        // ignore
+      }
+    });
+
+    poll(0);
+  </script>
+</body>
+</html>

@@ -29,10 +29,11 @@ PostJson "$BaseUrl/notifications/devices/register" @{ platform = "smoke"; pushTo
 # Recovery request should succeed and not leak existence
 PostJson "$BaseUrl/auth/recover" @{ phone = $parentPhone } | Out-Null
 
-# Optional: integration health (requires CRON_SECRET; loaded from local .env.server if present)
+# Optional: integration health (requires CRON_SECRET; loaded from local .env if present)
 try {
-  if (Test-Path ".env.server") {
-    $cron = (Get-Content ".env.server" | Where-Object { $_ -match '^CRON_SECRET=' } | Select-Object -First 1)
+  $envLocal = if (Test-Path ".env") { ".env" } elseif (Test-Path ".env.server") { ".env.server" } else { $null }
+  if ($envLocal) {
+    $cron = (Get-Content $envLocal | Where-Object { $_ -match '^CRON_SECRET=' } | Select-Object -First 1)
     if ($cron) {
       $secret = $cron.Split("=", 2)[1].Trim()
       if ($secret) {

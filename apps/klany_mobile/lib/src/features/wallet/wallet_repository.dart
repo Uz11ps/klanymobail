@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
 
@@ -12,10 +13,24 @@ class WalletSummary {
   WalletSummary({
     required this.walletId,
     required this.balance,
+    this.goalAmount = 10000,
+    this.goalName,
+    this.familySavingsTotal = 0,
+    this.completedQuestsCount = 0,
+    this.shopFrozenAmount = 0,
   });
 
   final String walletId;
   final int balance;
+  /// Family savings goal from `/wallet/child` (audit «family_goal_set»).
+  final int goalAmount;
+  final String? goalName;
+  /// Sum of all child wallet balances in the family.
+  final int familySavingsTotal;
+  /// Число одобренных квестов (бекенд не отдаёт их в `/quests/child/assignments`).
+  final int completedQuestsCount;
+  /// Монеты, замороженные под заявки в магазине (status `requested`).
+  final int shopFrozenAmount;
 }
 
 class WalletTxItem {
@@ -39,11 +54,15 @@ class ParentChildWalletItem {
     required this.childId,
     required this.displayName,
     required this.balance,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String childId;
   final String displayName;
   final int balance;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 class WalletRepository {
@@ -63,6 +82,14 @@ class WalletRepository {
     return WalletSummary(
       walletId: (data['walletId'] ?? '').toString(),
       balance: (data['balance'] as num?)?.toInt() ?? 0,
+      goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+      goalName: (data['goalName']?.toString() ?? '').trim().isEmpty
+          ? null
+          : data['goalName']?.toString(),
+      familySavingsTotal: (data['familySavingsTotal'] as num?)?.toInt() ?? 0,
+      completedQuestsCount:
+          (data['completedQuestsCount'] as num?)?.toInt() ?? 0,
+      shopFrozenAmount: (data['shopFrozenAmount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -93,15 +120,25 @@ class WalletRepository {
     final data = await api.getJson('/wallet/family', accessToken: token);
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => ParentChildWalletItem(
-            childId: row['childId'].toString(),
-            displayName: (row['displayName'] ?? '').toString(),
-            balance: (row['balance'] as num?)?.toInt() ?? 0,
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final avatarImageUrl = (objectKey != null && objectKey.isNotEmpty)
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: objectKey,
+              )
+            : null;
+        return ParentChildWalletItem(
+          childId: row['childId'].toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          balance: (row['balance'] as num?)?.toInt() ?? 0,
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<void> adjustWallet({

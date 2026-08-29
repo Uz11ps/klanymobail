@@ -1,0 +1,21 @@
+{
+  "comment": "Скопируй в figma_export_config.json. Необязательные поля: fileKey у строкы, format (svg|png|jpg), scale для raster.",
+
+  "fileKey": "YOUR_LEGACY_FILE_KEY",
+
+  "exports": [
+    {
+      "fileKey": "YOUR_CHILD_HOME_FILE_KEY",
+      "nodeId": "118:1304",
+      "path": "assets/figma/nav_refresh.svg"
+    },
+    {
+      "fileKey": "YOUR_CHILD_HOME_FILE_KEY",
+      "nodeId": "162:306",
+      "path": "assets/figma/child_dashboard_divider.png",
+      "format": "png",
+      "scale": 2
+    },
+    { "nodeId": "0:129", "path": "assets/figma/other_from_default_file.svg" }
+  ]
+}

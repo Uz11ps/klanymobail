@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import 'child_session.dart';
 import 'parent_session.dart';
 
@@ -14,6 +15,7 @@ class AuthActions {
   Future<void> signOut() async {
     await ref.read(parentSessionProvider.notifier).clear();
     await ref.read(childSessionProvider.notifier).clear();
+    clearPresignStorageDownloadCache();
   }
 
   Future<void> parentSignIn({
@@ -54,6 +56,19 @@ class AuthActions {
         );
   }
 
+  /// `true`, если указанный email уже зарегистрирован (для потока «Продолжить» главы клана).
+  Future<bool> isParentEmailRegistered(String email) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) {
+      throw StateError('Sdk.api');
+    }
+    final data = await api.getJson(
+      '/auth/parent-email-registered',
+      query: {'email': email.trim()},
+    );
+    return data['registered'] == true;
+  }
+
   Future<void> parentSignInByCode({
     required String code,
   }) async {
@@ -78,18 +93,25 @@ class AuthActions {
     required String password,
     String? displayName,
     String? recoveryEmail,
+    String? email,
   }) async {
     final api = Sdk.apiOrNull;
     if (api == null) return;
 
+    final trimmedRecovery = recoveryEmail?.trim();
+    final trimmedEmail =
+        email?.trim() ?? trimmedRecovery ?? '';
+
     final data = await api.postJson(
       '/auth/sign-up',
       body: <String, dynamic>{
-        'email': recoveryEmail?.trim(),
+        if (trimmedEmail.isNotEmpty) 'email': trimmedEmail,
         'phone': phone.trim(),
         'password': password,
-        'displayName': displayName?.trim(),
-        'recoveryEmail': recoveryEmail?.trim(),
+        if ((displayName ?? '').trim().isNotEmpty)
+          'displayName': displayName!.trim(),
+        if (trimmedRecovery != null && trimmedRecovery.isNotEmpty)
+          'recoveryEmail': trimmedRecovery,
       },
     );
     await ref.read(parentSessionProvider.notifier).setSession(
@@ -114,5 +136,48 @@ class AuthActions {
       },
     );
   }
+
+  /// Письмо Resend с 6-значным кодом для сброса пароля в приложении.
+  Future<void> requestPasswordReset({required String email}) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/forgot-password',
+      body: <String, dynamic>{'email': email.trim()},
+    );
+  }
+
+  Future<void> verifyPasswordResetCode({
+    required String email,
+    required String code,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/verify-reset-code',
+      body: <String, dynamic>{
+        'email': email.trim(),
+        'code': code.trim(),
+      },
+    );
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String password,
+  }) async {
+    final api = Sdk.apiOrNull;
+    if (api == null) throw StateError('Sdk.api');
+    await api.postJson(
+      '/auth/reset-password',
+      body: <String, dynamic>{
+        'email': email.trim(),
+        'code': code.trim(),
+        'password': password,
+      },
+    );
+  }
+
 }
 

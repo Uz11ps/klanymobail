@@ -20,8 +20,20 @@ export class ParentController {
 
   @Post("family/goal")
   @Roles("parent", "admin")
-  async setFamilyGoal(@Req() req: any, @Body() body: { goalAmount: number }) {
-    return this.parent.setFamilyGoal(req.user, body.goalAmount);
+  async setFamilyGoal(@Req() req: any, @Body() body: { goalAmount: number; goalName?: string }) {
+    return this.parent.setFamilyGoal(req.user, body.goalAmount, body.goalName);
+  }
+
+  @Post("family/coin-rate")
+  @Roles("parent", "admin")
+  async setFamilyCoinRate(@Req() req: any, @Body() body: { rublesPer10Coins: number }) {
+    return this.parent.setFamilyCoinRate(req.user, body.rublesPer10Coins);
+  }
+
+  @Post("family/global-tax")
+  @Roles("parent", "admin")
+  async setFamilyGlobalTaxRate(@Req() req: any, @Body() body: { taxRate: number }) {
+    return this.parent.setFamilyGlobalTaxRate(req.user, body.taxRate);
   }
 
   @Get("parent/access-requests")
@@ -40,6 +52,18 @@ export class ParentController {
   @Roles("parent", "admin")
   async reject(@Req() req: any, @Param("id") id: string, @Body() body: { reason?: string }) {
     return this.parent.rejectAccessRequest(req.user, id, body?.reason ?? null);
+  }
+
+  @Patch("parent/me/profile")
+  @Roles("parent", "admin")
+  async updateMyProfile(@Req() req: any, @Body() body: { displayName?: string }) {
+    return this.parent.updateMyProfile(req.user, body);
+  }
+
+  @Patch("parent/me/avatar")
+  @Roles("parent", "admin")
+  async setMyAvatar(@Req() req: any, @Body() body: { objectKey?: string }) {
+    return this.parent.setMyAvatar(req.user, body?.objectKey ?? "");
   }
 
   @Get("parent/members")
@@ -67,6 +91,16 @@ export class ParentController {
     @Body() body: { memberType?: string; role?: string; displayName: string },
   ) {
     return this.parent.createFamilyMemberCode(req.user, body);
+  }
+
+  @Patch("parent/member-codes/:id/avatar")
+  @Roles("parent", "admin")
+  async setMemberCodeAvatar(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() body: { objectKey: string },
+  ) {
+    return this.parent.setMemberCodeAvatar(req.user, id, body?.objectKey ?? "");
   }
 
   @Post("parent/member-codes/:id/regenerate")

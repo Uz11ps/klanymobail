@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api_client.dart';
+import '../home/avatar_store.dart';
 import 'device_identity.dart';
 import 'passwordless_child_repository.dart';
 
@@ -10,12 +12,14 @@ class ChildSession {
     required this.familyId,
     required this.childDisplayName,
     required this.accessToken,
+    this.avatarObjectKey,
   });
 
   final String childId;
   final String familyId;
   final String childDisplayName;
   final String accessToken;
+  final String? avatarObjectKey;
 }
 
 final passwordlessChildRepositoryProvider = Provider<PasswordlessChildRepository>(
@@ -33,6 +37,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
   static const _kChildDisplayName = 'child_session_child_display_name';
   static const _kAccessToken = 'child_session_access_token';
   static const _kRestoreHint = 'child_session_restore_hint';
+  static const _kAvatarObjectKey = 'child_session_avatar_object_key';
 
   @override
   Future<ChildSession?> build() async {
@@ -42,6 +47,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     final savedDisplayName = prefs.getString(_kChildDisplayName);
     final savedAccessToken = prefs.getString(_kAccessToken);
     final restoreHint = prefs.getBool(_kRestoreHint) ?? false;
+    final savedAvatarKey = prefs.getString(_kAvatarObjectKey);
 
     if ((savedChildId ?? '').isNotEmpty &&
         (savedFamilyId ?? '').isNotEmpty &&
@@ -51,6 +57,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
         familyId: savedFamilyId!,
         childDisplayName: savedDisplayName ?? '',
         accessToken: savedAccessToken!,
+        avatarObjectKey: savedAvatarKey,
       );
     }
 
@@ -72,6 +79,7 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
       familyId: restored.familyId,
       childDisplayName: restored.childDisplayName,
       accessToken: restored.accessToken,
+      avatarObjectKey: restored.avatarObjectKey,
     );
     await _save(session);
     return session;
@@ -82,12 +90,14 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     required String familyId,
     required String childDisplayName,
     required String accessToken,
+    String? avatarObjectKey,
   }) async {
     final session = ChildSession(
       childId: childId,
       familyId: familyId,
       childDisplayName: childDisplayName,
       accessToken: accessToken,
+      avatarObjectKey: avatarObjectKey,
     );
     await _save(session);
     state = AsyncData(session);
@@ -100,29 +110,63 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     await prefs.remove(_kChildDisplayName);
     await prefs.remove(_kAccessToken);
     await prefs.remove(_kRestoreHint);
+    await prefs.remove(_kAvatarObjectKey);
     state = const AsyncData(null);
   }
 
   Future<bool> validateStillActive() async {
     final device = await DeviceIdentityStore.getOrCreate();
-    final restored = await ref
-        .read(passwordlessChildRepositoryProvider)
-        .restoreSession(device);
-    if (restored == null) {
-      await clear();
-      return false;
-    }
+    try {
+      final restored = await ref
+          .read(passwordlessChildRepositoryProvider)
+          .restoreSession(device);
+      // null = нет API, таймаут или сеть — сохранённую сессию не сбрасываем.
+      if (restored == null) {
+        return true;
+      }
 
-    final current = state.asData?.value;
-    if (current == null || current.childId != restored.childId) {
-      await activateFromApproval(
-        childId: restored.childId,
-        familyId: restored.familyId,
-        childDisplayName: restored.childDisplayName,
-        accessToken: restored.accessToken,
-      );
+      final current = state.asData?.value;
+      if (current == null || current.childId != restored.childId) {
+        await activateFromApproval(
+          childId: restored.childId,
+          familyId: restored.familyId,
+          childDisplayName: restored.childDisplayName,
+          accessToken: restored.accessToken,
+          avatarObjectKey: restored.avatarObjectKey,
+        );
+      } else if (current.avatarObjectKey != restored.avatarObjectKey ||
+          current.accessToken != restored.accessToken) {
+        await activateFromApproval(
+          childId: restored.childId,
+          familyId: restored.familyId,
+          childDisplayName: restored.childDisplayName,
+          accessToken: restored.accessToken,
+          avatarObjectKey: restored.avatarObjectKey,
+        );
+      }
+      return true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await clear();
+        return false;
+      }
+      return true;
     }
-    return true;
+  }
+
+  Future<void> setAvatarObjectKey(String? key) async {
+    final cur = state.asData?.value;
+    if (cur == null) return;
+    final next = ChildSession(
+      childId: cur.childId,
+      familyId: cur.familyId,
+      childDisplayName: cur.childDisplayName,
+      accessToken: cur.accessToken,
+      avatarObjectKey: key,
+    );
+    await _save(next);
+    state = AsyncData(next);
+    avatarVersion.value++;
   }
 
   Future<void> _save(ChildSession session) async {
@@ -132,6 +176,11 @@ class ChildSessionNotifier extends AsyncNotifier<ChildSession?> {
     await prefs.setString(_kChildDisplayName, session.childDisplayName);
     await prefs.setString(_kAccessToken, session.accessToken);
     await prefs.setBool(_kRestoreHint, true);
+    if ((session.avatarObjectKey ?? '').isEmpty) {
+      await prefs.remove(_kAvatarObjectKey);
+    } else {
+      await prefs.setString(_kAvatarObjectKey, session.avatarObjectKey!);
+    }
   }
 }
 

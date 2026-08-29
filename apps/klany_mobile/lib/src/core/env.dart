@@ -1,8 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// Default API when `.env` is missing (current staging server over HTTP).
+const kDefaultApiBaseUrl = 'http://31.31.201.32:8782/api';
+
 class Env {
-  static String get apiBaseUrl => (_read('API_BASE_URL') ?? '').trim();
+  static String get apiBaseUrl {
+    final value = (_read('API_BASE_URL') ?? '').trim();
+    return value.isEmpty ? kDefaultApiBaseUrl : value;
+  }
 
   static String get kidsEmailDomain =>
       ((_read('KIDS_EMAIL_DOMAIN') ?? '').trim().isNotEmpty)

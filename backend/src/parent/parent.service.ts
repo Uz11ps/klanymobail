@@ -3,6 +3,14 @@ import * as bcrypt from "bcrypt";
 import { randomUUID } from "crypto";
 
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  generateChildAuthCode,
+} from "../auth/child-auth-code.util";
+import {
+  clampGlobalTaxRate,
+  getFamilyGlobalTaxRate,
+} from "../family/family-global-tax.util";
+import { getFamilyGoal, getFamilySavingsTotal } from "../family/family-goal.util";
 
 type ParentUser = {
   userId: string;
@@ -10,16 +18,12 @@ type ParentUser = {
   familyId?: string | null;
 };
 
-type FamilyMemberType = "mom" | "child" | "grandma" | "grandpa";
+type FamilyMemberType = "mom" | "dad" | "child" | "grandma" | "grandpa";
 
 function ensureFamilyId(user: ParentUser): string {
   const familyId = user.familyId ?? null;
   if (!familyId) throw new ForbiddenException("Нет семьи");
   return familyId;
-}
-
-function generateChildAuthCode(): string {
-  return Math.floor(Math.random() * 1000000).toString().padStart(6, "0");
 }
 
 @Injectable()
@@ -30,11 +34,12 @@ export class ParentService {
     const memberType = (input.memberType ?? input.role ?? "").trim().toLowerCase();
     if (
       memberType !== "mom" &&
+      memberType !== "dad" &&
       memberType !== "child" &&
       memberType !== "grandma" &&
       memberType !== "grandpa"
     ) {
-      throw new BadRequestException("memberType должен быть mom/child/grandma/grandpa");
+      throw new BadRequestException("memberType должен быть mom/dad/child/grandma/grandpa");
     }
     return memberType;
   }
@@ -51,69 +56,187 @@ export class ParentService {
     throw new BadRequestException("Не удалось сгенерировать уникальный код");
   }
 
-  private async getFamilyGoalAmount(familyId: string): Promise<number> {
+  private async getFamilyRublesPer10Coins(familyId: string): Promise<number> {
     const row = await this.prisma.auditLog.findFirst({
-      where: { familyId, action: "family_goal_set" },
+      where: { familyId, action: "family_coin_rate_set" },
       orderBy: { createdAt: "desc" },
     });
-    const payload = (row?.payload ?? null) as { goalAmount?: number } | null;
-    const parsed = Math.trunc(Number(payload?.goalAmount ?? 0));
-    return parsed > 0 ? parsed : 10000;
-  }
-
-  private async ensurePremiumFamily(familyId: string): Promise<void> {
-    const activeSub = await this.prisma.familySubscription.findFirst({
-      where: { familyId, status: "active" },
-      orderBy: { startedAt: "desc" },
-    });
-    const isPremium = (activeSub?.planCode ?? "basic").toLowerCase() !== "basic";
-    if (!isPremium) {
-      throw new ForbiddenException("Аналитика доступна только на premium");
-    }
+    const payload = (row?.payload ?? null) as { rublesPer10Coins?: number } | null;
+    const parsed = Math.trunc(Number(payload?.rublesPer10Coins ?? 0));
+    return parsed > 0 ? parsed : 100;
   }
 
   async getFamilyContext(user: ParentUser) {
     const familyId = ensureFamilyId(user);
     const family = await this.prisma.family.findUnique({ where: { id: familyId } });
     if (!family) throw new NotFoundException("Семья не найдена");
-    const goalAmount = await this.getFamilyGoalAmount(family.id);
+    const [goal, familySavingsTotal, rublesPer10Coins, globalTaxRate] = await Promise.all([
+      getFamilyGoal(this.prisma, family.id),
+      getFamilySavingsTotal(this.prisma, family.id),
+      this.getFamilyRublesPer10Coins(family.id),
+      getFamilyGlobalTaxRate(this.prisma, family.id),
+    ]);
     return {
       familyId: family.id,
       familyCode: family.familyCode,
       clanName: family.clanName,
-      goalAmount,
+      goalAmount: goal.goalAmount,
+      goalName: goal.goalName,
+      familySavingsTotal,
+      rublesPer10Coins,
+      globalTaxRate,
     };
   }
 
-  async setFamilyGoal(user: ParentUser, goalAmountRaw: number) {
+  async setFamilyGoal(user: ParentUser, goalAmountRaw: number, goalNameRaw?: string) {
     const familyId = ensureFamilyId(user);
     const goalAmount = Math.trunc(Number(goalAmountRaw ?? 0));
     if (!Number.isFinite(goalAmount) || goalAmount <= 0) {
       throw new BadRequestException("goalAmount должен быть > 0");
     }
+    const goalName = (goalNameRaw ?? "").trim();
     await this.prisma.auditLog.create({
       data: {
         familyId,
         actorUserId: user.userId,
         action: "family_goal_set",
-        payload: { goalAmount },
+        payload: {
+          goalAmount,
+          ...(goalName ? { goalName } : {}),
+        },
       },
     });
-    return { ok: true, goalAmount };
+    return { ok: true, goalAmount, goalName: goalName || null };
+  }
+
+  async setFamilyCoinRate(user: ParentUser, rublesPer10CoinsRaw: number) {
+    const familyId = ensureFamilyId(user);
+    const rublesPer10Coins = Math.trunc(Number(rublesPer10CoinsRaw ?? 0));
+    if (!Number.isFinite(rublesPer10Coins) || rublesPer10Coins <= 0) {
+      throw new BadRequestException("rublesPer10Coins должен быть > 0");
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        familyId,
+        actorUserId: user.userId,
+        action: "family_coin_rate_set",
+        payload: { rublesPer10Coins },
+      },
+    });
+    return { ok: true, rublesPer10Coins };
+  }
+
+  async setFamilyGlobalTaxRate(user: ParentUser, taxRateRaw: number) {
+    const familyId = ensureFamilyId(user);
+    const raw = Number(taxRateRaw ?? 0);
+    if (!Number.isFinite(raw) || raw < 0 || raw > 0.5) {
+      throw new BadRequestException("taxRate должен быть от 0 до 0.5");
+    }
+    const taxRate = clampGlobalTaxRate(raw);
+    await this.prisma.auditLog.create({
+      data: {
+        familyId,
+        actorUserId: user.userId,
+        action: "family_global_tax_set",
+        payload: { taxRate },
+      },
+    });
+    return { ok: true, globalTaxRate: taxRate };
+  }
+
+  /** Имя в UI семьи (поле профиля `displayName`). */
+  async updateMyProfile(user: ParentUser, body: { displayName?: string }) {
+    const displayName = (body.displayName ?? "").trim();
+    if (!displayName) throw new BadRequestException("Укажите имя");
+
+    const updated = await this.prisma.profile.updateMany({
+      where: {
+        userId: user.userId,
+        role: { in: ["parent", "admin"] },
+      },
+      data: { displayName },
+    });
+    if (updated.count === 0) throw new NotFoundException("Профиль не найден");
+    return { ok: true as const, displayName };
+  }
+
+  /** Аватар текущего родителя/админа (`profiles.avatarObjectKey`). */
+  async setMyAvatar(user: ParentUser, objectKeyRaw: string) {
+    const familyId = ensureFamilyId(user);
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const prefix = `avatars/families/${familyId}/profiles/${user.userId}/`;
+    if (!key.startsWith(prefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    const updated = await this.prisma.profile.updateMany({
+      where: {
+        userId: user.userId,
+        familyId,
+        role: { in: ["parent", "admin"] },
+      },
+      data: { avatarObjectKey: key },
+    });
+    if (updated.count === 0) throw new NotFoundException("Профиль не найден");
+    return { ok: true as const, avatarObjectKey: key };
   }
 
   async listParentMembers(user: ParentUser) {
     const familyId = ensureFamilyId(user);
-    const rows = await this.prisma.profile.findMany({
+    const parentCodeRoles = ["mom", "dad", "grandma", "grandpa"] as const;
+
+    const profileRows = await this.prisma.profile.findMany({
       where: { familyId, role: { in: ["parent", "admin"] } },
-      orderBy: { createdAt: "asc" },
     });
+
+    const byUserId = new Map<string, (typeof profileRows)[number]>(
+      profileRows.map((p) => [p.userId, p]),
+    );
+
+    const linkedParentCodes = await this.prisma.familyMemberCode.findMany({
+      where: {
+        familyId,
+        role: { in: [...parentCodeRoles] },
+        userId: { not: null },
+      },
+    });
+
+    const codeNameByUserId = new Map<string, string>();
+    for (const code of linkedParentCodes) {
+      if (!code.userId) continue;
+      codeNameByUserId.set(code.userId, code.displayName);
+      if (byUserId.has(code.userId)) continue;
+
+      let profile = await this.prisma.profile.findUnique({ where: { userId: code.userId } });
+      if (!profile) continue;
+
+      if (profile.familyId !== familyId) {
+        profile = await this.prisma.profile.update({
+          where: { userId: code.userId },
+          data: {
+            familyId,
+            role: profile.role === "admin" ? "admin" : "parent",
+          },
+        });
+      }
+      byUserId.set(profile.userId, profile);
+    }
+
+    const rows = Array.from(byUserId.values()).sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
     return {
-      items: rows.map((p) => ({
-        userId: p.userId,
-        displayName: p.displayName ?? "Без имени",
-        role: p.role,
-      })),
+      items: rows.map((p) => {
+        const fallbackName = codeNameByUserId.get(p.userId);
+        const displayName = (p.displayName ?? "").trim() || fallbackName || "Без имени";
+        return {
+          userId: p.userId,
+          displayName,
+          role: p.role,
+          avatarObjectKey: p.avatarObjectKey ?? null,
+        };
+      }),
     };
   }
 
@@ -130,6 +253,7 @@ export class ParentService {
         lastName: c.lastName,
         displayName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim(),
         isActive: c.isActive,
+        avatarObjectKey: c.avatarObjectKey ?? null,
       })),
     };
   }
@@ -140,15 +264,81 @@ export class ParentService {
       where: { familyId },
       orderBy: { createdAt: "desc" },
     });
+    const childIds = rows.map((r) => r.childId).filter(Boolean) as string[];
+    const userIds = rows.map((r) => r.userId).filter(Boolean) as string[];
+    const [children, profiles] = await Promise.all([
+      this.prisma.child.findMany({
+        where: { id: { in: childIds } },
+        select: { id: true, avatarObjectKey: true },
+      }),
+      this.prisma.profile.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, avatarObjectKey: true },
+      }),
+    ]);
+    const childMap = new Map(children.map((c) => [c.id, c.avatarObjectKey ?? null]));
+    const profileMap = new Map(profiles.map((p) => [p.userId, p.avatarObjectKey ?? null]));
+
     return {
       items: rows.map((row) => ({
         id: row.id,
         role: row.role,
         code: row.code,
         displayName: row.displayName,
+        isActive: row.isActive,
         createdAt: row.createdAt,
+        avatarObjectKey: row.childId
+          ? childMap.get(row.childId) ?? null
+          : row.userId
+            ? profileMap.get(row.userId) ?? null
+            : null,
       })),
     };
+  }
+
+  async setMemberCodeAvatar(user: ParentUser, codeIdRaw: string, objectKeyRaw: string) {
+    const row = await this.getFamilyMemberCodeOrThrow(user, codeIdRaw);
+    const key = (objectKeyRaw ?? "").trim();
+    if (!key) throw new BadRequestException("objectKey обязателен");
+    const expectedPrefix = `avatars/families/${row.familyId}/members/${row.id}/`;
+    if (!key.startsWith(expectedPrefix)) {
+      throw new BadRequestException("Некорректный objectKey");
+    }
+    if (row.childId) {
+      await this.prisma.child.update({
+        where: { id: row.childId },
+        data: { avatarObjectKey: key },
+      });
+    } else if (row.userId) {
+      await this.prisma.profile.update({
+        where: { userId: row.userId },
+        data: { avatarObjectKey: key },
+      });
+    } else {
+      throw new BadRequestException("Код участника не привязан к профилю");
+    }
+    return { ok: true, avatarObjectKey: key };
+  }
+
+  private async avatarObjectKeyForMemberCode(mc: {
+    childId: string | null;
+    userId: string | null;
+  }): Promise<string | null> {
+    if (mc.childId) {
+      const c = await this.prisma.child.findUnique({
+        where: { id: mc.childId },
+        select: { avatarObjectKey: true },
+      });
+      return c?.avatarObjectKey ?? null;
+    }
+    if (mc.userId) {
+      const p = await this.prisma.profile.findUnique({
+        where: { userId: mc.userId },
+        select: { avatarObjectKey: true },
+      });
+      return p?.avatarObjectKey ?? null;
+    }
+    return null;
   }
 
   private async getFamilyMemberCodeOrThrow(user: ParentUser, idRaw: string) {
@@ -226,12 +416,19 @@ export class ParentService {
       return { memberCode };
     });
 
+    const avatarObjectKey = await this.avatarObjectKeyForMemberCode({
+      childId: result.memberCode.childId,
+      userId: result.memberCode.userId,
+    });
+
     return {
       id: result.memberCode.id,
       role: result.memberCode.role,
       code: result.memberCode.code,
       displayName: result.memberCode.displayName,
+      isActive: result.memberCode.isActive,
       createdAt: result.memberCode.createdAt,
+      avatarObjectKey,
     };
   }
 
@@ -253,12 +450,18 @@ export class ParentService {
       }
       return nextRow;
     });
+    const avatarObjectKey = await this.avatarObjectKeyForMemberCode({
+      childId: updated.childId,
+      userId: updated.userId,
+    });
     return {
       id: updated.id,
       role: updated.role,
       code: updated.code,
       displayName: updated.displayName,
+      isActive: updated.isActive,
       createdAt: updated.createdAt,
+      avatarObjectKey,
     };
   }
 
@@ -316,6 +519,7 @@ export class ParentService {
       childId: child.id,
       displayName: [child.firstName, child.lastName].filter(Boolean).join(" ").trim(),
       isActive: child.isActive,
+      avatarObjectKey: child.avatarObjectKey ?? null,
       balance: wallet?.balance ?? 0,
       stats,
     };
@@ -323,7 +527,6 @@ export class ParentService {
 
   async getFamilyAnalytics(user: ParentUser, periodDaysRaw?: number) {
     const familyId = ensureFamilyId(user);
-    await this.ensurePremiumFamily(familyId);
     const periodDays = Math.max(1, Math.min(365, Math.trunc(Number(periodDaysRaw ?? 30))));
     const from = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
