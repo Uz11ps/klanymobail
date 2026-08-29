@@ -14,6 +14,8 @@ class WalletSummary {
     required this.walletId,
     required this.balance,
     this.goalAmount = 10000,
+    this.goalName,
+    this.familySavingsTotal = 0,
     this.completedQuestsCount = 0,
     this.shopFrozenAmount = 0,
   });
@@ -22,6 +24,9 @@ class WalletSummary {
   final int balance;
   /// Family savings goal from `/wallet/child` (audit «family_goal_set»).
   final int goalAmount;
+  final String? goalName;
+  /// Sum of all child wallet balances in the family.
+  final int familySavingsTotal;
   /// Число одобренных квестов (бекенд не отдаёт их в `/quests/child/assignments`).
   final int completedQuestsCount;
   /// Монеты, замороженные под заявки в магазине (status `requested`).
@@ -78,6 +83,10 @@ class WalletRepository {
       walletId: (data['walletId'] ?? '').toString(),
       balance: (data['balance'] as num?)?.toInt() ?? 0,
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+      goalName: (data['goalName']?.toString() ?? '').trim().isEmpty
+          ? null
+          : data['goalName']?.toString(),
+      familySavingsTotal: (data['familySavingsTotal'] as num?)?.toInt() ?? 0,
       completedQuestsCount:
           (data['completedQuestsCount'] as num?)?.toInt() ?? 0,
       shopFrozenAmount: (data['shopFrozenAmount'] as num?)?.toInt() ?? 0,

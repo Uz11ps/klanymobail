@@ -14,6 +14,7 @@ import '../../wallet/pages/parent_wallets_page.dart';
 import '../notifications_repository.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_error_view.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
 
@@ -497,38 +498,41 @@ class _NotificationsInteractiveContentState
                                   : name;
                             }(),
                             onComplete: () async {
-                              final confirm = await showDialog<bool>(
+                              final confirm = await showKlanyFigmaDialog<bool>(
                                 context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text(
-                                    'Задача от ребёнка выполнена?',
-                                  ),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      const Text(
-                                        'Вы отметаете выполнение той задачи, '
-                                        'которую поручили вам, а не ребёнку.',
+                                builder: (ctx) => Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    const Text(
+                                      'Задача от ребёнка выполнена?',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontFamily: 'Nunito',
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        color: kChildInk,
                                       ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'Монеты (${q.rewardAmount}) уже списаны с '
-                                        'счёта ребёнка при создании задачи. После '
-                                        'подтверждения повторно не начисляются.',
-                                      ),
-                                      const SizedBox(height: 16),
-                                      FigmaDialogActionStack(
-                                        onCancel: () =>
-                                            Navigator.pop(ctx, false),
-                                        onConfirm: () =>
-                                            Navigator.pop(ctx, true),
-                                        confirmLabel:
-                                            'Сделано — закрыть',
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Вы отметаете выполнение той задачи, '
+                                      'которую поручили вам, а не ребёнку.',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Монеты (${q.rewardAmount}) уже списаны с '
+                                      'счёта ребёнка при создании задачи. После '
+                                      'подтверждения повторно не начисляются.',
+                                    ),
+                                    const SizedBox(height: 16),
+                                    FigmaDialogActionStack(
+                                      onCancel: () => Navigator.pop(ctx, false),
+                                      onConfirm: () => Navigator.pop(ctx, true),
+                                      confirmLabel: 'Сделано — закрыть',
+                                    ),
+                                  ],
                                 ),
                               );
                               if (confirm != true || !context.mounted) {

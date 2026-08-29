@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
+import '../../core/parent_data_equality.dart';
 import '../../core/sdk.dart';
 import '../../core/storage_presign.dart';
 import 'parent_session.dart';
@@ -16,6 +17,8 @@ class ParentFamilyContext {
     required this.familyCode,
     this.clanName,
     required this.goalAmount,
+    this.goalName,
+    required this.familySavingsTotal,
     required this.rublesPer10Coins,
     required this.globalTaxRate,
   });
@@ -24,6 +27,8 @@ class ParentFamilyContext {
   final String familyCode;
   final String? clanName;
   final int goalAmount;
+  final String? goalName;
+  final int familySavingsTotal;
   final int rublesPer10Coins;
   /// Доля глобального налога: 0.0–0.5 (0–50%).
   final double globalTaxRate;
@@ -122,9 +127,32 @@ final parentAccessRepositoryProvider = Provider<ParentAccessRepository>(
   (ref) => ParentAccessRepository(ref),
 );
 
-final parentFamilyContextProvider = FutureProvider<ParentFamilyContext?>((ref) async {
-  return ref.read(parentAccessRepositoryProvider).getFamilyContext();
-});
+final parentFamilyContextProvider =
+    AsyncNotifierProvider<ParentFamilyContextNotifier, ParentFamilyContext?>(
+  ParentFamilyContextNotifier.new,
+);
+
+class ParentFamilyContextNotifier extends AsyncNotifier<ParentFamilyContext?> {
+  @override
+  Future<ParentFamilyContext?> build() async {
+    ref.keepAlive();
+    return _fetch();
+  }
+
+  Future<ParentFamilyContext?> _fetch() =>
+      ref.read(parentAccessRepositoryProvider).getFamilyContext();
+
+  Future<void> refresh({bool force = false}) async {
+    try {
+      final next = await _fetch();
+      final prev = state.asData?.value;
+      if (!force && sameParentFamilyContext(prev, next)) return;
+      state = AsyncData(next);
+    } catch (e, st) {
+      if (state.asData == null) state = AsyncError(e, st);
+    }
+  }
+}
 
 class ParentAccessRepository {
   static const _uuid = Uuid();
@@ -146,6 +174,10 @@ class ParentAccessRepository {
       familyCode: (data['familyCode'] ?? '').toString(),
       clanName: data['clanName']?.toString(),
       goalAmount: (data['goalAmount'] as num?)?.toInt() ?? 10000,
+      goalName: (data['goalName']?.toString() ?? '').trim().isEmpty
+          ? null
+          : data['goalName']?.toString(),
+      familySavingsTotal: (data['familySavingsTotal'] as num?)?.toInt() ?? 0,
       rublesPer10Coins: (data['rublesPer10Coins'] as num?)?.toInt() ?? 100,
       globalTaxRate: (data['globalTaxRate'] as num?)?.toDouble() ?? 0.2,
     );
@@ -210,14 +242,18 @@ class ParentAccessRepository {
     );
   }
 
-  Future<void> setFamilyGoal(int goalAmount) async {
+  Future<void> setFamilyGoal(int goalAmount, {String? goalName}) async {
     final api = Sdk.apiOrNull;
     final token = _token;
     if (api == null || token == null) return;
+    final trimmedName = (goalName ?? '').trim();
     await api.postJson(
       '/family/goal',
       accessToken: token,
-      body: <String, dynamic>{'goalAmount': goalAmount},
+      body: <String, dynamic>{
+        'goalAmount': goalAmount,
+        if (trimmedName.isNotEmpty) 'goalName': trimmedName,
+      },
     );
   }
 
@@ -295,18 +331,26 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/members', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items
-        .map((row) {
-          final objectKey = row['avatarObjectKey']?.toString();
-          return ParentMemberItem(
-            userId: row['userId'].toString(),
-            displayName: (row['displayName'] ?? 'Родитель').toString(),
-            role: row['role'].toString(),
-            avatarObjectKey: objectKey,
-            avatarImageUrl: null,
-          );
-        })
-        .toList(growable: false);
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final trimmedKey = (objectKey ?? '').trim();
+        final avatarImageUrl = trimmedKey.isNotEmpty
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: trimmedKey,
+              )
+            : null;
+        return ParentMemberItem(
+          userId: row['userId'].toString(),
+          displayName: (row['displayName'] ?? 'Родитель').toString(),
+          role: row['role'].toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<List<ChildMemberItem>> getChildren(String familyId) async {
@@ -317,18 +361,26 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/children', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items
-        .map((row) {
-          final objectKey = row['avatarObjectKey']?.toString();
-          return ChildMemberItem(
-            childId: row['childId'].toString(),
-            displayName: (row['displayName'] ?? '').toString(),
-            isActive: row['isActive'] == true,
-            avatarObjectKey: objectKey,
-            avatarImageUrl: null,
-          );
-        })
-        .toList(growable: false);
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final trimmedKey = (objectKey ?? '').trim();
+        final avatarImageUrl = trimmedKey.isNotEmpty
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: trimmedKey,
+              )
+            : null;
+        return ChildMemberItem(
+          childId: row['childId'].toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          isActive: row['isActive'] == true,
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<Map<String, dynamic>> getChildProfile(String childId) async {
@@ -431,23 +483,31 @@ class ParentAccessRepository {
     final data = await api.getJson('/parent/member-codes', accessToken: token);
     final items = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return items
-        .map((row) {
-          final objectKey = row['avatarObjectKey']?.toString();
-          return FamilyMemberCodeItem(
-            id: (row['id'] ?? '').toString(),
-            role: (row['role'] ?? '').toString(),
-            code: (row['code'] ?? '').toString(),
-            displayName: (row['displayName'] ?? '').toString(),
-            isActive: row['isActive'] != false,
-            createdAt:
-                DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
-                DateTime.now(),
-            avatarObjectKey: objectKey,
-            avatarImageUrl: null,
-          );
-        })
-        .toList(growable: false);
+    return Future.wait(
+      items.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final trimmedKey = (objectKey ?? '').trim();
+        final avatarImageUrl = trimmedKey.isNotEmpty
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: trimmedKey,
+              )
+            : null;
+        return FamilyMemberCodeItem(
+          id: (row['id'] ?? '').toString(),
+          role: (row['role'] ?? '').toString(),
+          code: (row['code'] ?? '').toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          isActive: row['isActive'] != false,
+          createdAt:
+              DateTime.tryParse((row['createdAt'] ?? '').toString()) ??
+              DateTime.now(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   /// Загружает фото в MinIO и сохраняет ключ в профиле ребёнка / взрослого по коду участника.

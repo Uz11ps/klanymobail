@@ -17,15 +17,18 @@ import '../../subscriptions/subscription_repository.dart';
 import '../../subscriptions/pages/subscription_plans_page.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
+import '../presigned_member_avatar.dart';
 import '../parent_main_bottom_bar.dart';
 import '../parent_screen_header.dart';
+import '../parent_shell_cache.dart';
 import 'document_page.dart';
 import 'parent_account_edit_dialog.dart';
 import 'tech_support_page.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_bottom_sheet.dart';
 import '../../../core/klany_error_view.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../../core/klany_live_poll.dart';
-import '../../../core/storage_presign.dart';
 
 const Color _figmaSettingsMint = Color(0xFFD9F6C2);
 const Color _figmaSettingsSkyButton = Color(0xFF9EC4F6);
@@ -253,6 +256,8 @@ class _ParentFamilySettingsPageState
   final _goalAmount = TextEditingController();
   bool _busy = false;
   bool _memberCodeBusy = false;
+  bool _goalFieldsSeeded = false;
+  String? _goalFieldsFamilyId;
   Future<List<FamilySubscriptionItem>>? _familySubscriptionsFuture;
   String? _subscriptionsFamilyId;
   /// Обновляет FutureBuilder родителей/детей после PATCH профиля.
@@ -342,23 +347,15 @@ class _ParentFamilySettingsPageState
 
   Future<void> _showAddMemberModal() async {
     if (_memberCodeBusy) return;
-    await showModalBottomSheet<void>(
+    await showKlanyScrollableBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
       showDragHandle: true,
-      useSafeArea: true,
-      backgroundColor: Colors.white,
-      builder: (sheetCtx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom,
-        ),
-        child: _AddMemberSheet(
-          onCreate: ({required displayName, required memberRole}) =>
-              _createMemberCode(
-            displayName: displayName,
-            memberRole: memberRole,
-            reflectBusyOnPage: false,
-          ),
+      builder: (sheetCtx) => _AddMemberSheet(
+        onCreate: ({required displayName, required memberRole}) =>
+            _createMemberCode(
+          displayName: displayName,
+          memberRole: memberRole,
+          reflectBusyOnPage: false,
         ),
       ),
     );
@@ -375,19 +372,42 @@ class _ParentFamilySettingsPageState
     }
     setState(() => _busy = true);
     try {
-      await ref.read(parentAccessRepositoryProvider).setFamilyGoal(parsed);
-      ref.invalidate(parentFamilyContextProvider);
+      final goalName = _goalName.text.trim();
+      await ref.read(parentAccessRepositoryProvider).setFamilyGoal(
+            parsed,
+            goalName: goalName.isEmpty ? null : goalName,
+          );
+      await ref.read(parentFamilyContextProvider.notifier).refresh(force: true);
+      await ref.read(parentShellCacheProvider.notifier).refresh(force: true);
       if (!mounted) return;
       context.showKlanySnackBar(
-        const SnackBar(content: Text('Цель обновлена')),
+        SnackBar(
+          content: Text(
+            goalName.isEmpty
+                ? 'Цель установлена: $parsed монет'
+                : 'Цель «$goalName»: $parsed монет',
+          ),
+        ),
       );
-      _goalAmount.clear();
     } catch (e) {
       if (!mounted) return;
       context.showKlanyErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _seedGoalFields(ParentFamilyContext family) {
+    if (_goalFieldsSeeded && _goalFieldsFamilyId == family.familyId) return;
+    final name = (family.goalName ?? '').trim();
+    if (name.isNotEmpty) {
+      _goalName.text = name;
+    }
+    if (family.goalAmount > 0) {
+      _goalAmount.text = '${family.goalAmount}';
+    }
+    _goalFieldsSeeded = true;
+    _goalFieldsFamilyId = family.familyId;
   }
 
   Future<void> _activatePromo() async {
@@ -427,7 +447,7 @@ class _ParentFamilySettingsPageState
     FamilyMemberCodeItem code,
   ) async {
     if (_busy) return;
-    final pick = await showModalBottomSheet<String>(
+    final pick = await showKlanyModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
@@ -482,73 +502,77 @@ class _ParentFamilySettingsPageState
 
     if (pick == 'preset') {
       var selected = 1;
-      final ok = await showDialog<bool>(
+      final ok = await showKlanyFigmaDialog<bool>(
         context: context,
         builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setSt) => AlertDialog(
-            title: const Text('Аватар участника'),
-            content: SizedBox(
-              width: 280,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                    itemCount: AvatarStore.totalAvatars,
-                    itemBuilder: (_, i) {
-                      final idx = i + 1;
-                      final sel = idx == selected;
-                      return GestureDetector(
-                        onTap: () => setSt(() => selected = idx),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: sel ? kChildBrandBlue : Colors.transparent,
-                              width: 3,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              AvatarStore.assetForIndex(idx),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: kFigmaLandingCtaHeight,
-                    width: double.infinity,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            kFigmaLandingCtaHeight / 2,
-                          ),
+          builder: (ctx, setSt) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Аватар участника',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: kChildInk,
+                ),
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: AvatarStore.totalAvatars,
+                itemBuilder: (_, i) {
+                  final idx = i + 1;
+                  final sel = idx == selected;
+                  return GestureDetector(
+                    onTap: () => setSt(() => selected = idx),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: sel ? kChildBrandBlue : Colors.transparent,
+                          width: 3,
                         ),
                       ),
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Сохранить'),
+                      child: ClipOval(
+                        child: Image.asset(
+                          AvatarStore.assetForIndex(idx),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: kFigmaLandingCtaHeight,
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        kFigmaLandingCtaHeight / 2,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  FigmaDialogCancelButton(
-                    onPressed: () => Navigator.pop(ctx, false),
-                  ),
-                ],
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Сохранить'),
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              FigmaDialogCancelButton(
+                onPressed: () => Navigator.pop(ctx, false),
+              ),
+            ],
           ),
         ),
       );
@@ -638,25 +662,32 @@ class _ParentFamilySettingsPageState
 
   Future<void> _deleteChild(String childId) async {
     if (_busy) return;
-    final ok = await showDialog<bool>(
+    final ok = await showKlanyFigmaDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Удалить ребёнка'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Ребёнок будет удалён из семьи. Продолжить?'),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(ctx, false),
-              onConfirm: () => Navigator.pop(ctx, true),
-              confirmLabel: 'Удалить',
-              confirmGradient:
-                  FigmaDialogActionStack.destructiveGradientVertical,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Удалить ребёнка',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: kChildInk,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Ребёнок будет удалён из семьи. Продолжить?'),
+          const SizedBox(height: 16),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+            confirmLabel: 'Удалить',
+            confirmGradient: FigmaDialogActionStack.destructiveGradientVertical,
+          ),
+        ],
       ),
     );
     if (ok != true) return;
@@ -749,6 +780,7 @@ class _ParentFamilySettingsPageState
   }
 
   Widget _buildPage(ParentFamilyContext family) {
+    _seedGoalFields(family);
     return FutureBuilder<
       (
         List<ParentMemberItem>,
@@ -833,7 +865,7 @@ class _ParentFamilySettingsPageState
                     final listBottomPad =
                         ParentMainBottomBarLayout.scrollBottomClearance(context) +
                         28 +
-                        klanyKeyboardScrollPadding(context);
+                        klanyScrollBottomPadding(context);
                     return Center(
                       child: SizedBox(
                         width: pageWidth,
@@ -845,10 +877,11 @@ class _ParentFamilySettingsPageState
                               ),
                             ),
                           ),
-                          child: ListView(
-                            physics: const ClampingScrollPhysics(),
+                          child: klanyDismissKeyboardOnTap(
+                            child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
+                                klanyKeyboardDismissManual,
                             padding: EdgeInsets.fromLTRB(0, 0, 0, listBottomPad),
                             children: [
                               ParentScreenHeader(
@@ -925,7 +958,7 @@ class _ParentFamilySettingsPageState
                                             leading: waitingRoster ||
                                                     accountSelf == null
                                                 ? null
-                                                : UserAvatar(
+                                                : MemberAvatar(
                                                     userKey: accountAvatarKey,
                                                     size: 60,
                                                     fallbackText: profileNameLine
@@ -937,16 +970,12 @@ class _ParentFamilySettingsPageState
                                                             profileNameLine
                                                                 .runes.first,
                                                           ).toUpperCase(),
-                                                    remoteImageUrl: accountSelf
+                                                    avatarObjectKey:
+                                                        accountObjectKey.isEmpty
+                                                            ? null
+                                                            : accountObjectKey,
+                                                    avatarImageUrl: accountSelf
                                                         .avatarImageUrl,
-                                                    remoteDiskCacheKey:
-                                                        accountObjectKey
-                                                            .isEmpty
-                                                        ? null
-                                                        : storageObjectDiskCacheKey(
-                                                            'member-avatars',
-                                                            accountObjectKey,
-                                                          ),
                                                   ),
                                             icon: Icons.badge_outlined,
                                             title: 'Текущая учётная запись',
@@ -1063,7 +1092,7 @@ class _ParentFamilySettingsPageState
                                                                 Clip.antiAlias,
                                                             alignment:
                                                                 Alignment.center,
-                                                            child: UserAvatar(
+                                                            child: MemberAvatar(
                                                               userKey:
                                                                   'member:${item.id}',
                                                               size: 40,
@@ -1074,19 +1103,10 @@ class _ParentFamilySettingsPageState
                                                                   ? item.displayName[0]
                                                                         .toUpperCase()
                                                                   : '?',
-                                                              remoteImageUrl: item
-                                                                  .avatarImageUrl,
-                                                              remoteDiskCacheKey:
-                                                                  (item.avatarObjectKey ??
-                                                                          '')
-                                                                      .trim()
-                                                                      .isEmpty
-                                                                  ? null
-                                                                  : storageObjectDiskCacheKey(
-                                                                      'member-avatars',
-                                                                      item.avatarObjectKey!
-                                                                          .trim(),
-                                                                    ),
+                                                              avatarObjectKey:
+                                                                  item.avatarObjectKey,
+                                                              avatarImageUrl:
+                                                                  item.avatarImageUrl,
                                                             ),
                                                           ),
                                                         ),
@@ -1173,6 +1193,43 @@ class _ParentFamilySettingsPageState
                                           const _SectionTitle(
                                             'Общая цель семьи',
                                           ),
+                                          if (family.goalAmount > 0) ...[
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 6,
+                                                bottom: 12,
+                                              ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    (family.goalName ?? '')
+                                                            .trim()
+                                                            .isNotEmpty
+                                                        ? 'Текущая цель: ${family.goalName}'
+                                                        : 'Общая цель установлена',
+                                                    style: const TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: kChildInk,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Цель: ${family.goalAmount} монет • Накоплено: ${family.familySavingsTotal}',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: Color(0xFF515151),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                           const Padding(
                                             padding: EdgeInsets.only(
                                               left: 6,
@@ -1224,9 +1281,7 @@ class _ParentFamilySettingsPageState
                                               color: kChildInk,
                                             ),
                                             decoration: _settingsField(
-                                              family.goalAmount > 0
-                                                  ? '${family.goalAmount}'
-                                                  : 'Купить велосипед',
+                                              '1000',
                                             ),
                                           ),
                                           const SizedBox(height: 14),
@@ -1452,22 +1507,19 @@ class _ParentFamilySettingsPageState
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    UserAvatar(
+                                                    MemberAvatar(
                                                       userKey:
                                                           parentProfileAvatarUserKey(
                                                         p.userId,
                                                       ),
                                                       size: 48,
                                                       fallbackText: initial,
-                                                      remoteImageUrl:
-                                                          p.avatarImageUrl,
-                                                      remoteDiskCacheKey:
+                                                      avatarObjectKey:
                                                           objectKey.isEmpty
                                                               ? null
-                                                              : storageObjectDiskCacheKey(
-                                                                  'member-avatars',
-                                                                  objectKey,
-                                                                ),
+                                                              : objectKey,
+                                                      avatarImageUrl:
+                                                          p.avatarImageUrl,
                                                     ),
                                                     const SizedBox(width: 10),
                                                     Expanded(
@@ -1520,7 +1572,19 @@ class _ParentFamilySettingsPageState
                                           children: [
                                             const _SectionTitle('Дети'),
                                             ...children.map(
-                                              (c) => Padding(
+                                              (c) {
+                                                final nameLine =
+                                                    c.displayName.trim().isEmpty
+                                                        ? 'Без имени'
+                                                        : c.displayName.trim();
+                                                final initial = nameLine
+                                                            .isEmpty ||
+                                                        nameLine == 'Без имени'
+                                                    ? '?'
+                                                    : String.fromCharCode(
+                                                        nameLine.runes.first,
+                                                      ).toUpperCase();
+                                                return Padding(
                                                 padding: const EdgeInsets.only(
                                                   bottom: 8,
                                                 ),
@@ -1528,6 +1592,17 @@ class _ParentFamilySettingsPageState
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.center,
                                                   children: [
+                                                    MemberAvatar(
+                                                      userKey:
+                                                          'child:${c.childId}',
+                                                      size: 48,
+                                                      fallbackText: initial,
+                                                      avatarObjectKey:
+                                                          c.avatarObjectKey,
+                                                      avatarImageUrl:
+                                                          c.avatarImageUrl,
+                                                    ),
+                                                    const SizedBox(width: 10),
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -1535,11 +1610,7 @@ class _ParentFamilySettingsPageState
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            c.displayName
-                                                                    .trim()
-                                                                    .isEmpty
-                                                                ? 'Без имени'
-                                                                : c.displayName,
+                                                            nameLine,
                                                             style:
                                                                 const TextStyle(
                                                                   fontWeight:
@@ -1637,8 +1708,9 @@ class _ParentFamilySettingsPageState
                                                     ),
                                                   ],
                                                 ),
-                                              ),
-                                            ),
+                                              );
+                                            },
+                                          ),
                                           ],
                                         ),
                                       ),
@@ -1749,6 +1821,7 @@ class _ParentFamilySettingsPageState
                               ),
                             ],
                           ),
+                        ),
                         ),
                       ),
                     );
@@ -1987,18 +2060,18 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    return ListView(
+      shrinkWrap: true,
+      physics: const AlwaysScrollableScrollPhysics(),
+      keyboardDismissBehavior: klanyKeyboardDismissManual,
+      padding: EdgeInsets.fromLTRB(
+        20,
+        12,
+        20,
+        12 + safeBottom + klanySheetScrollBottomPadding(context),
+      ),
+      children: [
               const Text(
                 'Добавить участника',
                 textAlign: TextAlign.center,
@@ -2104,9 +2177,6 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                     : const Text('Добавить участника'),
               ),
             ],
-          ),
-        ),
-      ),
     );
   }
 }

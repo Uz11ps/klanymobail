@@ -146,6 +146,7 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -161,22 +162,19 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Регистрация',
-                  onBack: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/auth/parent/sign-in');
-                    }
-                  },
-                ),
-                Expanded(
-                  child: FigmaAuthPageBody(
-                    hero: const FigmaAuthHero(
+            child: FigmaAuthPageBody(
+              header: FigmaAuthDoubleDeckHeader(
+                navTitle: 'Регистрация',
+                onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/auth/parent/sign-in');
+                  }
+                },
+                embeddedInPage: true,
+              ),
+              hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_birzha.png',
                       showDots: true,
                       dotCount: 2,
@@ -376,9 +374,6 @@ class _ParentSignUpPageState extends ConsumerState<ParentSignUpPage> {
                       ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

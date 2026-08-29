@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../auth/profile_display_name.dart';
+import '../../../core/klany_bottom_sheet.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/storage_presign.dart';
 import '../avatar_store.dart';
@@ -31,7 +32,7 @@ Future<ParentAccountEditResult?> showParentAccountEditDialog({
   String? avatarImageUrl,
   String? avatarObjectKey,
 }) {
-  return showDialog<ParentAccountEditResult>(
+  return showKlanyBottomDialog<ParentAccountEditResult>(
     context: context,
     builder: (ctx) => _ParentAccountEditDialog(
       userId: userId,
@@ -109,29 +110,26 @@ class _ParentAccountEditDialogState extends State<_ParentAccountEditDialog> {
   }
 
   Future<void> _showPhotoSources() async {
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showKlanyModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      backgroundColor: kChildSurfaceWhite,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetCtx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Галерея'),
-              onTap: () => Navigator.pop(sheetCtx, 'gallery'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Камера'),
-              onTap: () => Navigator.pop(sheetCtx, 'camera'),
-            ),
-          ],
-        ),
+      builder: (sheetCtx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('Галерея'),
+            onTap: () => Navigator.pop(sheetCtx, 'gallery'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_camera_outlined),
+            title: const Text('Камера'),
+            onTap: () => Navigator.pop(sheetCtx, 'camera'),
+          ),
+        ],
       ),
     );
     if (!mounted || choice == null) return;
@@ -178,158 +176,141 @@ class _ParentAccountEditDialogState extends State<_ParentAccountEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: const Text(
-        'Ваше имя',
-        style: TextStyle(
-          fontFamily: 'Nunito',
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
-          color: kChildInk,
-        ),
-      ),
-      content: SizedBox(
-        width: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: _showPhotoSources,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: _photoSize,
-                      height: _photoSize,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+    return klanyBottomSheetPanel(
+      title: 'Ваше имя',
+      children: [
+        Center(
+          child: GestureDetector(
+            onTap: _showPhotoSources,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: _photoSize,
+                  height: _photoSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _avatarCircle(),
-                    ),
-                    if (_previewBytes != null || _hasRemoteOrLocalAvatar())
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: _photoFabBlue,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.photo_camera_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton(
-                onPressed: _showPhotoSources,
-                style: TextButton.styleFrom(foregroundColor: kChildBrandBlue),
-                child: Text(
-                  _pickedPhoto != null || _hasRemoteOrLocalAvatar()
-                      ? 'Изменить фото'
-                      : 'Выбрать фото',
-                  style: const TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    ],
                   ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _avatarCircle(),
                 ),
-              ),
+                if (_previewBytes != null || _hasRemoteOrLocalAvatar())
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: _photoFabBlue,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.photo_camera_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Так будет отображаться в семье',
-              style: TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 14,
-                color: kChildInkMuted,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.done,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _showPhotoSources,
+            style: TextButton.styleFrom(foregroundColor: kChildBrandBlue),
+            child: Text(
+              _pickedPhoto != null || _hasRemoteOrLocalAvatar()
+                  ? 'Изменить фото'
+                  : 'Выбрать фото',
               style: const TextStyle(
                 fontFamily: 'Nunito',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: kChildInk,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Например, Мария',
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: kChildBrandBlue, width: 1.2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide:
-                      const BorderSide(color: kChildBrandBlue, width: 1.6),
-                ),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 24),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(context),
-              onConfirm: () {
-                final t = ProfileDisplayName.sanitize(_name.text);
-                if (t.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Введите имя')),
-                  );
-                  return;
-                }
-                if (t.length > 120) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Не длиннее 120 символов'),
-                    ),
-                  );
-                  return;
-                }
-                Navigator.pop(
-                  context,
-                  ParentAccountEditResult(
-                    displayName: t,
-                    newPhoto: _pickedPhoto,
-                  ),
-                );
-              },
-              confirmLabel: 'Сохранить',
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        const Text(
+          'Так будет отображаться в семье',
+          style: TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 14,
+            color: kChildInkMuted,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _name,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          style: const TextStyle(
+            fontFamily: 'Nunito',
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: kChildInk,
+          ),
+          decoration: InputDecoration(
+            hintText: 'Например, Мария',
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: const BorderSide(color: kChildBrandBlue, width: 1.2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide:
+                  const BorderSide(color: kChildBrandBlue, width: 1.6),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        FigmaDialogActionStack(
+          onCancel: () => Navigator.pop(context),
+          onConfirm: () {
+            final t = ProfileDisplayName.sanitize(_name.text);
+            if (t.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Введите имя')),
+              );
+              return;
+            }
+            if (t.length > 120) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Не длиннее 120 символов'),
+                ),
+              );
+              return;
+            }
+            Navigator.pop(
+              context,
+              ParentAccountEditResult(
+                displayName: t,
+                newPhoto: _pickedPhoto,
+              ),
+            );
+          },
+          confirmLabel: 'Сохранить',
+        ),
+      ],
     );
   }
 

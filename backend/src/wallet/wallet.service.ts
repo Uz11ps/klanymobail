@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
+import { getFamilyGoal, getFamilySavingsTotal } from "../family/family-goal.util";
 
 type ParentUser = {
   userId: string;
@@ -26,14 +27,8 @@ export class WalletService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Mirrors parent goal resolution so child dashboard progress matches семейная цель. */
-  private async getFamilyGoalAmount(familyId: string): Promise<number> {
-    const row = await this.prisma.auditLog.findFirst({
-      where: { familyId, action: "family_goal_set" },
-      orderBy: { createdAt: "desc" },
-    });
-    const payload = (row?.payload ?? null) as { goalAmount?: number } | null;
-    const parsed = Math.trunc(Number(payload?.goalAmount ?? 0));
-    return parsed > 0 ? parsed : 10000;
+  private async getFamilyGoalForWallet(familyId: string) {
+    return getFamilyGoal(this.prisma, familyId);
   }
 
   private async ensureWallet(childId: string, familyId: string) {
@@ -44,7 +39,10 @@ export class WalletService {
 
   async getChildWallet(user: ChildUser) {
     const wallet = await this.ensureWallet(user.childId, user.familyId);
-    const goalAmount = await this.getFamilyGoalAmount(user.familyId);
+    const [goal, familySavingsTotal] = await Promise.all([
+      this.getFamilyGoalForWallet(user.familyId),
+      getFamilySavingsTotal(this.prisma, user.familyId),
+    ]);
     const completedQuestsCount = await this.prisma.questAssignee.count({
       where: { childId: user.childId, status: "approved" },
     });
@@ -56,7 +54,9 @@ export class WalletService {
     return {
       walletId: wallet.id,
       balance: wallet.balance,
-      goalAmount,
+      goalAmount: goal.goalAmount,
+      goalName: goal.goalName,
+      familySavingsTotal,
       completedQuestsCount,
       shopFrozenAmount,
     };

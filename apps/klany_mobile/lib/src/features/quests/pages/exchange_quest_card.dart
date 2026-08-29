@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../../core/storage_presign.dart';
 import 'task_exchange_figma_layout.dart';
 
 /// Аватар + имя исполнителя (Figma 1:1495 / 1:1569).
@@ -11,10 +12,14 @@ class ExchangeAssigneeColumn extends StatelessWidget {
     super.key,
     required this.childId,
     required this.name,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String childId;
   final String name;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +29,7 @@ class ExchangeAssigneeColumn extends StatelessWidget {
     final initial = label == '—'
         ? '?'
         : String.fromCharCode(label.runes.first).toUpperCase();
+    final imageKey = (avatarObjectKey ?? '').trim();
 
     return SizedBox(
       width: avatarSize,
@@ -35,6 +41,10 @@ class ExchangeAssigneeColumn extends StatelessWidget {
             userKey: 'child:$childId',
             size: avatarSize,
             fallbackText: initial,
+            remoteImageUrl: avatarImageUrl,
+            remoteDiskCacheKey: imageKey.isEmpty
+                ? null
+                : storageObjectDiskCacheKey('member-avatars', imageKey),
           ),
           SizedBox(height: context.klanySize(2)),
           Text(
@@ -68,6 +78,8 @@ class ExchangeQuestCard extends StatelessWidget {
     this.trailing,
     this.assigneeChildId,
     this.assigneeName,
+    this.assigneeAvatarObjectKey,
+    this.assigneeAvatarImageUrl,
     this.coinsStyle = TaskExchangeFigmaLayout.cardCoinsStyle,
   });
 
@@ -77,6 +89,8 @@ class ExchangeQuestCard extends StatelessWidget {
   final Widget? trailing;
   final String? assigneeChildId;
   final String? assigneeName;
+  final String? assigneeAvatarObjectKey;
+  final String? assigneeAvatarImageUrl;
   final TextStyle coinsStyle;
 
   @override
@@ -105,6 +119,8 @@ class ExchangeQuestCard extends StatelessWidget {
             ExchangeAssigneeColumn(
               childId: assigneeChildId!,
               name: assigneeName ?? '',
+              avatarObjectKey: assigneeAvatarObjectKey,
+              avatarImageUrl: assigneeAvatarImageUrl,
             ),
             SizedBox(width: context.klanySize(8)),
           ],

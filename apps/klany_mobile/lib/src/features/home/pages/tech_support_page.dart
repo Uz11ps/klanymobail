@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
+import '../../../core/klany_bottom_sheet.dart';
+import '../../../core/klany_keyboard.dart';
 import '../child_soft_ui.dart';
 import 'document_page.dart';
 
@@ -29,8 +31,16 @@ class TechSupportPage extends StatelessWidget {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      body: klanyDismissKeyboardOnTap(
+        child: ListView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          8,
+          20,
+          32 + klanyScrollBottomPadding(context),
+        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: klanyKeyboardDismissManual,
         children: [
           // ── Связаться с поддержкой ─────────────────────────
           ChildSoftCard(
@@ -80,30 +90,28 @@ class TechSupportPage extends StatelessWidget {
                     if (ok) {
                       await launchUrlString(url);
                     } else if (context.mounted) {
-                      await showDialog<void>(
+                      await showKlanyBottomDialog<void>(
                         context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Почта поддержки'),
-                          content: const SelectableText(
-                            'support@clancapital.ru\n\nНа этом устройстве нет почтового клиента. Скопируйте адрес и отправьте письмо удобным способом.',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          actions: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-                              child: FigmaGradientButton(
-                                label: 'Закрыть',
-                                gradient:
-                                    FigmaGradientButton.mintGradientVertical,
-                                height: kFigmaLandingCtaHeight,
-                                labelStyle: kFigmaLandingCtaTextStyle,
-                                boxShadow: kFigmaLandingCtaBoxShadows,
-                                textHeightBehavior: const TextHeightBehavior(
-                                  applyHeightToFirstAscent: false,
-                                  applyHeightToLastDescent: false,
-                                ),
-                                onTap: () => Navigator.pop(ctx),
+                        builder: (ctx) => klanyBottomSheetPanel(
+                          title: 'Почта поддержки',
+                          children: [
+                            const SelectableText(
+                              'support@clancapital.ru\n\nНа этом устройстве нет почтового клиента. Скопируйте адрес и отправьте письмо удобным способом.',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 16),
+                            FigmaGradientButton(
+                              label: 'Закрыть',
+                              gradient:
+                                  FigmaGradientButton.mintGradientVertical,
+                              height: kFigmaLandingCtaHeight,
+                              labelStyle: kFigmaLandingCtaTextStyle,
+                              boxShadow: kFigmaLandingCtaBoxShadows,
+                              textHeightBehavior: const TextHeightBehavior(
+                                applyHeightToFirstAscent: false,
+                                applyHeightToLastDescent: false,
                               ),
+                              onTap: () => Navigator.pop(ctx),
                             ),
                           ],
                         ),
@@ -182,6 +190,7 @@ class TechSupportPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

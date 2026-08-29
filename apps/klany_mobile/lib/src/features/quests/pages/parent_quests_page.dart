@@ -13,8 +13,11 @@ import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_error_view.dart';
+import '../../../core/storage_presign.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/value_bump.dart';
+import '../../../core/klany_keyboard.dart';
+import '../../home/parent_shell_cache.dart';
 import '../../home/parent_screen_header.dart';
 import 'economy_figma_layout.dart';
 
@@ -26,11 +29,14 @@ class ParentQuestsPage extends ConsumerStatefulWidget {
     this.onBack,
     this.showShopShortcut = true,
     this.extraBottomPadding = 0,
+    this.initialSelectedChildId,
   });
 
   final VoidCallback? onBack;
   final bool showShopShortcut;
   final double extraBottomPadding;
+  /// Предвыбранный ребёнок в строке кошельков (с главной и т.п.).
+  final String? initialSelectedChildId;
 
   @override
   ConsumerState<ParentQuestsPage> createState() => _ParentQuestsPageState();
@@ -39,114 +45,78 @@ class ParentQuestsPage extends ConsumerStatefulWidget {
 class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
     with KlanyLivePollConsumerMixin {
   int _selectedWallet = -1;
-  List<ParentChildWalletItem> _wallets = const [];
-
-  bool _walletsListenerSet = false;
-
-  @override
-  void onKlanyLivePoll({bool silent = true}) {
-    _loadWallets();
-    ref.invalidate(parentFamilyContextProvider);
-  }
+  String? _pendingInitialChildId;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadWallets());
+    _pendingInitialChildId = widget.initialSelectedChildId?.trim();
+  }
+
+  void _syncInitialWalletSelection(List<ParentChildWalletItem> wallets) {
+    final pending = _pendingInitialChildId;
+    if (pending == null || pending.isEmpty) return;
+    final idx = wallets.indexWhere((w) => w.childId == pending);
+    if (idx < 0) return;
+    _pendingInitialChildId = null;
+    if (_selectedWallet == idx) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _selectedWallet = idx);
+    });
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_walletsListenerSet) {
-      _walletsListenerSet = true;
-      ref.listenManual<AsyncValue<ParentFamilyContext?>>(
-        parentFamilyContextProvider,
-        (prev, next) {
-          if (next.asData?.value != null) {
-            _loadWallets();
-          }
-        },
-        fireImmediately: true,
-      );
-    }
+  void onKlanyLivePoll({bool silent = true}) {
+    refreshParentShellCache(ref);
   }
 
-  Future<void> _loadWallets() async {
-    final family = ref.read(parentFamilyContextProvider).asData?.value;
-    if (family == null) return;
-    try {
-      final wallets = await ref
-          .read(walletRepositoryProvider)
-          .getFamilyWallets(family.familyId);
-      if (!mounted) return;
-      setState(() {
-        _wallets = wallets;
-      });
-    } catch (_) {}
-  }
+  List<ParentChildWalletItem> get _wallets =>
+      ref.watch(parentShellCacheProvider).asData?.value.wallets ??
+      const <ParentChildWalletItem>[];
 
   Future<void> _showAdjustDialog(ParentChildWalletItem wallet) async {
     final amountCtrl = TextEditingController();
     final commentCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showKlanyFigmaDialog<bool>(
       context: context,
-      builder: (ctx) {
-        final modalW = figmaWideModalWidth(ctx);
-        return Dialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          insetPadding: figmaWideModalInsets(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
-            width: modalW,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Корректировка: ${wallet.displayName}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: _kEconomyTitleBlue,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: amountCtrl,
-                    autofocus: true,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(signed: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Сумма (+/-)',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: commentCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Комментарий',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  FigmaDialogActionStack(
-                    onCancel: () => Navigator.pop(ctx, false),
-                    onConfirm: () => Navigator.pop(ctx, true),
-                  ),
-                ],
-              ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Корректировка: ${wallet.displayName}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _kEconomyTitleBlue,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 20),
+          TextField(
+            controller: amountCtrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            decoration: const InputDecoration(
+              labelText: 'Сумма (+/-)',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: commentCtrl,
+            decoration: const InputDecoration(
+              hintText: 'Комментарий',
+            ),
+          ),
+          const SizedBox(height: 20),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
     );
     if (ok != true || !mounted) return;
     final amount = int.tryParse(amountCtrl.text.trim());
@@ -157,7 +127,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
             amount: amount,
             note: commentCtrl.text.trim(),
           );
-      await _loadWallets();
+      await ref.read(parentShellCacheProvider.notifier).refresh(force: true);
     } catch (e) {
       if (!mounted) return;
       context.showKlanyErrorSnackBar(e);
@@ -167,56 +137,38 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
   Future<void> _editCoinRate() async {
     final currentRate = ref.read(familyCoinRateProvider);
     final ctrl = TextEditingController(text: currentRate.toString());
-    final ok = await showDialog<bool>(
+    final ok = await showKlanyFigmaDialog<bool>(
       context: context,
-      builder: (ctx) {
-        final modalW = figmaWideModalWidth(ctx);
-        return Dialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          insetPadding: figmaWideModalInsets(ctx),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
-            width: modalW,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Курс монет',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Nunito',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: _kEconomyTitleBlue,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: ctrl,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '10 монет = ? рублей',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  FigmaDialogActionStack(
-                    onCancel: () => Navigator.pop(ctx, false),
-                    onConfirm: () => Navigator.pop(ctx, true),
-                  ),
-                ],
-              ),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Курс монет',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: _kEconomyTitleBlue,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 20),
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '10 монет = ? рублей',
+            ),
+          ),
+          const SizedBox(height: 20),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
     );
     if (ok != true || !mounted) return;
     final rate = int.tryParse(ctrl.text.trim());
@@ -255,6 +207,8 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
   }
 
   Widget _buildPage(ParentFamilyContext family) {
+    final wallets = _wallets;
+    _syncInitialWalletSelection(wallets);
     final rublesPer10Coins = ref.watch(familyCoinRateProvider);
     final globalTaxRate = ref.watch(familyGlobalTaxProvider);
     final sel = _selectedWallet >= 0 && _selectedWallet < _wallets.length
@@ -346,6 +300,8 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
                                         ? '—'
                                         : e.value.displayName.trim(),
                                     userKey: 'child:${e.value.childId}',
+                                    avatarObjectKey: e.value.avatarObjectKey,
+                                    avatarImageUrl: e.value.avatarImageUrl,
                                     selected: _selectedWallet == e.key,
                                     onTap: () => setState(
                                       () => _selectedWallet = e.key,
@@ -530,7 +486,7 @@ class _ParentQuestsPageState extends ConsumerState<ParentQuestsPage>
                                   ),
                                 ),
                                 Text(
-                                  '${(globalTaxRate * 100).round()}%',
+                                  '${globalTaxPercentLabel(globalTaxRate)}%',
                                   style: const TextStyle(
                                     fontFamily: 'Nunito',
                                     fontSize: 14,
@@ -599,12 +555,16 @@ class _WalletChip extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.userKey,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
   final String label;
   final String? userKey;
   final bool selected;
   final VoidCallback onTap;
   final IconData? icon;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 
   static String _avatarAssetForName(String name) {
     final idx = (name.hashCode.abs() % 9) + 1;
@@ -659,6 +619,14 @@ class _WalletChip extends StatelessWidget {
                           userKey: userKey!,
                           size: EconomyFigmaLayout.walletAvatar,
                           fallbackText: label.characters.first.toUpperCase(),
+                          remoteImageUrl: avatarImageUrl,
+                          remoteDiskCacheKey:
+                              (avatarObjectKey ?? '').trim().isEmpty
+                                  ? null
+                                  : storageObjectDiskCacheKey(
+                                      'member-avatars',
+                                      avatarObjectKey!.trim(),
+                                    ),
                         )
                       : Image.asset(
                           _avatarAssetForName(label),

@@ -18,19 +18,18 @@ import '../../quests/pages/parent_quests_page.dart';
 import '../../quests/pages/parent_task_exchange_page.dart';
 import '../../quests/quests_repository.dart';
 import '../../shop/pages/parent_shop_page.dart';
-import '../../wallet/pages/parent_wallets_page.dart';
 import '../../wallet/wallet_repository.dart';
 import '../../wallet/family_economy.dart';
 import '../../notifications/pages/notifications_page.dart';
-import '../../../core/app_snackbar.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/klany_page_gate.dart';
 import '../../../core/storage_presign.dart';
 import '../../../core/value_bump.dart';
-import '../shell_bootstrap.dart';
 import '../avatar_store.dart';
 import '../child_soft_ui.dart';
 import '../parent_main_bottom_bar.dart';
+import '../parent_shell_cache.dart';
 import 'parent_family_settings_page.dart';
 
 // Родительский home: каркас как у ChildHomePage (SizedBox.expand, LayoutBuilder,
@@ -66,6 +65,7 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
+    refreshParentShellCache(ref);
     _refreshPendingRequests();
   }
 
@@ -91,7 +91,10 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
   void initState() {
     super.initState();
     _registerDevice();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTour());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      prefetchParentShellCache(ref);
+      _maybeShowTour();
+    });
     _refreshPendingRequests();
   }
 
@@ -171,40 +174,27 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
 
   void _goHomeTab() => setState(() => _index = 0);
 
-  void _openEconomy() {
+  void _openEconomy({String? initialSelectedChildId}) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ParentQuestsPage()),
+      MaterialPageRoute<void>(
+        builder: (_) => ParentQuestsPage(
+          initialSelectedChildId: initialSelectedChildId,
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final shellAsync = ref.watch(parentShellDataProvider);
-    return shellAsync.when(
-      loading: () => const KlanyPageLoading(message: 'Загружаем клан…'),
-      error: (error, _) => KlanyPageLoading(
-        message: 'Не удалось загрузить данные',
-      ),
-      data: (shellData) => KlanyPageReveal(
-        child: _buildShell(context, shellData),
-      ),
-    );
-  }
-
-  Widget _buildShell(BuildContext context, ParentShellData shellData) {
     final pages = <Widget>[
       _ParentDashboardView(
-        initialData: shellData,
         onOpenQuests: () => setState(() {
           _index = 1;
           _visitedTabs.add(1);
         }),
-        onOpenEconomy: _openEconomy,
-        onOpenWallet: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const ParentWalletsPage()),
-          );
-        },
+        onOpenEconomy: () => _openEconomy(),
+        onOpenEconomyForChild: (childId) =>
+            _openEconomy(initialSelectedChildId: childId),
       ),
       ParentTaskExchangePage(onBack: _goHomeTab, embeddedInHomeTab: true),
       ParentShopPage(onBack: _goHomeTab),
@@ -258,81 +248,50 @@ class _ParentHomePageState extends ConsumerState<ParentHomePage>
 }
 
 // ─── Нижняя «таблетка» — те же размеры и сетка, что `_ShopBottomBar` (без смены ширины центра).
-class _DashboardSnapshot {
-  const _DashboardSnapshot({
-    required this.family,
-    required this.wallets,
-    required this.reviews,
-    required this.quests,
-    required this.notifications,
-  });
-
-  final ParentFamilyContext? family;
-  final List<ParentChildWalletItem> wallets;
-  final List<ParentReviewItem> reviews;
-  final List<ParentQuestItem> quests;
-  final List<InAppNotificationItem> notifications;
-}
 
 class _ParentDashboardView extends ConsumerStatefulWidget {
   const _ParentDashboardView({
     required this.onOpenQuests,
     required this.onOpenEconomy,
-    required this.onOpenWallet,
-    this.initialData,
+    required this.onOpenEconomyForChild,
   });
 
   final VoidCallback onOpenQuests;
   final VoidCallback onOpenEconomy;
-  final VoidCallback onOpenWallet;
-  final ParentShellData? initialData;
+  final void Function(String childId) onOpenEconomyForChild;
 
   @override
   ConsumerState<_ParentDashboardView> createState() =>
       _ParentDashboardViewState();
 }
 
-class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
-    with KlanyLivePollConsumerMixin {
-  bool _initialLoading = true;
-  bool _refreshing = false;
-  ParentFamilyContext? _family;
-  List<ParentChildWalletItem> _wallets = const [];
-  List<ParentReviewItem> _reviews = const [];
-  List<ParentQuestItem> _quests = const [];
-  List<InAppNotificationItem> _notifications = const [];
+class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView> {
+  bool _manualRefreshing = false;
+  /// null = все дети; иначе лента и инфо только по этому ребёнку.
+  String? _selectedChildId;
 
-  @override
-  void onKlanyLivePoll({bool silent = true}) {
-    _reload(silent: true);
-  }
+  ParentShellCache? get _cache => ref.read(parentShellCacheProvider).asData?.value;
 
-  @override
-  void initState() {
-    super.initState();
-    final seed = widget.initialData;
-    if (seed != null) {
-      _family = seed.family;
-      _wallets = seed.wallets;
-      _reviews = seed.reviews;
-      _quests = seed.quests;
-      _notifications = seed.notifications;
-      _initialLoading = false;
-    } else {
-      _reload(showLoading: true);
+  Future<void> _refresh({bool force = false}) async {
+    if (!mounted) return;
+    setState(() => _manualRefreshing = true);
+    try {
+      await ref.read(parentShellCacheProvider.notifier).refresh(force: force);
+    } finally {
+      if (mounted) setState(() => _manualRefreshing = false);
     }
   }
 
-  String _dashboardFeedDigest() {
+  String _dashboardFeedDigest(ParentShellCache cache) {
     const cap = 24;
-    final ns = _notifications
+    final ns = cache.notifications
         .take(cap)
         .map(
           (n) =>
               '${n.id}:${n.type}:${n.status}:${n.createdAt.millisecondsSinceEpoch}',
         )
         .join('|');
-    final rs = _reviews
+    final rs = cache.reviews
         .take(cap)
         .map(
           (r) =>
@@ -342,173 +301,22 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
     return '$ns#$rs';
   }
 
-  Future<void> _reload({bool showLoading = false, bool silent = false}) async {
-    if (!mounted) return;
-    setState(() {
-      if (showLoading && _family == null) {
-        _initialLoading = true;
-      } else if (!silent) {
-        _refreshing = true;
-      }
-    });
-    try {
-      final data = await _fetchSnapshot(ref);
-      if (!mounted) return;
-      final changed =
-          !_sameFamily(_family, data.family) ||
-          !_sameWallets(_wallets, data.wallets) ||
-          !_sameReviews(_reviews, data.reviews) ||
-          !_sameQuests(_quests, data.quests) ||
-          !_sameNotifications(_notifications, data.notifications);
-      setState(() {
-        if (changed) {
-          _family = data.family;
-          _wallets = data.wallets;
-          _reviews = data.reviews;
-          _quests = data.quests;
-          _notifications = data.notifications;
-        }
-      });
-    } catch (e) {
-      if (!mounted) return;
-      context.showKlanyNetworkErrorSnackBar(e);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _initialLoading = false;
-          if (!silent) _refreshing = false;
-        });
-      }
-    }
-  }
-
-  Future<_DashboardSnapshot> _fetchSnapshot(WidgetRef r) async {
-    final family = await r
-        .read(parentAccessRepositoryProvider)
-        .getFamilyContext();
-    if (family == null) {
-      return const _DashboardSnapshot(
-        family: null,
-        wallets: <ParentChildWalletItem>[],
-        reviews: <ParentReviewItem>[],
-        quests: <ParentQuestItem>[],
-        notifications: <InAppNotificationItem>[],
-      );
-    }
-
-    final results = await Future.wait<dynamic>([
-      r.read(questsRepositoryProvider).getSubmittedForReview(family.familyId),
-      r.read(questsRepositoryProvider).getParentQuests(family.familyId),
-      r.read(walletRepositoryProvider).getFamilyWallets(family.familyId),
-      r
-          .read(notificationsRepositoryProvider)
-          .listFamilyNotifications(family.familyId),
-    ]);
-
-    return _DashboardSnapshot(
-      family: family,
-      reviews: results[0] as List<ParentReviewItem>,
-      quests: results[1] as List<ParentQuestItem>,
-      wallets: results[2] as List<ParentChildWalletItem>,
-      notifications: results[3] as List<InAppNotificationItem>,
-    );
-  }
-
-  bool _sameFamily(ParentFamilyContext? a, ParentFamilyContext? b) {
-    if (a == null || b == null) return a == b;
-    return a.familyId == b.familyId &&
-        a.familyCode == b.familyCode &&
-        (a.clanName ?? '') == (b.clanName ?? '') &&
-        a.goalAmount == b.goalAmount &&
-        a.rublesPer10Coins == b.rublesPer10Coins &&
-        a.globalTaxRate == b.globalTaxRate;
-  }
-
-  bool _sameWallets(
-    List<ParentChildWalletItem> a,
-    List<ParentChildWalletItem> b,
+  static bool _notificationBelongsToChild(
+    InAppNotificationItem n,
+    String childId,
   ) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final x = a[i];
-      final y = b[i];
-      if (x.childId != y.childId ||
-          x.displayName != y.displayName ||
-          x.balance != y.balance) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _sameReviews(List<ParentReviewItem> a, List<ParentReviewItem> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final x = a[i];
-      final y = b[i];
-      if (x.questId != y.questId ||
-          x.childId != y.childId ||
-          x.childName != y.childName ||
-          x.title != y.title ||
-          x.submittedAt != y.submittedAt ||
-          x.evidencePath != y.evidencePath ||
-          x.evidenceUrl != y.evidenceUrl) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _sameQuests(List<ParentQuestItem> a, List<ParentQuestItem> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final x = a[i];
-      final y = b[i];
-      if (x.id != y.id ||
-          x.title != y.title ||
-          x.status != y.status ||
-          x.questType != y.questType ||
-          x.rewardAmount != y.rewardAmount ||
-          x.createdAt != y.createdAt ||
-          x.distributionType != y.distributionType ||
-          x.autoApprove != y.autoApprove ||
-          x.timeLimitMinutes != y.timeLimitMinutes ||
-          x.scheduleType != y.scheduleType ||
-          !_sameStrings(x.scheduleDays, y.scheduleDays)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _sameNotifications(
-    List<InAppNotificationItem> a,
-    List<InAppNotificationItem> b,
-  ) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final x = a[i];
-      final y = b[i];
-      if (x.id != y.id ||
-          x.type != y.type ||
-          x.status != y.status ||
-          x.createdAt != y.createdAt) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _sameStrings(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
+    final payload = n.payload;
+    final ids = <String>[
+      (payload['childId']?.toString() ?? '').trim(),
+      (payload['actorId']?.toString() ?? '').trim(),
+      (payload['targetChildId']?.toString() ?? '').trim(),
+    ];
+    return ids.any((id) => id.isNotEmpty && id == childId);
   }
 
   Future<void> _openChildSheet(ParentChildWalletItem wallet) async {
-    final activeForChild = _quests
+    final cache = _cache ?? ParentShellCache.empty;
+    final activeForChild = cache.quests
         .where(
           (q) =>
               q.status == 'active' &&
@@ -516,7 +324,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
                   q.childIds.contains(wallet.childId)),
         )
         .length;
-    final reviewsForChild = _reviews
+    final reviewsForChild = cache.reviews
         .where((r) => r.childId == wallet.childId)
         .toList();
 
@@ -543,9 +351,9 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
               wallet: wallet,
               activeForChild: activeForChild,
               reviewsForChild: reviewsForChild,
-              onOpenWallet: () {
+              onOpenEconomyForChild: () {
                 Navigator.of(dialogCtx).pop();
-                widget.onOpenWallet();
+                widget.onOpenEconomyForChild(wallet.childId);
               },
               onOpenQuests: () {
                 Navigator.of(dialogCtx).pop();
@@ -566,43 +374,48 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
       showDragHandle: false,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => DraggableScrollableSheet(
-        initialChildSize: 0.72,
-        minChildSize: 0.42,
-        maxChildSize: 0.92,
-        expand: false,
-        builder: (sheetCtx, scrollController) => _ChildDetailsPanel(
-          wallet: wallet,
-          activeForChild: activeForChild,
-          reviewsForChild: reviewsForChild,
-          scrollController: scrollController,
-          bottomPadding: 20 + MediaQuery.viewPaddingOf(sheetCtx).bottom,
-          onOpenWallet: () {
-            Navigator.of(sheetCtx).pop();
-            widget.onOpenWallet();
-          },
-          onOpenQuests: () {
-            Navigator.of(sheetCtx).pop();
-            widget.onOpenQuests();
-          },
+      builder: (sheetCtx) => klanyBottomSheetKeyboardScope(
+        context: sheetCtx,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.72,
+          minChildSize: 0.42,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (sheetCtx, scrollController) => _ChildDetailsPanel(
+            wallet: wallet,
+            activeForChild: activeForChild,
+            reviewsForChild: reviewsForChild,
+            scrollController: scrollController,
+            bottomPadding: 20 +
+                MediaQuery.viewPaddingOf(sheetCtx).bottom +
+                klanySheetScrollBottomPadding(sheetCtx),
+            onOpenEconomyForChild: () {
+              Navigator.of(sheetCtx).pop();
+              widget.onOpenEconomyForChild(wallet.childId);
+            },
+            onOpenQuests: () {
+              Navigator.of(sheetCtx).pop();
+              widget.onOpenQuests();
+            },
+          ),
         ),
       ),
     );
   }
 
-  int _bellBadgeCount() {
-    final reverse = _quests
+  int _bellBadgeCount(ParentShellCache cache) {
+    final reverse = cache.quests
         .where(
           (q) => q.status == 'active' && q.distributionType == 'reverse',
         )
         .length;
-    final unread = _notifications.where((n) => n.status != 'read').length;
+    final unread = cache.notifications.where((n) => n.status != 'read').length;
     final n = unread + reverse;
     return n > 99 ? 99 : n;
   }
 
-  Widget _dashboardHeader(BuildContext context) {
-    final bellBadge = _bellBadgeCount();
+  Widget _dashboardHeader(BuildContext context, ParentShellCache cache) {
+    final bellBadge = _bellBadgeCount(cache);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -691,7 +504,7 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           elevation: 4,
           shadowColor: Colors.black.withValues(alpha: 0.14),
           child: InkWell(
-            onTap: () => _reload(),
+            onTap: () => _refresh(force: true),
             customBorder: const CircleBorder(),
             child: SizedBox(
               width: 44,
@@ -716,17 +529,22 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
 
   @override
   Widget build(BuildContext context) {
+    final shellAsync = ref.watch(parentShellCacheProvider);
+    final cache = shellAsync.asData?.value;
+    final family = cache?.family;
+
     final bottomPad = 40 +
         MediaQuery.viewPaddingOf(context).bottom +
         24 +
         ParentMainBottomBarLayout.scaledPillHeight(context) +
         context.klanySize(16) +
-        24;
+        24 +
+        klanyScrollBottomPadding(context);
 
     late final List<Widget> listChildren;
-    if (_initialLoading && _family == null) {
+    if (shellAsync.isLoading && cache == null) {
       listChildren = [
-        _dashboardHeader(context),
+        _dashboardHeader(context, ParentShellCache.empty),
         const SizedBox(height: 25),
         const _SkeletonBlock(height: 80),
         const SizedBox(height: 10),
@@ -734,14 +552,14 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
         const SizedBox(height: 10),
         const _SkeletonBlock(height: 120),
       ];
-    } else if (_family == null) {
+    } else if (family == null) {
       final session = ref.read(parentSessionProvider).asData?.value;
       final isAdminNoFamily =
           session != null &&
           session.role == 'admin' &&
           session.familyId.trim().isEmpty;
       listChildren = [
-        _dashboardHeader(context),
+        _dashboardHeader(context, cache ?? ParentShellCache.empty),
         const SizedBox(height: 25),
         if (isAdminNoFamily)
           _AdminNoFamilyCard(
@@ -749,12 +567,42 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           ),
       ];
     } else {
-      final activeQuests = _quests.where((q) => q.status == 'active').toList();
-      final totalCoins = _wallets.fold<int>(0, (s, w) => s + w.balance);
+      final data = cache!;
+      final selectedId = _selectedChildId;
+      ParentChildWalletItem? selectedWallet;
+      if (selectedId != null) {
+        for (final w in data.wallets) {
+          if (w.childId == selectedId) {
+            selectedWallet = w;
+            break;
+          }
+        }
+        if (selectedWallet == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _selectedChildId == selectedId) {
+              setState(() => _selectedChildId = null);
+            }
+          });
+        }
+      }
+      final activeQuests = data.quests.where((q) {
+        if (q.status != 'active') return false;
+        if (selectedId == null) return true;
+        return q.distributionType == 'exchange' ||
+            q.childIds.contains(selectedId);
+      }).toList();
+      final reviews = selectedId == null
+          ? data.reviews
+          : data.reviews.where((r) => r.childId == selectedId).toList();
+      final notifications = selectedId == null
+          ? data.notifications
+          : data.notifications
+              .where((n) => _notificationBelongsToChild(n, selectedId))
+              .toList();
       listChildren = [
-        _dashboardHeader(context),
+        _dashboardHeader(context, data),
         const SizedBox(height: 25),
-        if (_refreshing) ...[
+        if (_manualRefreshing) ...[
           const LinearProgressIndicator(
             color: kChildBrandBlue,
             backgroundColor: kChildOutline,
@@ -762,36 +610,51 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
           const SizedBox(height: 8),
         ],
         _MembersStrip(
-          wallets: _wallets,
-          onChildTap: _openChildSheet,
+          wallets: data.wallets,
+          selectedChildId: _selectedChildId,
+          onChildTap: (wallet) {
+            setState(() {
+              if (_selectedChildId == wallet.childId) {
+                _selectedChildId = null;
+              } else {
+                _selectedChildId = wallet.childId;
+              }
+            });
+          },
+          onChildDetails: _openChildSheet,
         ),
         const _FigmaSectionTitle('Инфо-панель'),
         const SizedBox(height: 11),
         _InfoPanelStrip(
           inProgress: activeQuests.length,
-          onReview: _reviews.length,
-          goalTotal: totalCoins,
+          onReview: reviews.length,
+          goalSavings: family.familySavingsTotal > 0
+              ? family.familySavingsTotal
+              : data.wallets.fold<int>(0, (s, w) => s + w.balance),
+          goalTarget: family.goalAmount,
+          goalName: family.goalName,
           inProgressBumpKey: activeQuests.length,
-          onReviewBumpKey: _reviews.length,
-          goalBumpKey: totalCoins,
+          onReviewBumpKey: reviews.length,
+          goalBumpKey: family.familySavingsTotal,
           onQuestsTap: widget.onOpenQuests,
-          onGoalTap: widget.onOpenEconomy,
+          onGoalTap: selectedId == null
+              ? widget.onOpenEconomy
+              : () => widget.onOpenEconomyForChild(selectedId),
         ),
         const _FigmaSectionTitle('Недавние события', bottomPadding: 18),
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: ValueBumpWrap(
-            changeKey: _dashboardFeedDigest(),
+            changeKey: '${_dashboardFeedDigest(data)}#$selectedId',
             alignment: Alignment.topCenter,
-            // Слабее зум — меньше риска наехать на заголовок без жёсткого ClipRect
             beginScale: 1.038,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 28),
               child: _MergedActivityFeed(
-                notifications: _notifications,
-                reviews: _reviews,
-                wallets: _wallets,
+                notifications: notifications,
+                reviews: reviews,
+                wallets: data.wallets,
                 globalTaxRate: ref.watch(familyGlobalTaxProvider),
               ),
             ),
@@ -800,15 +663,17 @@ class _ParentDashboardViewState extends ConsumerState<_ParentDashboardView>
         const SizedBox(height: 32),
       ];
     }
-
     return RefreshIndicator(
-      onRefresh: () => _reload(),
-      child: ListView(
+      onRefresh: () => _refresh(force: true),
+      child: klanyDismissKeyboardOnTap(
+        child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: ClampingScrollPhysics(),
         ),
         padding: EdgeInsets.fromLTRB(20, 16, 20, bottomPad),
+        keyboardDismissBehavior: klanyKeyboardDismissManual,
         children: listChildren,
+        ),
       ),
     );
   }
@@ -956,7 +821,9 @@ class _InfoPanelStrip extends StatelessWidget {
   const _InfoPanelStrip({
     required this.inProgress,
     required this.onReview,
-    required this.goalTotal,
+    required this.goalSavings,
+    required this.goalTarget,
+    this.goalName,
     this.inProgressBumpKey,
     this.onReviewBumpKey,
     this.goalBumpKey,
@@ -966,12 +833,23 @@ class _InfoPanelStrip extends StatelessWidget {
 
   final int inProgress;
   final int onReview;
-  final int goalTotal;
+  final int goalSavings;
+  final int goalTarget;
+  final String? goalName;
   final Object? inProgressBumpKey;
   final Object? onReviewBumpKey;
   final Object? goalBumpKey;
   final VoidCallback? onQuestsTap;
   final VoidCallback? onGoalTap;
+
+  String _goalFooter() {
+    final targetLabel = _formatThousandsRu(goalTarget);
+    final name = (goalName ?? '').trim();
+    if (name.isNotEmpty) {
+      return '$name • цель $targetLabel монет';
+    }
+    return 'Цель установлена: $targetLabel монет';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1025,9 +903,10 @@ class _InfoPanelStrip extends StatelessWidget {
         Expanded(
           child: _InfoTile(
             title: 'Общая цель',
-            value: _formatThousandsRu(goalTotal),
+            value:
+                '${_formatThousandsRu(goalSavings)} / ${_formatThousandsRu(goalTarget)}',
             valueBumpKey: goalBumpKey,
-            footer: 'Накопления',
+            footer: _goalFooter(),
             onTap: onGoalTap,
             background: const Color(0xFFD9F6C2),
             boxShadows: [
@@ -1055,11 +934,13 @@ class _MemberAvatarCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.avatar,
+    this.onLongPress,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Widget avatar;
 
   @override
@@ -1068,6 +949,7 @@ class _MemberAvatarCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
@@ -1125,47 +1007,50 @@ class _MembersStrip extends StatefulWidget {
   const _MembersStrip({
     required this.wallets,
     required this.onChildTap,
+    this.selectedChildId,
+    this.onChildDetails,
   });
 
   final List<ParentChildWalletItem> wallets;
   final ValueChanged<ParentChildWalletItem> onChildTap;
+  final String? selectedChildId;
+  final ValueChanged<ParentChildWalletItem>? onChildDetails;
 
   @override
   State<_MembersStrip> createState() => _MembersStripState();
 }
 
 class _MembersStripState extends State<_MembersStrip> {
-  int _selected = -1;
-
   @override
   Widget build(BuildContext context) {
     if (widget.wallets.isEmpty) {
       return const SizedBox.shrink();
     }
-    final chips = widget.wallets.asMap().entries.map((e) {
-      final name = e.value.displayName.trim().isEmpty
+    final chips = widget.wallets.map((wallet) {
+      final name = wallet.displayName.trim().isEmpty
           ? 'Ребёнок'
-          : e.value.displayName.trim();
+          : wallet.displayName.trim();
       final initial = name.characters.first.toUpperCase();
+      final selected = widget.selectedChildId == wallet.childId;
       return _MemberAvatarCard(
         label: name,
-        selected: _selected == e.key,
-        onTap: () {
-          setState(() => _selected = e.key);
-          widget.onChildTap(e.value);
-        },
+        selected: selected,
+        onTap: () => widget.onChildTap(wallet),
+        onLongPress: widget.onChildDetails == null
+            ? null
+            : () => widget.onChildDetails!(wallet),
         avatar: ClipOval(
           child: UserAvatar(
-            userKey: 'child:${e.value.childId}',
+            userKey: 'child:${wallet.childId}',
             size: 73,
             fallbackText: initial,
-            remoteImageUrl: e.value.avatarImageUrl,
+            remoteImageUrl: wallet.avatarImageUrl,
             remoteDiskCacheKey:
-                (e.value.avatarObjectKey ?? '').trim().isEmpty
+                (wallet.avatarObjectKey ?? '').trim().isEmpty
                     ? null
                     : storageObjectDiskCacheKey(
                         'member-avatars',
-                        e.value.avatarObjectKey!.trim(),
+                        wallet.avatarObjectKey!.trim(),
                       ),
           ),
         ),
@@ -1725,9 +1610,15 @@ class _MergedActivityFeed extends StatelessWidget {
     );
   }
 
-  static Widget _reviewAvatar(ParentReviewItem r) {
+  static Widget _reviewAvatar(
+    ParentReviewItem r,
+    Map<String, ParentChildWalletItem> walletByChildId,
+  ) {
     final name = r.childName.trim().isEmpty ? 'Ребёнок' : r.childName.trim();
     final fb = name.characters.first.toUpperCase();
+    final w = walletByChildId[r.childId];
+    final imageKeyWallet = (w?.avatarObjectKey ?? '').trim();
+    final imageKeyRaw = imageKeyWallet;
     return SizedBox(
       width: 70,
       height: 70,
@@ -1740,6 +1631,10 @@ class _MergedActivityFeed extends StatelessWidget {
                 userKey: 'child:${r.childId}',
                 size: 70,
                 fallbackText: fb,
+                remoteImageUrl: w?.avatarImageUrl,
+                remoteDiskCacheKey: imageKeyRaw.isEmpty
+                    ? null
+                    : storageObjectDiskCacheKey('member-avatars', imageKeyRaw),
               ),
             ),
           ),
@@ -1844,7 +1739,7 @@ class _MergedActivityFeed extends StatelessWidget {
       rows.add((
         t: r.submittedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
         w: _RecentEventCard(
-          avatar: _reviewAvatar(r),
+          avatar: _reviewAvatar(r, walletByChildId),
           textBlock: _reviewTextColumn(r),
         ),
       ));
@@ -1871,7 +1766,7 @@ class _ChildDetailsPanel extends StatelessWidget {
     required this.wallet,
     required this.activeForChild,
     required this.reviewsForChild,
-    required this.onOpenWallet,
+    required this.onOpenEconomyForChild,
     required this.onOpenQuests,
     this.scrollController,
     this.bottomPadding = 20,
@@ -1880,7 +1775,7 @@ class _ChildDetailsPanel extends StatelessWidget {
   final ParentChildWalletItem wallet;
   final int activeForChild;
   final List<ParentReviewItem> reviewsForChild;
-  final VoidCallback onOpenWallet;
+  final VoidCallback onOpenEconomyForChild;
   final VoidCallback onOpenQuests;
   final ScrollController? scrollController;
   final double bottomPadding;
@@ -2068,9 +1963,9 @@ class _ChildDetailsPanel extends StatelessWidget {
                 SizedBox(
                   height: 56,
                   child: FilledButton.icon(
-                    onPressed: onOpenWallet,
-                    icon: const Icon(Icons.account_balance_wallet),
-                    label: const Text('Открыть кошелёк'),
+                    onPressed: onOpenEconomyForChild,
+                    icon: const Icon(Icons.toll_outlined),
+                    label: const Text('Управление монетами'),
                     style: FilledButton.styleFrom(
                       backgroundColor: kChildBrandBlue,
                       foregroundColor: Colors.white,

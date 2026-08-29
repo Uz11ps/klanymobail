@@ -240,6 +240,7 @@ export class QuestsService {
       items: rows.map((c) => ({
         id: c.id,
         displayName: [c.firstName, c.lastName].filter(Boolean).join(" ").trim(),
+        avatarObjectKey: c.avatarObjectKey ?? null,
       })),
     };
   }

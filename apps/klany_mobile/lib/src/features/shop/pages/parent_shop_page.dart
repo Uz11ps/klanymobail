@@ -10,11 +10,14 @@ import '../../home/child_soft_ui.dart';
 import '../../home/parent_screen_header.dart';
 import '../../quests/pages/parent_quests_page.dart';
 import '../../wallet/family_economy.dart';
+import '../../home/parent_shell_cache.dart';
 import '../parent_shop_bottom_bar.dart';
 import '../shop_repository.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_bottom_sheet.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/storage_presign.dart';
@@ -28,7 +31,7 @@ double _shopBodyBottomPadding(BuildContext context) {
       barBottomPad +
       MediaQuery.viewPaddingOf(context).bottom +
       gapAboveBar +
-      klanyKeyboardScrollPadding(context);
+      klanyScrollBottomPadding(context);
 }
 
 class ParentShopPage extends ConsumerStatefulWidget {
@@ -48,7 +51,7 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage>
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
-    ref.invalidate(parentFamilyContextProvider);
+    refreshParentShellCache(ref);
   }
 
   @override
@@ -68,17 +71,20 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage>
   @override
   Widget build(BuildContext context) {
     final familyAsync = ref.watch(parentFamilyContextProvider);
-    return familyAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => KlanyErrorGoBack(
-        error: error,
+    final family = familyAsync.asData?.value;
+    if (familyAsync.isLoading && family == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (familyAsync.hasError && family == null) {
+      return KlanyErrorGoBack(
+        error: familyAsync.error!,
         onBack: widget.onBack,
-      ),
-      data: (family) {
-        if (family == null) {
-          return const Center(child: Text('Семья не найдена'));
-        }
-        final pages = <Widget>[
+      );
+    }
+    if (family == null) {
+      return const Center(child: Text('Семья не найдена'));
+    }
+    final pages = <Widget>[
           _ParentProductsList(familyId: family.familyId, onBack: widget.onBack),
           _ParentCreateProductForm(
             familyId: family.familyId,
@@ -105,8 +111,6 @@ class _ParentShopPageState extends ConsumerState<ParentShopPage>
                 setState(() => _tab = ParentShopBottomBar.indexFromTab(tab)),
           ),
         );
-      },
-    );
   }
 }
 
@@ -122,35 +126,13 @@ class _ParentProductsList extends ConsumerStatefulWidget {
 
 class _ParentProductsListState extends ConsumerState<_ParentProductsList>
     with KlanyLivePollConsumerMixin {
-  Future<List<ShopProductItem>>? _future;
-
   @override
   void onKlanyLivePoll({bool silent = true}) {
-    _reload();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _future ??= ref.read(shopRepositoryProvider).getProducts(widget.familyId);
-  }
-
-  @override
-  void didUpdateWidget(_ParentProductsList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.familyId != widget.familyId) {
-      _future = ref.read(shopRepositoryProvider).getProducts(widget.familyId);
-    }
+    refreshParentShellCache(ref);
   }
 
   Future<void> _reload() async {
-    final future = ref
-        .read(shopRepositoryProvider)
-        .getProducts(widget.familyId);
-    setState(() {
-      _future = future;
-    });
-    await future;
+    await ref.read(parentShellCacheProvider.notifier).refresh(force: true);
   }
 
   Future<void> _editProduct(ShopProductItem p) async {
@@ -160,54 +142,53 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
     );
     final priceCtl = TextEditingController(text: p.price.toString());
     var isActive = p.isActive;
-    final ok = await showDialog<bool>(
+    final ok = await showKlanyFigmaDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocalState) => AlertDialog(
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: MediaQuery.sizeOf(ctx).width * 0.10,
-            vertical: 24,
-          ),
-          title: const Text('Редактировать товар'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: titleCtl,
-                    decoration: const InputDecoration(labelText: 'Название'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: descCtl,
-                    decoration: const InputDecoration(labelText: 'Описание'),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: priceCtl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Цена'),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: isActive,
-                    title: const Text('Активен'),
-                    onChanged: (v) => setLocalState(() => isActive = v),
-                  ),
-                  const SizedBox(height: 16),
-                  FigmaDialogActionStack(
-                    onCancel: () => Navigator.pop(ctx, false),
-                    onConfirm: () => Navigator.pop(ctx, true),
-                  ),
-                ],
+        builder: (ctx, setLocalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Редактировать товар',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: kChildInk,
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleCtl,
+              decoration: const InputDecoration(labelText: 'Название'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: descCtl,
+              decoration: const InputDecoration(labelText: 'Описание'),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: priceCtl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Цена'),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: isActive,
+              title: const Text('Активен'),
+              onChanged: (v) => setLocalState(() => isActive = v),
+            ),
+            const SizedBox(height: 16),
+            FigmaDialogActionStack(
+              onCancel: () => Navigator.pop(ctx, false),
+              onConfirm: () => Navigator.pop(ctx, true),
+            ),
+          ],
         ),
       ),
     );
@@ -239,25 +220,32 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
   }
 
   Future<void> _deleteProduct(ShopProductItem p) async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showKlanyFigmaDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Удалить товар'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Удалить товар с витрины?'),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(ctx, false),
-              onConfirm: () => Navigator.pop(ctx, true),
-              confirmLabel: 'Удалить',
-              confirmGradient:
-                  FigmaDialogActionStack.destructiveGradientVertical,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Удалить товар',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: kChildInk,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          const Text('Удалить товар с витрины?'),
+          const SizedBox(height: 16),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+            confirmLabel: 'Удалить',
+            confirmGradient: FigmaDialogActionStack.destructiveGradientVertical,
+          ),
+        ],
       ),
     );
     if (confirm != true) return;
@@ -268,7 +256,7 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
   }
 
   Future<void> _showProductActions(ShopProductItem p) async {
-    final action = await showModalBottomSheet<String>(
+    final action = await showKlanyModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       backgroundColor: kChildSurfaceWhite,
@@ -319,60 +307,59 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<ShopProductItem>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final products = snapshot.data ?? const <ShopProductItem>[];
-        return SafeArea(
-          bottom: false,
-          child: RefreshIndicator(
-            onRefresh: _reload,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
+    final shellAsync = ref.watch(parentShellCacheProvider);
+    final products =
+        shellAsync.asData?.value.shopProducts ?? const <ShopProductItem>[];
+    final loading = shellAsync.isLoading && shellAsync.asData == null;
+    return SafeArea(
+      bottom: false,
+      child: RefreshIndicator(
+        onRefresh: _reload,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          keyboardDismissBehavior: klanyKeyboardDismissManual,
+          padding: EdgeInsets.fromLTRB(
+            context.klanySize(19),
+            0,
+            context.klanySize(19),
+            _shopBodyBottomPadding(context),
+          ),
+          children: [
+            ParentScreenHeader(
+              title: 'Магазин товаров',
+              onBack: widget.onBack,
+              padding: ParentScreenHeaderLayout.paddingInInset.copyWith(
+                top: context.klanySize(10),
+                bottom: context.klanySize(4),
               ),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(
-                context.klanySize(19),
-                0,
-                context.klanySize(19),
-                _shopBodyBottomPadding(context),
+            ),
+            SizedBox(height: context.klanySize(6)),
+            if (loading)
+              Padding(
+                padding: EdgeInsets.all(context.klanySize(24)),
+                child: const Center(child: CircularProgressIndicator()),
               ),
-              children: [
-                ParentScreenHeader(
-                  title: 'Магазин товаров',
-                  onBack: widget.onBack,
-                  padding: ParentScreenHeaderLayout.paddingInInset.copyWith(
-                    top: context.klanySize(10),
-                    bottom: context.klanySize(4),
+            if (shellAsync.hasError && shellAsync.asData == null)
+              ChildSoftCard(
+                color: kBrandRose,
+                padding: EdgeInsets.all(context.klanySize(12)),
+                child: KlanyFriendlyErrorText(shellAsync.error),
+              ),
+            if (products.isEmpty && !loading)
+              ChildSoftCard(
+                color: kBrandLavender,
+                padding: EdgeInsets.all(context.klanySize(12)),
+                child: Text(
+                  'Товаров пока нет — добавь первый!',
+                  style: TextStyle(
+                    color: kChildInk,
+                    fontSize: context.klanySize(14),
                   ),
                 ),
-                SizedBox(height: context.klanySize(6)),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  Padding(
-                    padding: EdgeInsets.all(context.klanySize(24)),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                if (snapshot.hasError)
-                  ChildSoftCard(
-                    color: kBrandRose,
-                    padding: EdgeInsets.all(context.klanySize(12)),
-                    child: KlanyFriendlyErrorText(snapshot.error),
-                  ),
-                if (products.isEmpty &&
-                    snapshot.connectionState != ConnectionState.waiting)
-                  ChildSoftCard(
-                    color: kBrandLavender,
-                    padding: EdgeInsets.all(context.klanySize(12)),
-                    child: Text(
-                      'Товаров пока нет — добавь первый!',
-                      style: TextStyle(
-                        color: kChildInk,
-                        fontSize: context.klanySize(14),
-                      ),
-                    ),
-                  ),
-                ...products.map(
+              ),
+            ...products.map(
                   (p) => _FigmaProductCard(
                     product: p,
                     onTap: () => _showProductActions(p),
@@ -382,8 +369,6 @@ class _ParentProductsListState extends ConsumerState<_ParentProductsList>
             ),
           ),
         );
-      },
-    );
   }
 }
 
@@ -659,7 +644,7 @@ class _ParentCreateProductFormState
       bottom: false,
       child: ListView(
         physics: const ClampingScrollPhysics(),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        keyboardDismissBehavior: klanyKeyboardDismissManual,
         padding: EdgeInsets.fromLTRB(
           19,
           0,
@@ -978,7 +963,7 @@ class _ParentPurchasesQueueState extends ConsumerState<_ParentPurchasesQueue>
               physics: const AlwaysScrollableScrollPhysics(
                 parent: ClampingScrollPhysics(),
               ),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: klanyKeyboardDismissManual,
               padding: EdgeInsets.fromLTRB(
                 19,
                 0,

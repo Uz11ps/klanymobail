@@ -10,6 +10,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_live_poll.dart';
 import '../../../core/klany_page_gate.dart';
+import '../../../core/klany_bottom_sheet.dart';
+import '../../../core/klany_keyboard.dart';
 import '../../auth/child_session.dart';
 import '../../auth/device_identity.dart';
 import '../../notifications/fcm.dart';
@@ -20,11 +22,10 @@ import '../../onboarding/onboarding_tour_dialog.dart';
 import '../../quests/pages/child_quests_page.dart';
 import '../../quests/quests_repository.dart';
 import '../../shop/pages/child_shop_page.dart';
-import '../../wallet/wallet_repository.dart';
 import '../child_avatar_picker_flow.dart';
 import '../child_dashboard_profile_card.dart';
+import '../child_shell_cache.dart';
 import '../child_soft_ui.dart';
-import '../shell_bootstrap.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Экран ребёнка — полностью пересобран. Каркас Scaffold совпадает с [ParentHomePage]:
@@ -119,17 +120,26 @@ class ChildHomePage extends ConsumerStatefulWidget {
   ConsumerState<ChildHomePage> createState() => _ChildHomePageState();
 }
 
-class _ChildHomePageState extends ConsumerState<ChildHomePage> {
+class _ChildHomePageState extends ConsumerState<ChildHomePage>
+    with KlanyLivePollConsumerMixin {
   int _index = 0;
   Timer? _sessionTimer;
   int _registerAttempts = 0;
   final Set<int> _visitedTabs = {0};
 
   @override
+  void onKlanyLivePoll({bool silent = true}) {
+    refreshChildShellCache(ref);
+  }
+
+  @override
   void initState() {
     super.initState();
     _registerDevice();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTour());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      prefetchChildShellCache(ref);
+      _maybeShowTour();
+    });
     _sessionTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
       await ref.read(childSessionProvider.notifier).validateStillActive();
     });
@@ -189,21 +199,8 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final shellAsync = ref.watch(childShellDataProvider);
-    return shellAsync.when(
-      loading: () => const KlanyPageLoading(message: 'Загружаем профиль…'),
-      error: (error, _) => const KlanyPageLoading(
-        message: 'Не удалось загрузить данные',
-      ),
-      data: (shellData) => KlanyPageReveal(
-        child: _buildShell(context, shellData),
-      ),
-    );
-  }
-
-  Widget _buildShell(BuildContext context, ChildShellData shellData) {
     final tabs = <Widget>[
-      _ChildHomeDashboard(initialData: shellData),
+      const _ChildHomeDashboard(),
       const ChildQuestsPage(),
       const ChildShopPage(),
     ];
@@ -258,115 +255,28 @@ class _ChildHomePageState extends ConsumerState<ChildHomePage> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ChildHomeDashboard extends ConsumerStatefulWidget {
-  const _ChildHomeDashboard({this.initialData});
-
-  final ChildShellData? initialData;
+  const _ChildHomeDashboard();
 
   @override
   ConsumerState<_ChildHomeDashboard> createState() =>
       _ChildHomeDashboardState();
 }
 
-class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
-    with KlanyLivePollConsumerMixin {
-  bool _initialLoading = true;
-  bool _refreshing = false;
-  _OverviewModel? _model;
+class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard> {
+  bool _manualRefreshing = false;
 
-  @override
-  void onKlanyLivePoll({bool silent = true}) {
-    _load(silent: true);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final seed = widget.initialData;
-    if (seed != null) {
-      _model = _OverviewModel(
-        walletBalance: seed.walletBalance,
-        activeAssignments: seed.activeAssignments,
-        exchangeCount: seed.exchangeCount,
-        completedCount: seed.completedCount,
-        goalCurrent: seed.goalCurrent,
-        goalTarget: seed.goalTarget,
-        goalProgress: seed.goalProgress,
-      );
-      _initialLoading = false;
-    } else {
-      _load(showSpinner: true);
-    }
-  }
-
-  Future<_OverviewModel> _fetch(String childId) async {
-    final wallet = await ref
-        .read(walletRepositoryProvider)
-        .getChildWallet(childId);
-    final list = await ref
-        .read(questsRepositoryProvider)
-        .getChildAssignments(childId);
-    final active = list
-        .where(
-          (a) =>
-              a.distributionType != 'exchange' &&
-              !isChildAssignmentCompleted(a) &&
-              a.status != 'submitted',
-        )
-        .length;
-    final exchange = list.where((a) => a.distributionType == 'exchange').length;
-    final done = wallet?.completedQuestsCount ?? 0;
-    final balance = wallet?.balance ?? 0;
-    final rawGoal = wallet?.goalAmount ?? 10000;
-    final goal = rawGoal > 0 ? rawGoal : 10000;
-    return _OverviewModel(
-      walletBalance: balance,
-      activeAssignments: active,
-      exchangeCount: exchange,
-      completedCount: done,
-      goalCurrent: balance,
-      goalTarget: goal,
-      goalProgress: balance / goal,
-    );
-  }
-
-  Future<void> _load({bool showSpinner = false, bool silent = false}) async {
-    final session = ref.read(childSessionProvider).asData?.value;
+  Future<void> _refresh({bool force = false}) async {
     if (!mounted) return;
-    if (session == null) {
-      setState(() {
-        _initialLoading = false;
-        _refreshing = false;
-      });
-      return;
-    }
-
-    setState(() {
-      if (showSpinner && _model == null) {
-        _initialLoading = true;
-      } else if (_model != null && !silent) {
-        _refreshing = true;
-      }
-    });
-
+    setState(() => _manualRefreshing = true);
     try {
-      final m = await _fetch(session.childId);
-      if (!mounted) return;
-      setState(() => _model = m);
-    } catch (e) {
-      if (!mounted) return;
-      context.showKlanyNetworkErrorSnackBar(e);
+      await ref.read(childShellCacheProvider.notifier).refresh(force: force);
     } finally {
-      if (mounted) {
-        setState(() {
-          _initialLoading = false;
-          _refreshing = false;
-        });
-      }
+      if (mounted) setState(() => _manualRefreshing = false);
     }
   }
 
   void _openAccountSheet() {
-    showModalBottomSheet<void>(
+    showKlanyModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       backgroundColor: kChildSurfaceWhite,
@@ -386,56 +296,60 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
     return b.toString();
   }
 
+  String _goalCardTitle(String? goalName) {
+    final name = (goalName ?? '').trim();
+    if (name.isEmpty) return 'Текущая цель';
+    return 'Текущая цель: $name';
+  }
+
   Future<void> _reverseTaskFlow() async {
     final titleCtl = TextEditingController();
     final amountCtl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showKlanyFigmaDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text(
-          'Обратная задача',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: kChildInk,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Обратная задача',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: kChildInk,
+            ),
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Попроси родителя о задаче. Указанная сумма монет сразу '
-              'спишется с твоего счёта — родитель выполнит просьбу в жизни.',
-              style: TextStyle(fontSize: 13, color: kChildInkMuted),
+          const SizedBox(height: 12),
+          const Text(
+            'Попроси родителя о задаче. Указанная сумма монет сразу '
+            'спишется с твоего счёта — родитель выполнит просьбу в жизни.',
+            style: TextStyle(fontSize: 13, color: kChildInkMuted),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: titleCtl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Название цели',
+              hintText: 'Например: Подарок маме',
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: titleCtl,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Название цели',
-                hintText: 'Например: Подарок маме',
-              ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: amountCtl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Сколько монет нужно',
+              hintText: '500',
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: amountCtl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Сколько монет нужно',
-                hintText: '500',
-              ),
-            ),
-            const SizedBox(height: 16),
-            FigmaDialogActionStack(
-              onCancel: () => Navigator.pop(ctx, false),
-              onConfirm: () => Navigator.pop(ctx, true),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, false),
+            onConfirm: () => Navigator.pop(ctx, true),
+          ),
+        ],
       ),
     );
     if (ok != true || !mounted) return;
@@ -459,7 +373,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
           ),
         ),
       );
-      _load();
+      await _refresh(force: true);
     } catch (e) {
       if (!mounted) return;
       context.showKlanyErrorSnackBar(e);
@@ -476,23 +390,28 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
       return const Center(child: Text('Сессия ребёнка не найдена'));
     }
 
+    final shellAsync = ref.watch(childShellCacheProvider);
+    final cache = shellAsync.asData?.value;
+
     final screenW = MediaQuery.sizeOf(context).width;
     final cw = kFigmaChildDashboardContentWidth(screenW);
     final s = kFigmaChildDashboardLayoutScale(cw);
     final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
 
-    /// Как у [ChildQuestsPage]: не выдумываем отдельный «хвост» скролла.
-    final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
+    final bottomPad =
+        ChildBottomClanBar.scrollBottomClearance(context) +
+        28 +
+        klanyScrollBottomPadding(context);
 
     late final List<Widget> body;
 
-    if (_initialLoading && _model == null) {
+    if (shellAsync.isLoading && cache == null) {
       body = [
         SizedBox(
           width: cw,
           child: _DashboardHeader(
             scale: s,
-            onReload: () => _load(),
+            onReload: () => _refresh(force: true),
             onMenu: _openAccountSheet,
           ),
         ),
@@ -507,30 +426,29 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
           ),
         ),
       ];
-    } else if (_model == null) {
+    } else if (cache == null) {
       body = [
         SizedBox(
           width: cw,
           child: _DashboardHeader(
             scale: s,
-            onReload: () => _load(),
+            onReload: () => _refresh(force: true),
             onMenu: _openAccountSheet,
           ),
         ),
       ];
     } else {
-      final m = _model!;
-      final done = m.completedCount;
+      final done = cache.completedCount;
       body = [
         SizedBox(
           width: cw,
           child: _DashboardHeader(
             scale: s,
-            onReload: () => _load(),
+            onReload: () => _refresh(force: true),
             onMenu: _openAccountSheet,
           ),
         ),
-        if (_refreshing) ...[
+        if (_manualRefreshing) ...[
           const SizedBox(height: 8),
           SizedBox(
             width: cw,
@@ -558,7 +476,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
               child: _StatTile(
                 scale: s,
                 label: 'Мои задачи',
-                value: '${m.activeAssignments}',
+                value: '${cache.activeAssignments}',
                 background: kFigmaChildStatMint,
                 verticalPaddingPx: 34,
                 outerShadows: _scaledMintStatShadows(s),
@@ -569,7 +487,7 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
               child: _StatTile(
                 scale: s,
                 label: 'Биржа',
-                value: '${m.exchangeCount}',
+                value: '${cache.exchangeCount}',
                 background: kFigmaChildStatLavender,
                 verticalPaddingPx: 30,
                 outerShadows: _scaledLavenderStatShadows(s),
@@ -582,9 +500,10 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
         const SizedBox(height: 20),
         _DashboardGoalCard(
           scale: s,
-          progress: m.goalProgress.clamp(0.0, 1.0),
+          progress: cache.goalProgress.clamp(0.0, 1.0),
+          title: _goalCardTitle(cache.goalName),
           caption:
-              '${_formatBalance(m.goalCurrent)} / ${_formatBalance(m.goalTarget)} монет',
+              '${_formatBalance(cache.goalCurrent)} / ${_formatBalance(cache.goalTarget)} монет',
         ),
         const SizedBox(height: 20),
         _dividerLine(),
@@ -615,13 +534,16 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
           child: SafeArea(
             bottom: false,
             child: RefreshIndicator(
-              onRefresh: () => _load(),
-              child: ListView(
+              onRefresh: () => _refresh(force: true),
+              child: klanyDismissKeyboardOnTap(
+                child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: ClampingScrollPhysics(),
                 ),
                 padding: EdgeInsets.fromLTRB(hPad, 26, hPad, bottomPad),
+                keyboardDismissBehavior: klanyKeyboardDismissManual,
                 children: body,
+                ),
               ),
             ),
           ),
@@ -629,26 +551,6 @@ class _ChildHomeDashboardState extends ConsumerState<_ChildHomeDashboard>
       ],
     );
   }
-}
-
-class _OverviewModel {
-  const _OverviewModel({
-    required this.walletBalance,
-    required this.activeAssignments,
-    this.exchangeCount = 0,
-    this.completedCount = 0,
-    this.goalCurrent = 0,
-    this.goalTarget = 10000,
-    this.goalProgress = 0.0,
-  });
-
-  final int walletBalance;
-  final int activeAssignments;
-  final int exchangeCount;
-  final int completedCount;
-  final int goalCurrent;
-  final int goalTarget;
-  final double goalProgress;
 }
 
 class _DashboardHeader extends StatelessWidget {
@@ -839,11 +741,13 @@ class _DashboardGoalCard extends StatelessWidget {
   const _DashboardGoalCard({
     required this.scale,
     required this.progress,
+    required this.title,
     required this.caption,
   });
 
   final double scale;
   final double progress;
+  final String title;
   final String caption;
 
   @override
@@ -880,8 +784,10 @@ class _DashboardGoalCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Текущая цель',
+                      title,
                       textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: _nunito(
                         fontSize: 17 * scale,
                         fontWeight: FontWeight.w700,

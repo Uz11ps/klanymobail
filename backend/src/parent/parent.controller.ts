@@ -20,8 +20,8 @@ export class ParentController {
 
   @Post("family/goal")
   @Roles("parent", "admin")
-  async setFamilyGoal(@Req() req: any, @Body() body: { goalAmount: number }) {
-    return this.parent.setFamilyGoal(req.user, body.goalAmount);
+  async setFamilyGoal(@Req() req: any, @Body() body: { goalAmount: number; goalName?: string }) {
+    return this.parent.setFamilyGoal(req.user, body.goalAmount, body.goalName);
   }
 
   @Post("family/coin-rate")

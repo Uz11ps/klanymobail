@@ -13,6 +13,16 @@ import 'clan_capital_ui.dart';
 // Brand palette — canonical source is clan_capital_ui.dart for the two primaries.
 // Re-exported here so callers that already import child_soft_ui.dart keep working.
 export 'clan_capital_ui.dart' show kChildBrandBlue, kChildInk, ClanCapitalUi;
+export '../../core/klany_keyboard.dart'
+    show
+        klanyDismissKeyboard,
+        klanyDismissKeyboardOnTap,
+        klanyKeyboardDismissManual,
+        klanyKeyboardScrollPadding,
+        klanyPageScrollBottomPadding,
+        klanyScrollBottomPadding,
+        klanySheetKeyboardPadding,
+        klanySheetScrollBottomPadding;
 
 const Color kChildBrandBlueDark = Color(0xFF1A4BBF);
 const Color kChildSurfaceSoft = Color(0xFFEFF4FA);
@@ -1327,11 +1337,6 @@ class ChildBottomClanBar extends StatelessWidget {
     );
   }
 }
-
-/// При [Scaffold.resizeToAvoidBottomInset: false] навбар не поднимается с клавиатурой;
-/// добавьте к нижнему padding прокручиваемого контента.
-double klanyKeyboardScrollPadding(BuildContext context) =>
-    MediaQuery.viewInsetsOf(context).bottom;
 
 class _ChildHomeNavColumn extends StatelessWidget {
   const _ChildHomeNavColumn({

@@ -2,88 +2,57 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_shell_cache.dart';
+import '../../../core/klany_bottom_sheet.dart';
 import '../../../core/app_snackbar.dart';
 import '../../../core/klany_error_view.dart';
-import '../../../core/klany_live_poll.dart';
 import '../../wallet/family_economy.dart';
 import '../quests_repository.dart';
 import 'exchange_quest_card.dart';
 import 'task_exchange_figma_layout.dart';
-class ParentTaskExchangeReviewList extends ConsumerStatefulWidget {
-  const ParentTaskExchangeReviewList({super.key, required this.familyId});
-  final String familyId;
+
+class ParentTaskExchangeReviewList extends ConsumerWidget {
+  const ParentTaskExchangeReviewList({super.key});
 
   @override
-  ConsumerState<ParentTaskExchangeReviewList> createState() =>
-      _ParentTaskExchangeReviewListState();
-}
-
-class _ParentTaskExchangeReviewListState
-    extends ConsumerState<ParentTaskExchangeReviewList>
-    with KlanyLivePollConsumerMixin {
-  Future<List<ParentReviewItem>>? _future;
-
-  @override
-  void onKlanyLivePoll({bool silent = true}) {
-    _reload();
-  }
-
-  void _reload() {
-    setState(() {
-      _future = ref
-          .read(questsRepositoryProvider)
-          .getSubmittedForReview(widget.familyId);
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _future ??= ref
-        .read(questsRepositoryProvider)
-        .getSubmittedForReview(widget.familyId);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<ParentReviewItem>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return KlanyFriendlyErrorText(snapshot.error);
-        }
-        final list = snapshot.data ?? const <ParentReviewItem>[];
-        if (list.isEmpty) {
-          return SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.2,
-            child: const Center(
-              child: Text(
-                'Нет заявок на проверку',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kChildInkMuted),
-              ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final shellAsync = ref.watch(parentShellCacheProvider);
+    if (shellAsync.isLoading && shellAsync.asData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (shellAsync.hasError && shellAsync.asData == null) {
+      return KlanyFriendlyErrorText(shellAsync.error);
+    }
+    final list = shellAsync.asData?.value.reviews ?? const <ParentReviewItem>[];
+    if (list.isEmpty) {
+      return SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.2,
+        child: const Center(
+          child: Text(
+            'Нет заявок на проверку',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kChildInkMuted),
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (final item in list)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
             ),
-          );
-        }
-        return Column(
-          children: [
-            for (final item in list)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
-                ),
-                child: _ExchangeReviewCard(
-                  item: item,
-                  background: TaskExchangeFigmaLayout.cardColorForKey(item.questId),
-                  onReviewCompleted: _reload,
-                ),
-              ),
-          ],
-        );
-      },
+            child: _ExchangeReviewCard(
+              item: item,
+              background: TaskExchangeFigmaLayout.cardColorForKey(item.questId),
+              onReviewCompleted: () =>
+                  ref.read(parentShellCacheProvider.notifier).refresh(
+                        force: true,
+                      ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -135,16 +104,10 @@ class _ExchangeReviewCardState extends ConsumerState<_ExchangeReviewCard> {
 
   Future<void> _openReviewSheet() async {
     final commentCtrl = TextEditingController();
-    final result = await showModalBottomSheet<bool>(
+    final result = await showKlanyModalBottomSheet<bool>(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          16,
-          20,
-          MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

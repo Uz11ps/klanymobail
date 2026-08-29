@@ -8,11 +8,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../auth/child_session.dart';
+import '../../home/child_shell_cache.dart';
 import '../../home/child_avatar_picker_flow.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
 import '../quests_repository.dart';
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_bottom_sheet.dart';
 import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
 
@@ -129,52 +131,15 @@ class ChildQuestsPage extends ConsumerStatefulWidget {
 
 class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
     with KlanyLivePollConsumerMixin {
-  Future<List<ChildQuestAssignmentItem>>? _future;
-  String? _assignmentsChildId;
   int _tab = 0; // 0 = Мои задачи, 1 = Биржа
-  bool _reloadInFlight = false;
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
-    _reload(silent: true);
+    refreshChildShellCache(ref);
   }
 
-  Future<void> _reload({bool silent = false}) async {
-    if (_reloadInFlight) return;
-    final session = ref.read(childSessionProvider).asData?.value;
-    if (session == null) return;
-    _reloadInFlight = true;
-    try {
-      final f = ref
-          .read(questsRepositoryProvider)
-          .getChildAssignments(session.childId);
-      if (mounted) {
-        setState(() {
-          _assignmentsChildId = session.childId;
-          _future = f;
-        });
-      } else {
-        _assignmentsChildId = session.childId;
-        _future = f;
-      }
-      await f;
-    } finally {
-      _reloadInFlight = false;
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final session = ref.read(childSessionProvider).asData?.value;
-    final id = session?.childId;
-    if (id == null) return;
-    if (_assignmentsChildId != id) {
-      _assignmentsChildId = id;
-      _future = ref.read(questsRepositoryProvider).getChildAssignments(id);
-    } else {
-      _future ??= ref.read(questsRepositoryProvider).getChildAssignments(id);
-    }
+  Future<void> _reload() async {
+    await ref.read(childShellCacheProvider.notifier).refresh(force: true);
   }
 
   @override
@@ -184,27 +149,32 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
       return const Center(child: Text('Сессия ребёнка не найдена'));
     }
 
-    return FutureBuilder<List<ChildQuestAssignmentItem>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final all = snapshot.data ?? const <ChildQuestAssignmentItem>[];
-        final personal = all
-            .where((a) => a.distributionType != 'exchange')
-            .toList();
-        final exchange = all
-            .where((a) => a.distributionType == 'exchange')
-            .toList();
-        final completed = countCompletedChildAssignments(all);
-        final current = _tab == 0 ? personal : exchange;
+    final shellAsync = ref.watch(childShellCacheProvider);
+    final cache = shellAsync.asData?.value;
+    if (shellAsync.isLoading && cache == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        final screenW = MediaQuery.sizeOf(context).width;
-        final cw = kFigmaChildDashboardContentWidth(screenW);
-        final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
-        final s = kFigmaChildDashboardLayoutScale(cw);
-        final bottomPad =
-            ChildBottomClanBar.scrollBottomClearance(context) + 28;
+    final all = cache?.assignments ?? const <ChildQuestAssignmentItem>[];
+    final personal = all
+        .where((a) => a.distributionType != 'exchange')
+        .toList();
+    final exchange = all
+        .where((a) => a.distributionType == 'exchange')
+        .toList();
+    final completed = countCompletedChildAssignments(all);
+    final current = _tab == 0 ? personal : exchange;
 
-        return Stack(
+    final screenW = MediaQuery.sizeOf(context).width;
+    final cw = kFigmaChildDashboardContentWidth(screenW);
+    final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
+    final s = kFigmaChildDashboardLayoutScale(cw);
+    final bottomPad =
+        ChildBottomClanBar.scrollBottomClearance(context) +
+        28 +
+        klanyScrollBottomPadding(context);
+
+    return Stack(
           fit: StackFit.expand,
           children: [
             Positioned.fill(
@@ -227,7 +197,8 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
                 bottom: false,
                 child: RefreshIndicator(
                   onRefresh: _reload,
-                  child: ListView(
+                  child: klanyDismissKeyboardOnTap(
+                    child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: ClampingScrollPhysics(),
                     ),
@@ -335,15 +306,11 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
                         ],
                       ),
                       const SizedBox(height: 20),
-                      if (snapshot.connectionState == ConnectionState.waiting)
-                        const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator()),
+                      if (shellAsync.hasError && cache == null)
+                        ChildSoftCard(
+                          child: KlanyFriendlyErrorText(shellAsync.error),
                         ),
-                      if (snapshot.hasError)
-                        ChildSoftCard(child: KlanyFriendlyErrorText(snapshot.error)),
-                      if (!snapshot.hasError &&
-                          snapshot.connectionState != ConnectionState.waiting &&
+                      if (!(shellAsync.hasError && cache == null) &&
                           current.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
@@ -372,13 +339,12 @@ class _ChildQuestsPageState extends ConsumerState<ChildQuestsPage>
                       ),
                     ],
                   ),
+                  ),
                 ),
               ),
             ),
           ],
         );
-      },
-    );
   }
 }
 
@@ -631,7 +597,7 @@ class _ChildQuestCardState extends ConsumerState<_ChildQuestCard> {
       await _takeQuest();
       return;
     }
-    final choice = await showModalBottomSheet<String>(
+    final choice = await showKlanyModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Column(

@@ -97,6 +97,7 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -112,16 +113,13 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Регистрация',
-                  onBack: onBack,
-                ),
-                Expanded(
-                  child: FigmaAuthPageBody(
-                    hero: const FigmaAuthHero(
+            child: FigmaAuthPageBody(
+              header: FigmaAuthDoubleDeckHeader(
+                navTitle: 'Регистрация',
+                onBack: onBack,
+                embeddedInPage: true,
+              ),
+              hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_flag.png',
                     ),
                     form: Column(
@@ -210,9 +208,6 @@ class _ChildSignInPageState extends ConsumerState<ChildSignInPage> {
                           ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

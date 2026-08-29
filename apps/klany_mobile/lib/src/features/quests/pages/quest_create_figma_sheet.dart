@@ -4,8 +4,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/app_snackbar.dart';
+import '../../../core/klany_bottom_sheet.dart';
+import '../../../core/klany_keyboard.dart';
+import '../../../core/storage_presign.dart';
 import '../../home/avatar_store.dart';
 import '../../home/child_soft_ui.dart';
+import '../../home/parent_shell_cache.dart';
+import '../../wallet/family_economy.dart';
 import '../quests_repository.dart';
 
 /// Figma [node 256:447](https://www.figma.com/design/kwVuEbSWPdrTEFsrIvZVB3/Untitled?node-id=256-447).
@@ -82,33 +87,18 @@ Future<void> showQuestCreateFigmaSheet(
   required String familyId,
   VoidCallback? onCreated,
 }) {
-  return showModalBottomSheet<void>(
+  return showKlanyScrollableBottomSheet<void>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: false,
-    useSafeArea: true,
-    backgroundColor: Colors.white,
+    maxHeightFraction: 0.92,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
         top: Radius.circular(_kCreateSheetTopRadius),
       ),
     ),
-    clipBehavior: Clip.antiAlias,
-    builder: (ctx) {
-      final bottomInset = MediaQuery.viewInsetsOf(ctx).bottom;
-      final maxHeight = MediaQuery.sizeOf(ctx).height * 0.92;
-
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: _QuestCreateFigmaForm(
-            familyId: familyId,
-            onCreated: onCreated,
-          ),
-        ),
-      );
-    },
+    builder: (ctx) => _QuestCreateFigmaForm(
+      familyId: familyId,
+      onCreated: onCreated,
+    ),
   );
 }
 
@@ -290,14 +280,29 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
 
   @override
   Widget build(BuildContext context) {
+    final cache = ref.watch(parentShellCacheProvider).asData?.value;
+    final walletsByChildId = {
+      for (final w in cache?.wallets ?? const []) w.childId: w,
+    };
     return FutureBuilder<List<FamilyChildLite>>(
       future: _childrenFuture,
       builder: (context, snapshot) {
         final children = snapshot.data ?? const <FamilyChildLite>[];
         return Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(19, 12, 19, 28),
+          child: klanyDismissKeyboardOnTap(
+            child: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.fromLTRB(
+              19,
+              12,
+              19,
+              12 +
+                  MediaQuery.viewPaddingOf(context).bottom +
+                  klanySheetScrollBottomPadding(context),
+            ),
+            physics: const AlwaysScrollableScrollPhysics(),
+            keyboardDismissBehavior: klanyKeyboardDismissManual,
             children: [
               Center(
                 child: Container(
@@ -391,11 +396,21 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
                   )
                 else
                   ...children.map(
-                    (child) => Padding(
+                    (child) {
+                      final wallet = walletsByChildId[child.id];
+                      final avatarKey =
+                          (child.avatarObjectKey ?? wallet?.avatarObjectKey ?? '')
+                              .trim();
+                      final avatarImageUrl =
+                          child.avatarImageUrl ?? wallet?.avatarImageUrl;
+                      return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _CreateChildRadioRow(
                         childId: child.id,
                         label: child.displayName,
+                        avatarObjectKey:
+                            avatarKey.isEmpty ? null : avatarKey,
+                        avatarImageUrl: avatarImageUrl,
                         selected: _selectedChildren.contains(child.id),
                         onTap: () => setState(() {
                           if (_selectedChildren.contains(child.id)) {
@@ -405,7 +420,8 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
                           }
                         }),
                       ),
-                    ),
+                    );
+                    },
                   ),
               ],
               const SizedBox(height: _kCreateSectionGap),
@@ -426,6 +442,31 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
                     return 'Укажите число >= 0';
                   }
                   return null;
+                },
+              ),
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _reward,
+                builder: (context, value, _) {
+                  final gross = int.tryParse(value.text.trim()) ?? 0;
+                  if (gross <= 0) return const SizedBox.shrink();
+                  final tax = ref.watch(familyGlobalTaxProvider);
+                  final net = netQuestReward(gross, tax);
+                  final taxCoins = gross - net;
+                  final pct = globalTaxPercentLabel(tax);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Ребёнок получит $net монет. '
+                      '$taxCoins монет ($pct%) — в общую цель.',
+                      style: const TextStyle(
+                        fontFamily: 'Nunito',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF515151),
+                        height: 1.25,
+                      ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(height: _kCreateSectionGap),
@@ -555,6 +596,7 @@ class _QuestCreateFigmaFormState extends ConsumerState<_QuestCreateFigmaForm> {
                   onTap: () => _submit(children),
                 ),
             ],
+          ),
           ),
         );
       },
@@ -804,12 +846,16 @@ class _CreateChildRadioRow extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
   });
 
   final String childId;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 
   static const double _avatarSize = 32;
 
@@ -819,6 +865,8 @@ class _CreateChildRadioRow extends StatelessWidget {
     final initial = trimmed.isEmpty
         ? '?'
         : String.fromCharCode(trimmed.runes.first).toUpperCase();
+
+    final imageKey = (avatarObjectKey ?? '').trim();
 
     return _CreateFieldShell(
       onTap: onTap,
@@ -836,6 +884,10 @@ class _CreateChildRadioRow extends StatelessWidget {
             userKey: 'child:$childId',
             size: _avatarSize,
             fallbackText: initial,
+            remoteImageUrl: avatarImageUrl,
+            remoteDiskCacheKey: imageKey.isEmpty
+                ? null
+                : storageObjectDiskCacheKey('member-avatars', imageKey),
           ),
           const SizedBox(width: 11),
           Expanded(

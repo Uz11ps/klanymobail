@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/api_client.dart';
 import '../../core/sdk.dart';
+import '../../core/storage_presign.dart';
 import '../auth/child_session.dart';
 import '../auth/parent_session.dart';
 
@@ -143,10 +144,17 @@ class ParentReviewItem {
 }
 
 class FamilyChildLite {
-  FamilyChildLite({required this.id, required this.displayName});
+  FamilyChildLite({
+    required this.id,
+    required this.displayName,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
+  });
 
   final String id;
   final String displayName;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
 }
 
 class QuestsRepository {
@@ -192,14 +200,25 @@ class QuestsRepository {
     final data = await api.getJson('/family/children', accessToken: token);
     final rows = (data['items'] as List<dynamic>? ?? const <dynamic>[])
         .cast<Map<String, dynamic>>();
-    return rows
-        .map(
-          (row) => FamilyChildLite(
-            id: row['id'].toString(),
-            displayName: (row['displayName'] ?? '').toString(),
-          ),
-        )
-        .toList();
+    return Future.wait(
+      rows.map((row) async {
+        final objectKey = row['avatarObjectKey']?.toString();
+        final trimmedKey = (objectKey ?? '').trim();
+        final avatarImageUrl = trimmedKey.isNotEmpty
+            ? await presignStorageDownload(
+                accessToken: token,
+                bucket: 'member-avatars',
+                objectKey: trimmedKey,
+              )
+            : null;
+        return FamilyChildLite(
+          id: row['id'].toString(),
+          displayName: (row['displayName'] ?? '').toString(),
+          avatarObjectKey: objectKey,
+          avatarImageUrl: avatarImageUrl,
+        );
+      }),
+    );
   }
 
   Future<void> createQuest({

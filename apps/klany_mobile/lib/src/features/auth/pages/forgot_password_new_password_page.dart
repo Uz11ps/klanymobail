@@ -87,6 +87,7 @@ class _ForgotPasswordNewPasswordPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -102,24 +103,21 @@ class _ForgotPasswordNewPasswordPageState
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Новый пароль',
-                  onBack: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go(
-                        '/auth/forgot-password/code?email=${Uri.encodeComponent(widget.email)}',
-                      );
-                    }
-                  },
-                ),
-                Expanded(
-                  child: FigmaAuthPageBody(
-                    hero: const FigmaAuthHero(
+            child: FigmaAuthPageBody(
+              header: FigmaAuthDoubleDeckHeader(
+                navTitle: 'Новый пароль',
+                onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(
+                      '/auth/forgot-password/code?email=${Uri.encodeComponent(widget.email)}',
+                    );
+                  }
+                },
+                embeddedInPage: true,
+              ),
+              hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_economika.png',
                       showDots: true,
                       dotCount: 3,
@@ -219,9 +217,6 @@ class _ForgotPasswordNewPasswordPageState
                           ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

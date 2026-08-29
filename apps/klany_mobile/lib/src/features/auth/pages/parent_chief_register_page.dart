@@ -305,19 +305,23 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(height: topInset),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                kFigmaAuthHeroFormPaddingH,
-                0,
-                kFigmaAuthHeroFormPaddingH,
-                bottomInset + 16,
-              ),
-              child: Column(
+            child: klanyDismissKeyboardOnTap(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: klanyKeyboardDismissManual,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  kFigmaAuthHeroFormPaddingH,
+                  0,
+                  kFigmaAuthHeroFormPaddingH,
+                  bottomInset + 16 + klanyScrollBottomPadding(context),
+                ),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   FigmaAuthDoubleDeckHeader(
@@ -553,6 +557,7 @@ class _ParentChiefRegisterPageState extends ConsumerState<ParentChiefRegisterPag
                   const SizedBox(height: 24),
                 ],
               ),
+            ),
             ),
           ),
         ],

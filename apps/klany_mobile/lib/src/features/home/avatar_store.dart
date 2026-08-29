@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'child_soft_ui.dart';
 import '../../core/app_snackbar.dart';
+import '../../core/klany_bottom_sheet.dart';
 
 /// Глобальный notifier — все UserAvatar пере-загружаются когда что-то меняется.
 final ValueNotifier<int> avatarVersion = ValueNotifier<int>(0);
@@ -98,108 +99,90 @@ Future<bool> showAvatarPicker({
   // 'preset' = выбрали пресет и нажали "Сохранить"
   // 'file' = загрузили свою картинку через "Загрузить из галереи"
   // null = отмена
-  final result = await showDialog<String>(
+  final result = await showKlanyBottomDialog<String>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSt) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-        title: Text(
-          title ?? 'Выбрать аватар',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: kChildInk,
-          ),
-        ),
-        content: SizedBox(
-          width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                ),
-                itemCount: AvatarStore.totalAvatars,
-                itemBuilder: (_, i) {
-                  final idx = i + 1;
-                  final isSelected = idx == selected;
-                  return GestureDetector(
-                    onTap: () => setSt(() => selected = idx),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? kChildBrandBlue
-                              : Colors.transparent,
-                          width: 3,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          AvatarStore.assetForIndex(idx),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, e, s) => Container(
-                            color: kBrandMint,
-                            alignment: Alignment.center,
-                            child: Text('$idx'),
-                          ),
-                        ),
-                      ),
+      builder: (ctx, setSt) => klanyBottomSheetPanel(
+        title: title ?? 'Выбрать аватар',
+        children: [
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: AvatarStore.totalAvatars,
+            itemBuilder: (_, i) {
+              final idx = i + 1;
+              final isSelected = idx == selected;
+              return GestureDetector(
+                onTap: () => setSt(() => selected = idx),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? kChildBrandBlue
+                          : Colors.transparent,
+                      width: 3,
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    try {
-                      final p = await _pickAndStoreImage(userKey);
-                      if (p != null && ctx.mounted) {
-                        Navigator.pop(ctx, 'file');
-                      } else if (ctx.mounted) {
-                        ctx.showKlanySnackBar(
-                          const SnackBar(
-                            content: Text('Не удалось выбрать фото'),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (ctx.mounted) {
-                        ctx.showKlanyErrorSnackBar(e);
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Загрузить из галереи'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: kChildBrandBlue,
-                    side: const BorderSide(
-                      color: kChildBrandBlue,
-                      width: 1.4,
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      AvatarStore.assetForIndex(idx),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, e, s) => Container(
+                        color: kBrandMint,
+                        alignment: Alignment.center,
+                        child: Text('$idx'),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              FigmaDialogActionStack(
-                onCancel: () => Navigator.pop(ctx, null),
-                onConfirm: () => Navigator.pop(ctx, 'preset'),
-              ),
-            ],
+              );
+            },
           ),
-        ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  final p = await _pickAndStoreImage(userKey);
+                  if (p != null && ctx.mounted) {
+                    Navigator.pop(ctx, 'file');
+                  } else if (ctx.mounted) {
+                    ctx.showKlanySnackBar(
+                      const SnackBar(
+                        content: Text('Не удалось выбрать фото'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ctx.showKlanyErrorSnackBar(e);
+                  }
+                }
+              },
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Загрузить из галереи'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kChildBrandBlue,
+                side: const BorderSide(
+                  color: kChildBrandBlue,
+                  width: 1.4,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FigmaDialogActionStack(
+            onCancel: () => Navigator.pop(ctx, null),
+            onConfirm: () => Navigator.pop(ctx, 'preset'),
+          ),
+        ],
       ),
     ),
   );

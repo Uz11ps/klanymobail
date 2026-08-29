@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/klany_keyboard.dart';
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 // HERO — квадрат в слоте, макс. [kFigmaAuthHeroMaxSide].
@@ -139,18 +141,18 @@ class FigmaAuthFormSection extends StatelessWidget {
   }
 }
 
-/// Hero над формой: [Flexible] на всю высоту; при открытой клавиатуре скрывается.
-
+/// Hero над формой: фиксированный размер картинки + скролл всей страницы при клавиатуре.
 class FigmaAuthPageBody extends StatelessWidget {
   const FigmaAuthPageBody({
     super.key,
-
+    this.header,
     required this.hero,
-
     required this.form,
-
     this.bottomPadding = 0,
   });
+
+  /// Шапка «назад + заголовок» — часть прокручиваемой страницы, не отдельный бар.
+  final Widget? header;
 
   final Widget hero;
 
@@ -160,29 +162,17 @@ class FigmaAuthPageBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardOpen = figmaAuthHeroKeyboardLikelyOpen(context);
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomPadding),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-
+    return klanyDismissKeyboardOnTap(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        keyboardDismissBehavior: klanyKeyboardDismissManual,
+        padding: EdgeInsets.only(
+          bottom: bottomPadding + klanyScrollBottomPadding(context),
+        ),
         children: [
-          // При открытой клавиатуре hero убираем из дерева — форма занимает место,
-          // без изменения поведения лендинга (он не использует этот виджет).
-          Flexible(
-            flex: keyboardOpen ? 0 : 1,
-
-            fit: keyboardOpen ? FlexFit.loose : FlexFit.tight,
-
-            child: keyboardOpen
-                ? const SizedBox.shrink()
-                : FigmaAuthHeroSection(child: hero),
-          ),
-
-          if (!keyboardOpen) const SizedBox(height: kFigmaAuthHeroBelowGap),
-
+          if (header != null) header!,
+          FigmaAuthHeroSection(child: hero),
+          const SizedBox(height: kFigmaAuthHeroBelowGap),
           FigmaAuthFormSection(child: form),
         ],
       ),

@@ -37,7 +37,7 @@ class _ParentAccessRequestsPageState extends ConsumerState<ParentAccessRequestsP
     setState(() => _busy = true);
     try {
       await ref.read(parentAccessRepositoryProvider).approveRequest(requestId);
-      ref.invalidate(parentFamilyContextProvider);
+      ref.read(parentFamilyContextProvider.notifier).refresh(force: true);
       setState(() {});
     } catch (e) {
       if (!mounted) return;

@@ -22,7 +22,7 @@ class EconomyTaxSegmentSlider extends StatelessWidget {
         void apply(double dx) {
           final ratio = (dx / constraints.maxWidth).clamp(0.0, 1.0);
           final segment = (ratio * segments).round().clamp(0, segments);
-          onChanged((segment / segments * 0.5).clamp(0.0, 0.5));
+          onChanged(segment / segments * 0.5);
         }
 
         return GestureDetector(

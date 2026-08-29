@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/api_client.dart';
+import 'core/klany_keyboard.dart';
 import 'core/klany_live_poll.dart';
 import 'core/router.dart';
 import 'core/theme.dart';
@@ -94,7 +95,12 @@ class _AppState extends ConsumerState<App> {
                   ),
                 ),
               ),
-              if (child != null) Positioned.fill(child: child),
+              if (child != null)
+                Positioned.fill(
+                  child: KlanyKeyboardFocusScroller(
+                    child: klanyDismissKeyboardOnTap(child: child),
+                  ),
+                ),
             ],
           ),
         );

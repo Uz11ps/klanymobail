@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../auth/parent_access_repository.dart';
 import '../../home/child_soft_ui.dart';
 import '../../home/parent_main_bottom_bar.dart';
+import '../../home/parent_shell_cache.dart';
 import '../../home/parent_screen_header.dart';
 import '../../../core/klany_error_view.dart';
 import '../../../core/klany_live_poll.dart';
@@ -45,7 +46,7 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
 
   @override
   void onKlanyLivePoll({bool silent = true}) {
-    if (mounted) setState(() {});
+    refreshParentShellCache(ref);
   }
 
   @override
@@ -74,114 +75,118 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
 
   @override
   Widget build(BuildContext context) {
+    final familyAsync = ref.watch(parentFamilyContextProvider);
+    final family = familyAsync.asData?.value;
+    if (familyAsync.isLoading && family == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (familyAsync.hasError && family == null) {
+      return KlanyErrorGoBack(
+        error: familyAsync.error!,
+        onBack: widget.onBack,
+      );
+    }
+    if (family == null) {
+      return const Center(child: Text('Семья не найдена'));
+    }
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final navPillHeight = ParentMainBottomBarLayout.scaledPillHeight(context);
+    final mainNavInset = widget.embeddedInHomeTab
+        ? navPillHeight + context.klanySize(16)
+        : 0.0;
+    final fabBottom = context.klanySize(24) + bottomInset + mainNavInset;
+    final fabSize = context.klanySize(TaskExchangeFigmaLayout.fabHitSize);
+    final listHMargin = context.klanySize(TaskExchangeFigmaLayout.hMargin);
     return SizedBox.expand(
-      child: ref.watch(parentFamilyContextProvider).when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => KlanyErrorGoBack(
-            error: e,
-            onBack: widget.onBack,
-          ),
-          data: (family) {
-            if (family == null) {
-              return const Center(child: Text('Семья не найдена'));
-            }
-            final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-            final navPillHeight =
-                ParentMainBottomBarLayout.scaledPillHeight(context);
-            final mainNavInset = widget.embeddedInHomeTab
-                ? navPillHeight + context.klanySize(16)
-                : 0.0;
-            final fabBottom = context.klanySize(24) + bottomInset + mainNavInset;
-            final fabSize = context.klanySize(TaskExchangeFigmaLayout.fabHitSize);
-            final listHMargin = context.klanySize(TaskExchangeFigmaLayout.hMargin);
-            return SafeArea(
-              bottom: false,
-              child: Stack(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ParentScreenHeader(
-                          title: 'Биржа',
-                          onBack: widget.onBack,
-                          padding: EdgeInsets.fromLTRB(
-                            listHMargin,
-                            context.klanySize(10),
-                            listHMargin,
-                            context.klanySize(4),
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            listHMargin,
-                            context.klanySize(4),
-                            listHMargin,
-                            context.klanySize(8),
-                          ),
-                          child: _ExchangeTabBar(
-                            segment: _segment,
-                            familyId: family.familyId,
-                            onSegmentSelected: (i) =>
-                                setState(() => _segment = i),
-                          ),
-                        ),
-                        Expanded(
-                          child: RefreshIndicator(
-                            onRefresh: () async => setState(() {}),
-                            child: ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(
-                                listHMargin,
-                                0,
-                                listHMargin,
-                                fabBottom + fabSize + context.klanySize(16),
-                              ),
-                              children: [
-                                if (_segment == 0)
-                                  _ExchangeNewQuestList(familyId: family.familyId)
-                                else if (_segment == 1)
-                                  _ExchangeInWorkQuestList(familyId: family.familyId)
-                                else
-                                  ParentTaskExchangeReviewList(
-                                    familyId: family.familyId,
-                                  ),
-                              ],
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ParentScreenHeader(
+                  title: 'Биржа',
+                  onBack: widget.onBack,
+                  padding: EdgeInsets.fromLTRB(
+                    listHMargin,
+                    context.klanySize(10),
+                    listHMargin,
+                    context.klanySize(4),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    listHMargin,
+                    context.klanySize(4),
+                    listHMargin,
+                    context.klanySize(8),
+                  ),
+                  child: _ExchangeTabBar(
+                    segment: _segment,
+                    onSegmentSelected: (i) => setState(() => _segment = i),
+                  ),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () =>
+                        ref.read(parentShellCacheProvider.notifier).refresh(
+                              force: true,
                             ),
-                          ),
-                        ),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(
+                        listHMargin,
+                        0,
+                        listHMargin,
+                        fabBottom + fabSize + context.klanySize(16),
+                      ),
+                      children: [
+                        if (_segment == 0)
+                          const _ExchangeNewQuestList()
+                        else if (_segment == 1)
+                          const _ExchangeInWorkQuestList()
+                        else
+                          const ParentTaskExchangeReviewList(),
                       ],
                     ),
-                    Positioned(
-                      right: context.klanySize(11),
-                      bottom: fabBottom,
-                      child: Material(
-                        color: TaskExchangeFigmaLayout.fabFill,
-                        elevation: 8,
-                        shadowColor: Colors.black.withValues(alpha: 0.2),
-                        shape: const CircleBorder(),
-                        clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: _createQuest,
-                          customBorder: const CircleBorder(),
-                          child: SizedBox(
-                            width: fabSize,
-                            height: fabSize,
-                            child: Center(
-                              child: SvgPicture.asset(
-                                'assets/figma/exchange_fab_plus.svg',
-                                width: context.klanySize(TaskExchangeFigmaLayout.fabPlusSize),
-                                height: context.klanySize(TaskExchangeFigmaLayout.fabPlusSize),
-                              ),
-                            ),
-                          ),
+                  ),
+                ),
+              ],
+            ),
+            Positioned(
+              right: context.klanySize(11),
+              bottom: fabBottom,
+              child: Material(
+                color: TaskExchangeFigmaLayout.fabFill,
+                elevation: 8,
+                shadowColor: Colors.black.withValues(alpha: 0.2),
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: _createQuest,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: fabSize,
+                    height: fabSize,
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/figma/exchange_fab_plus.svg',
+                        width: context.klanySize(
+                          TaskExchangeFigmaLayout.fabPlusSize,
+                        ),
+                        height: context.klanySize(
+                          TaskExchangeFigmaLayout.fabPlusSize,
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              );
-          },
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -189,67 +194,52 @@ class _ParentTaskExchangePageState extends ConsumerState<ParentTaskExchangePage>
 class _ExchangeTabBar extends ConsumerWidget {
   const _ExchangeTabBar({
     required this.segment,
-    required this.familyId,
     required this.onSegmentSelected,
   });
 
   final int segment;
-  final String familyId;
   final ValueChanged<int> onSegmentSelected;
 
-  Future<({int free, int inWork, int review})> _loadCounts(WidgetRef ref) async {
-    final repo = ref.read(questsRepositoryProvider);
-    final results = await Future.wait([
-      repo.getParentQuests(familyId),
-      repo.getSubmittedForReview(familyId),
-    ]);
-    final quests = results[0] as List<ParentQuestItem>;
-    final reviews = results[1] as List<ParentReviewItem>;
-    return (
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cache = ref.watch(parentShellCacheProvider).asData?.value;
+    final quests = cache?.quests ?? const <ParentQuestItem>[];
+    final reviews = cache?.reviews ?? const <ParentReviewItem>[];
+    final counts = (
       free: quests.where(isParentQuestFreeOnExchange).length,
       inWork: quests.where(isParentQuestInWork).length,
       review: reviews.length,
     );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
     final tabGap = context.klanySize(TaskExchangeFigmaLayout.tabGap);
-    return FutureBuilder<({int free, int inWork, int review})>(
-      future: _loadCounts(ref),
-      builder: (context, snapshot) {
-        final counts = snapshot.data;
-        return Row(
-          children: [
-            Expanded(
-              child: _ExchangeTab(
-                label: 'Свободные',
-                selected: segment == 0,
-                badgeCount: counts?.free ?? 0,
-                onTap: () => onSegmentSelected(0),
-              ),
-            ),
-            SizedBox(width: tabGap),
-            Expanded(
-              child: _ExchangeTab(
-                label: 'В работе',
-                selected: segment == 1,
-                badgeCount: counts?.inWork ?? 0,
-                onTap: () => onSegmentSelected(1),
-              ),
-            ),
-            SizedBox(width: tabGap),
-            Expanded(
-              child: _ExchangeTab(
-                label: 'Проверка',
-                selected: segment == 2,
-                badgeCount: counts?.review ?? 0,
-                onTap: () => onSegmentSelected(2),
-              ),
-            ),
-          ],
-        );
-      },
+    return Row(
+      children: [
+        Expanded(
+          child: _ExchangeTab(
+            label: 'Свободные',
+            selected: segment == 0,
+            badgeCount: counts.free,
+            onTap: () => onSegmentSelected(0),
+          ),
+        ),
+        SizedBox(width: tabGap),
+        Expanded(
+          child: _ExchangeTab(
+            label: 'В работе',
+            selected: segment == 1,
+            badgeCount: counts.inWork,
+            onTap: () => onSegmentSelected(1),
+          ),
+        ),
+        SizedBox(width: tabGap),
+        Expanded(
+          child: _ExchangeTab(
+            label: 'Проверка',
+            selected: segment == 2,
+            badgeCount: counts.review,
+            onTap: () => onSegmentSelected(2),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -336,107 +326,101 @@ class _ExchangeTab extends StatelessWidget {
 }
 
 class _ExchangeNewQuestList extends ConsumerWidget {
-  const _ExchangeNewQuestList({required this.familyId});
-  final String familyId;
+  const _ExchangeNewQuestList();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final taxRate = ref.watch(familyGlobalTaxProvider);
-    return FutureBuilder<List<ParentQuestItem>>(
-      future: ref.read(questsRepositoryProvider).getParentQuests(familyId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return KlanyFriendlyErrorText(snapshot.error);
-        }
-        final list = (snapshot.data ?? const <ParentQuestItem>[])
-            .where(isParentQuestFreeOnExchange)
-            .toList();
-        if (list.isEmpty) {
-          return _ExchangeEmptyState(message: 'Нет свободных задач');
-        }
-        return Column(
-          children: [
-            for (final q in list)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
-                ),
-                child: ExchangeQuestCard(
-                  background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
-                  title: q.title,
-                  coins: netQuestReward(q.rewardAmount, taxRate),
-                  trailing: Text(
-                    _formatCreated(q.createdAt),
-                    style: context.klanyTextStyle(
-                      TaskExchangeFigmaLayout.metaStyle,
-                    ),
-                  ),
+    final shellAsync = ref.watch(parentShellCacheProvider);
+    if (shellAsync.isLoading && shellAsync.asData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (shellAsync.hasError && shellAsync.asData == null) {
+      return KlanyFriendlyErrorText(shellAsync.error);
+    }
+    final list = (shellAsync.asData?.value.quests ?? const <ParentQuestItem>[])
+        .where(isParentQuestFreeOnExchange)
+        .toList();
+    if (list.isEmpty) {
+      return _ExchangeEmptyState(message: 'Нет свободных задач');
+    }
+    return Column(
+      children: [
+        for (final q in list)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
+            ),
+            child: ExchangeQuestCard(
+              background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
+              title: q.title,
+              coins: netQuestReward(q.rewardAmount, taxRate),
+              trailing: Text(
+                _formatCreated(q.createdAt),
+                style: context.klanyTextStyle(
+                  TaskExchangeFigmaLayout.metaStyle,
                 ),
               ),
-          ],
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 }
 
 class _ExchangeInWorkQuestList extends ConsumerWidget {
-  const _ExchangeInWorkQuestList({required this.familyId});
-  final String familyId;
+  const _ExchangeInWorkQuestList();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final taxRate = ref.watch(familyGlobalTaxProvider);
-    final repo = ref.read(questsRepositoryProvider);
-    return FutureBuilder<(List<ParentQuestItem>, List<FamilyChildLite>)>(
-      future: Future.wait([
-        repo.getParentQuests(familyId),
-        repo.getFamilyChildren(familyId),
-      ]).then((r) => (r[0] as List<ParentQuestItem>, r[1] as List<FamilyChildLite>)),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return KlanyFriendlyErrorText(snapshot.error);
-        }
-        final quests = snapshot.data?.$1 ?? const <ParentQuestItem>[];
-        final children = snapshot.data?.$2 ?? const <FamilyChildLite>[];
-        final namesById = {
-          for (final c in children) c.id: c.displayName,
-        };
-        final list = quests.where(isParentQuestInWork).toList();
-        if (list.isEmpty) {
-          return const _ExchangeEmptyState(message: 'Нет задач в работе');
-        }
-        return Column(
-          children: [
-            for (final q in list)
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
-                ),
-                child: ExchangeQuestCard(
-                  background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
-                  title: q.title,
-                  coins: netQuestReward(q.rewardAmount, taxRate),
-                  assigneeChildId:
-                      q.childIds.isEmpty ? null : q.childIds.first,
-                  assigneeName: q.childIds.isEmpty
-                      ? null
-                      : namesById[q.childIds.first],
-                  trailing: isParentQuestOnReview(q)
-                      ? const ExchangeReviewStatusBadge()
-                      : _ExchangeDeadlineLabel(quest: q),
-                  coinsStyle: TaskExchangeFigmaLayout.cardCoinsBoldStyle,
-                ),
-              ),
-          ],
-        );
-      },
+    final shellAsync = ref.watch(parentShellCacheProvider);
+    if (shellAsync.isLoading && shellAsync.asData == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (shellAsync.hasError && shellAsync.asData == null) {
+      return KlanyFriendlyErrorText(shellAsync.error);
+    }
+    final cache = shellAsync.asData!.value;
+    final quests = cache.quests;
+    final children = cache.familyChildren;
+    final walletsByChildId = {
+      for (final w in cache.wallets) w.childId: w,
+    };
+    final namesById = {
+      for (final c in children) c.id: c.displayName,
+    };
+    final list = quests.where(isParentQuestInWork).toList();
+    if (list.isEmpty) {
+      return const _ExchangeEmptyState(message: 'Нет задач в работе');
+    }
+    return Column(
+      children: [
+        for (final q in list)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: context.klanySize(TaskExchangeFigmaLayout.cardListGap),
+            ),
+            child: ExchangeQuestCard(
+              background: TaskExchangeFigmaLayout.cardColorForKey(q.id),
+              title: q.title,
+              coins: netQuestReward(q.rewardAmount, taxRate),
+              assigneeChildId: q.childIds.isEmpty ? null : q.childIds.first,
+              assigneeName:
+                  q.childIds.isEmpty ? null : namesById[q.childIds.first],
+              assigneeAvatarObjectKey: q.childIds.isEmpty
+                  ? null
+                  : walletsByChildId[q.childIds.first]?.avatarObjectKey,
+              assigneeAvatarImageUrl: q.childIds.isEmpty
+                  ? null
+                  : walletsByChildId[q.childIds.first]?.avatarImageUrl,
+              trailing: isParentQuestOnReview(q)
+                  ? const ExchangeReviewStatusBadge()
+                  : _ExchangeDeadlineLabel(quest: q),
+              coinsStyle: TaskExchangeFigmaLayout.cardCoinsBoldStyle,
+            ),
+          ),
+      ],
     );
   }
 }

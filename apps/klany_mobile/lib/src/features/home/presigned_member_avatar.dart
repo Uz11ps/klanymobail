@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/storage_presign.dart';
+import '../auth/parent_session.dart';
 import 'avatar_store.dart';
 
 /// Аватар из MinIO (`member-avatars`): один стабильный [Future] на пару token+objectKey,
@@ -65,6 +67,65 @@ class _PresignedMemberAvatarState extends State<PresignedMemberAvatar> {
               storageObjectDiskCacheKey(widget.bucket, widget.objectKey),
         );
       },
+    );
+  }
+}
+
+/// Аватар участника семьи: presigned URL, lazy presign по [avatarObjectKey] или локальный fallback.
+class MemberAvatar extends ConsumerWidget {
+  const MemberAvatar({
+    super.key,
+    required this.userKey,
+    required this.size,
+    this.fallbackText,
+    this.avatarObjectKey,
+    this.avatarImageUrl,
+    this.accessToken,
+    this.bucket = 'member-avatars',
+  });
+
+  final String userKey;
+  final double size;
+  final String? fallbackText;
+  final String? avatarObjectKey;
+  final String? avatarImageUrl;
+  final String? accessToken;
+  final String bucket;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url = (avatarImageUrl ?? '').trim();
+    final objectKey = (avatarObjectKey ?? '').trim();
+    if (url.isNotEmpty) {
+      return UserAvatar(
+        userKey: userKey,
+        size: size,
+        fallbackText: fallbackText,
+        remoteImageUrl: url,
+        remoteDiskCacheKey: objectKey.isEmpty
+            ? null
+            : storageObjectDiskCacheKey(bucket, objectKey),
+      );
+    }
+    if (objectKey.isNotEmpty) {
+      final token = (accessToken ?? '').trim().isNotEmpty
+          ? accessToken!.trim()
+          : ref.read(parentSessionProvider).asData?.value?.accessToken;
+      if (token != null && token.isNotEmpty) {
+        return PresignedMemberAvatar(
+          accessToken: token,
+          objectKey: objectKey,
+          userKey: userKey,
+          size: size,
+          fallbackText: fallbackText,
+          bucket: bucket,
+        );
+      }
+    }
+    return UserAvatar(
+      userKey: userKey,
+      size: size,
+      fallbackText: fallbackText,
     );
   }
 }

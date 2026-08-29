@@ -7,10 +7,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/child_session.dart';
+import '../../../core/klany_keyboard.dart';
+import '../../home/child_shell_cache.dart';
 import '../../home/child_avatar_picker_flow.dart';
 import '../../home/child_dashboard_profile_card.dart';
 import '../../home/child_soft_ui.dart';
-import '../../wallet/wallet_repository.dart';
 import '../../../core/api_client.dart';
 import '../shop_product_cached_image.dart';
 import '../shop_product_icon.dart';
@@ -104,94 +105,20 @@ class ChildShopPage extends ConsumerStatefulWidget {
 
 class _ChildShopPageState extends ConsumerState<ChildShopPage>
     with KlanyLivePollConsumerMixin {
-  late Future<_ChildShopData> _future;
-  String? _familyId;
-  String? _childId;
-  bool _refreshInFlight = false;
-
   @override
   void onKlanyLivePoll({bool silent = true}) {
-    _refresh(silent: true);
+    refreshChildShellCache(ref);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchAll();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final session = ref.read(childSessionProvider).asData?.value;
-    final fid = session?.familyId;
-    final cid = session?.childId;
-    if (fid == _familyId && cid == _childId) return;
-    _familyId = fid;
-    _childId = cid;
-    _future = _load();
-  }
-
-  void _fetchAll() {
-    final childSession = ref.read(childSessionProvider).asData?.value;
-    _familyId = childSession?.familyId;
-    _childId = childSession?.childId;
-    _future = _load();
-  }
-
-  Future<_ChildShopData> _load() async {
-    final shopRepo = ref.read(shopRepositoryProvider);
-    final products = await shopRepo.getProducts(_familyId ?? '');
-    var completed = 0;
-    var balance = 0;
-    var shopFrozen = 0;
-    var purchases = const <ChildShopPurchaseItem>[];
-    if ((_childId ?? '').isNotEmpty) {
-      try {
-        final wallet = await ref
-            .read(walletRepositoryProvider)
-            .getChildWallet(_childId!);
-        balance = wallet?.balance ?? 0;
-        completed = wallet?.completedQuestsCount ?? 0;
-        shopFrozen = wallet?.shopFrozenAmount ?? 0;
-      } catch (_) {}
-      try {
-        purchases = await shopRepo.getChildPurchases();
-      } catch (_) {}
-    }
-    final pendingByProduct = <String, ChildShopPurchaseItem>{
-      for (final p in purchases.where((p) => p.isPending)) p.productId: p,
-    };
-    return _ChildShopData(
-      products: products,
-      completedCount: completed,
-      balance: balance,
-      shopFrozenAmount: shopFrozen,
-      pendingByProductId: pendingByProduct,
-    );
-  }
-
-  Future<void> _refresh({bool silent = false}) async {
-    if (_refreshInFlight) return;
-    _refreshInFlight = true;
-    try {
-      final next = _load();
-      if (mounted) {
-        setState(() {
-          _future = next;
-        });
-      }
-      await next;
-    } finally {
-      _refreshInFlight = false;
-    }
+  Future<void> _refresh() async {
+    await ref.read(childShellCacheProvider.notifier).refresh(force: true);
   }
 
   Future<void> _buy(ShopProductItem p) async {
     try {
       await ref.read(shopRepositoryProvider).requestPurchase(p.id);
       if (!mounted) return;
-      await _refresh(silent: true);
+      await _refresh();
       if (!mounted) return;
       klanyLivePollBump(ref);
       context.showKlanySnackBar(
@@ -203,21 +130,21 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
       );
     } catch (e) {
       if (!mounted) return;
-      await _refresh(silent: true);
+      await _refresh();
       if (!mounted) return;
       final msg = e is ApiException ? e.message : '$e';
       context.showKlanySnackBar(SnackBar(content: Text(msg)));
     }
   }
 
-  void _onProductTap(ShopProductItem p, _ChildShopData? data) {
+  void _onProductTap(ShopProductItem p, ChildShellCache? cache) {
     if (!p.isActive) {
       context.showKlanySnackBar(
         const SnackBar(content: Text('Этот товар сейчас недоступен')),
       );
       return;
     }
-    final pending = data?.pendingByProductId[p.id];
+    final pending = cache?.pendingPurchasesByProductId[p.id];
     if (pending != null) {
       context.showKlanySnackBar(
         SnackBar(
@@ -228,9 +155,9 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
       );
       return;
     }
-    final balance = data?.balance ?? 0;
+    final balance = cache?.walletBalance ?? 0;
     if (balance < p.price) {
-      final frozen = data?.shopFrozenAmount ?? 0;
+      final frozen = cache?.shopFrozenAmount ?? 0;
       final hint = frozen > 0
           ? ' Доступно $balance монет ($frozen заморожено под другие заявки).'
           : ' Доступно $balance монет.';
@@ -254,19 +181,24 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
     final cw = kFigmaChildDashboardContentWidth(screenW);
     final hPad = kFigmaChildDashboardHorizontalPadding(screenW, cw);
     final layoutScale = kFigmaChildDashboardLayoutScale(cw);
-    final bottomPad = ChildBottomClanBar.scrollBottomClearance(context) + 28;
+    final bottomPad =
+        ChildBottomClanBar.scrollBottomClearance(context) +
+        28 +
+        klanyScrollBottomPadding(context);
 
-    return FutureBuilder<_ChildShopData>(
-      future: _future,
-      builder: (context, snapshot) {
-        final data = snapshot.data;
-        final products = data?.products ?? const <ShopProductItem>[];
-        final completed = data?.completedCount ?? 0;
-        final balance = data?.balance ?? 0;
-        final shopFrozen = data?.shopFrozenAmount ?? 0;
-        final pendingCount = data?.pendingByProductId.length ?? 0;
+    final shellAsync = ref.watch(childShellCacheProvider);
+    final cache = shellAsync.asData?.value;
+    if (shellAsync.isLoading && cache == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        return Stack(
+    final products = cache?.shopProducts ?? const <ShopProductItem>[];
+    final completed = cache?.completedCount ?? 0;
+    final balance = cache?.walletBalance ?? 0;
+    final shopFrozen = cache?.shopFrozenAmount ?? 0;
+    final pendingCount = cache?.pendingPurchasesByProductId.length ?? 0;
+
+    return Stack(
           fit: StackFit.expand,
           children: [
             Positioned.fill(
@@ -289,7 +221,8 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                 bottom: false,
                 child: RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView(
+                  child: klanyDismissKeyboardOnTap(
+                    child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: ClampingScrollPhysics(),
                     ),
@@ -399,15 +332,11 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                       const SizedBox(height: 20),
                       _shopDividerLine(),
                       const SizedBox(height: 20),
-                      if (snapshot.connectionState == ConnectionState.waiting)
-                        const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Center(child: CircularProgressIndicator()),
+                      if (shellAsync.hasError && cache == null)
+                        ChildSoftCard(
+                          child: KlanyFriendlyErrorText(shellAsync.error),
                         ),
-                      if (snapshot.hasError)
-                        ChildSoftCard(child: KlanyFriendlyErrorText(snapshot.error)),
-                      if (!snapshot.hasError &&
-                          snapshot.connectionState != ConnectionState.waiting &&
+                      if (!(shellAsync.hasError && cache == null) &&
                           products.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 40),
@@ -427,38 +356,21 @@ class _ChildShopPageState extends ConsumerState<ChildShopPage>
                           child: _ChildShopProductCard(
                             product: e.value,
                             balance: balance,
-                            pending: data?.pendingByProductId[e.value.id],
+                            pending: cache?.pendingPurchasesByProductId[e.value.id],
                             bg: _shopCardColors[e.key % _shopCardColors.length],
-                            onTap: () => _onProductTap(e.value, data),
+                            onTap: () => _onProductTap(e.value, cache),
                           ),
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
               ),
             ),
           ],
         );
-      },
-    );
   }
-}
-
-class _ChildShopData {
-  _ChildShopData({
-    required this.products,
-    required this.completedCount,
-    required this.balance,
-    required this.shopFrozenAmount,
-    required this.pendingByProductId,
-  });
-
-  final List<ShopProductItem> products;
-  final int completedCount;
-  final int balance;
-  final int shopFrozenAmount;
-  final Map<String, ChildShopPurchaseItem> pendingByProductId;
 }
 
 class _ChildShopProductCard extends StatelessWidget {

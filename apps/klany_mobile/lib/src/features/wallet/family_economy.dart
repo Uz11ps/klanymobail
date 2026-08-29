@@ -7,6 +7,27 @@ import '../auth/parent_access_repository.dart';
 
 const int kDefaultRublesPer10Coins = 100;
 const double kDefaultGlobalTaxRate = 0.2;
+const int kGlobalTaxSegments = 8;
+
+/// Доля налога по сегментам слайдера (0–8 → 0–50%).
+double snapGlobalTaxRate(double taxRate) {
+  final seg =
+      ((taxRate.clamp(0.0, 0.5) / 0.5) * kGlobalTaxSegments).round().clamp(
+        0,
+        kGlobalTaxSegments,
+      );
+  return seg / kGlobalTaxSegments * 0.5;
+}
+
+/// Процент для подписи (совпадает с сегментами полоски).
+int globalTaxPercentLabel(double taxRate) {
+  final seg =
+      ((snapGlobalTaxRate(taxRate) / 0.5) * kGlobalTaxSegments).round().clamp(
+        0,
+        kGlobalTaxSegments,
+      );
+  return ((seg / kGlobalTaxSegments) * 50).round();
+}
 
 int coinsToRubles(int coins, int rublesPer10Coins) {
   return coins * rublesPer10Coins ~/ 10;
@@ -15,7 +36,7 @@ int coinsToRubles(int coins, int rublesPer10Coins) {
 /// Монеты ребёнку после глобального налога (gross=100, tax=0.5 → 50).
 int netQuestReward(int grossReward, double globalTaxRate) {
   final gross = grossReward < 0 ? 0 : grossReward;
-  final rate = globalTaxRate.clamp(0.0, 0.5);
+  final rate = snapGlobalTaxRate(globalTaxRate);
   return (gross * (1 - rate)).floor();
 }
 
@@ -44,7 +65,7 @@ class FamilyCoinRateNotifier extends Notifier<int> {
         .read(parentAccessRepositoryProvider)
         .setFamilyCoinRate(rublesPer10Coins);
     state = rublesPer10Coins;
-    ref.invalidate(parentFamilyContextProvider);
+    await ref.read(parentFamilyContextProvider.notifier).refresh(force: true);
   }
 }
 
@@ -54,46 +75,33 @@ final familyCoinRateProvider =
 class FamilyGlobalTaxNotifier extends Notifier<double> {
   Timer? _saveTimer;
   bool _serverPersistSupported = true;
-  /// Пока пользователь двигает ползунок или ждёт debounce — не затирать state с сервера.
-  bool _localEdit = false;
-  double? _lastPersistedRate;
+  bool _seededFromServer = false;
+  /// После drag UI не перезаписывается refetch context / live poll.
+  bool _userControlled = false;
 
   @override
   double build() {
-    ref.onDispose(() {
-      _saveTimer?.cancel();
-      _localEdit = false;
-    });
+    ref.onDispose(() => _saveTimer?.cancel());
     ref.listen<AsyncValue<ParentFamilyContext?>>(
       parentFamilyContextProvider,
       (_, next) {
-        if (_localEdit || _saveTimer?.isActive == true) return;
+        if (_userControlled || _seededFromServer) return;
         final rate = next.asData?.value?.globalTaxRate;
         if (rate == null) return;
-        final clamped = rate.clamp(0.0, 0.5);
-        if (_lastPersistedRate != null &&
-            (clamped - _lastPersistedRate!).abs() < 0.0001) {
-          return;
-        }
-        if ((clamped - state).abs() > 0.0001) {
-          state = clamped;
-        }
+        _seededFromServer = true;
+        state = snapGlobalTaxRate(rate);
       },
     );
-    // Только начальное значение — ref.watch здесь пересобирает notifier и сбрасывает drag.
     final fromContext =
         ref.read(parentFamilyContextProvider).asData?.value?.globalTaxRate;
-    return (fromContext ?? kDefaultGlobalTaxRate).clamp(0.0, 0.5);
+    return snapGlobalTaxRate(fromContext ?? kDefaultGlobalTaxRate);
   }
 
   void setTaxRate(double taxRate, {bool persist = true}) {
-    final clamped = taxRate.clamp(0.0, 0.5);
-    _localEdit = true;
+    final clamped = snapGlobalTaxRate(taxRate);
+    _userControlled = true;
     state = clamped;
-    if (!persist || !_serverPersistSupported) {
-      _localEdit = false;
-      return;
-    }
+    if (!persist || !_serverPersistSupported) return;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 450), () async {
       if (!ref.mounted) return;
@@ -101,21 +109,10 @@ class FamilyGlobalTaxNotifier extends Notifier<double> {
         final saved = await ref
             .read(parentAccessRepositoryProvider)
             .setFamilyGlobalTaxRate(clamped);
-        if (!saved) {
-          _serverPersistSupported = false;
-          return;
-        }
-        _lastPersistedRate = clamped;
-        if (!ref.mounted) return;
-        ref.invalidate(parentFamilyContextProvider);
+        if (!saved) _serverPersistSupported = false;
       } on ApiException catch (e) {
-        if (e.statusCode == 404) {
-          _serverPersistSupported = false;
-        }
-      } catch (_) {
-      } finally {
-        if (ref.mounted) _localEdit = false;
-      }
+        if (e.statusCode == 404) _serverPersistSupported = false;
+      } catch (_) {}
     });
   }
 }

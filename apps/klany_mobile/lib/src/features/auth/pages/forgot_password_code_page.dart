@@ -92,6 +92,7 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -107,22 +108,19 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Код из письма',
-                  onBack: () {
-                    if (context.canPop()) {
-                      context.pop();
-                    } else {
-                      context.go('/auth/forgot-password');
-                    }
-                  },
-                ),
-                Expanded(
-                  child: FigmaAuthPageBody(
-                    hero: const FigmaAuthHero(
+            child: FigmaAuthPageBody(
+              header: FigmaAuthDoubleDeckHeader(
+                navTitle: 'Код из письма',
+                onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/auth/forgot-password');
+                  }
+                },
+                embeddedInPage: true,
+              ),
+              hero: const FigmaAuthHero(
                       asset: 'assets/figma/hero_birzha.png',
                       showDots: true,
                       dotCount: 3,
@@ -205,9 +203,6 @@ class _ForgotPasswordCodePageState extends ConsumerState<ForgotPasswordCodePage>
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

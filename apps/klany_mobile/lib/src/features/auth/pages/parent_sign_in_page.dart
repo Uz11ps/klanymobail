@@ -320,6 +320,7 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -335,16 +336,13 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                 kFigmaLandingMinBottomInset,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                FigmaAuthDoubleDeckHeader(
-                  navTitle: 'Регистрация',
-                  onBack: onBack,
-                ),
-                Expanded(
-                  child: FigmaAuthPageBody(
-                    hero: FigmaAuthHero(
+            child: FigmaAuthPageBody(
+              header: FigmaAuthDoubleDeckHeader(
+                navTitle: 'Регистрация',
+                onBack: onBack,
+                embeddedInPage: true,
+              ),
+              hero: FigmaAuthHero(
                       asset: isEmailStep
                           ? 'assets/figma/hero_birzha.png'
                           : 'assets/figma/hero_economika.png',
@@ -473,9 +471,6 @@ class _ParentSignInPageState extends ConsumerState<ParentSignInPage> {
                         ],
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
